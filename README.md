@@ -7,7 +7,7 @@ This repo is structured to support multiple future visualizations while staying 
 - project-specific composition in `projects/`
 - immutable raw data separate from transformed and rendered outputs
 
-## Current Status (Chunk 2)
+## Current Status (Chunk 3)
 Implemented:
 - Python project scaffold (`pyproject.toml`, `Makefile`, env template)
 - directory layout for raw/interim/processed/manual/output data
@@ -18,9 +18,10 @@ Implemented:
 - starter tests
 - BTC ingestion pipeline (daily candles)
 - BTC weekly/monthly aggregation pipeline
+- social ingestion source abstraction
+- Michael Saylor ingestion pipeline via X API v2 with pagination + checkpoint resume + dedupe
 
 Not implemented yet:
-- Saylor post ingestion
 - classification pipeline
 - aggregation/alignment transforms
 - visualization rendering
@@ -47,6 +48,7 @@ ChartProject/
     validate_schemas.py
     ingest_btc_prices.py
     aggregate_btc_prices.py
+    ingest_saylor_posts.py
   src/chartproject/
     core/               # config, logging, storage, schema registry
     domains/
@@ -123,6 +125,46 @@ Outputs:
 - normalized daily parquet: `data/processed/market/btc_usd_daily_stooq.parquet`
 - warehouse tables: `raw_btc_prices`, `btc_price_aggregates`
 
+## Social Pipeline (Chunk 3)
+
+Set X API bearer token in `.env`:
+
+```bash
+X_API_BEARER_TOKEN=your_token_here
+```
+
+### X Website Setup Checklist
+
+1. Sign in at [developer portal](https://developer.x.com/en/portal/dashboard).
+2. Create a Project (or open an existing one).
+3. Create an App inside that Project.
+4. In App settings, ensure permissions include **Read** access.
+5. In App keys/tokens, generate a **Bearer Token**.
+6. Put that token in your local `.env` as `X_API_BEARER_TOKEN=...`.
+7. Verify credentials and endpoint access from this repo:
+
+```bash
+python3 scripts/check_x_api_setup.py --username saylor
+```
+
+If this succeeds, run full ingestion.
+
+Run ingestion:
+
+```bash
+python3 scripts/ingest_saylor_posts.py --username saylor
+```
+
+Key behavior:
+- paginated ingestion from X API v2 user posts endpoint
+- checkpoint resume state in `data/interim/social/<username>_x_api_checkpoint.json`
+- raw page payload archive in `data/raw/social/`
+- idempotent upsert/dedupe into `raw_social_posts`
+
+Optional controls:
+- `--max-pages 2` to test with a limited pull
+- `--no-resume` to ignore checkpoint and start fresh
+
 ## Configuration
 
 Environment variables:
@@ -142,6 +184,11 @@ Parquet will be used for durable domain exports where portability matters.
 Default BTC source is `stooq` because it provides long-range daily OHLC history without API keys.
 CoinGecko public access is now limited for deep historical range queries, so it is not the default ingestion source for this project baseline.
 
+## Social Source Note
+
+The first concrete social source uses X API v2 and requires a bearer token.
+The ingestion layer is source-abstracted so alternate providers can be added later without changing downstream tables.
+
 ## Next Chunk
 
-Chunk 3 will implement Michael Saylor post ingestion with source abstraction, normalization, and resumable persistence.
+Chunk 4 will implement rule-based Bitcoin-related classification (inspectable + override-friendly).
