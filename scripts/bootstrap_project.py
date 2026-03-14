@@ -11,11 +11,6 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from chartproject.core.config import ensure_directories, load_config
-from chartproject.core.logging_config import configure_logging
-from chartproject.core.schema_registry import all_schema_statements
-from chartproject.core.storage import connect_duckdb, execute_statements
-
 LOGGER = logging.getLogger("bootstrap")
 ICONIC_TEMPLATE_HEADERS = [
     "post_id",
@@ -37,7 +32,12 @@ def ensure_manual_template(path: Path) -> None:
         writer.writerow(ICONIC_TEMPLATE_HEADERS)
 
 
-if __name__ == "__main__":
+def main() -> None:
+    from chartproject.core.config import ensure_directories, load_config
+    from chartproject.core.logging_config import configure_logging
+    from chartproject.core.schema_registry import all_schema_statements
+    from chartproject.core.storage import connect_duckdb, execute_statements
+
     config = load_config()
     configure_logging(config.log_level)
 
@@ -51,3 +51,7 @@ if __name__ == "__main__":
     LOGGER.info("Bootstrap complete")
     LOGGER.info("Warehouse: %s", config.duckdb_path)
     LOGGER.info("Manual iconic template: %s", config.paths.manual / "iconic_events.csv")
+
+
+if __name__ == "__main__":
+    main()

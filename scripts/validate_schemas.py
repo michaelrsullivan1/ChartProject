@@ -11,11 +11,10 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from chartproject.core.schema_registry import all_schema_statements, expected_tables
-from chartproject.core.storage import execute_statements
+def main() -> None:
+    from chartproject.core.schema_registry import all_schema_statements, expected_tables
+    from chartproject.core.storage import execute_statements
 
-
-if __name__ == "__main__":
     connection = duckdb.connect(":memory:")
     execute_statements(connection, all_schema_statements())
 
@@ -32,3 +31,7 @@ if __name__ == "__main__":
     print("Schema validation passed")
     print(f"Created tables: {sorted(existing_tables)}")
     connection.close()
+
+
+if __name__ == "__main__":
+    main()
