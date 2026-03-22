@@ -48,6 +48,53 @@ The homepage will run the backend health check automatically. You should see:
 - a visible `Health check succeeded.` message on the page
 - the returned JSON rendered on the page
 - a matching success log in the browser console
+- a database status inside the returned health payload
+
+## Postgres and migrations
+
+The backend health endpoint now attempts a real database connection. Until Postgres is running and migrated, the API health status will likely be `degraded`.
+
+### 1. Create the local database
+
+If PostgreSQL is already installed locally and `createdb` is available:
+
+```bash
+createdb chartproject
+```
+
+If your local Postgres user is not `postgres`, update `CHART_DATABASE_URL` in [backend/.env.example](/Users/michaelsullivan/Code/ChartProject/backend/.env.example) and then copy it into `backend/.env`.
+
+### 2. Apply the first migration
+
+```bash
+cd /Users/michaelsullivan/Code/ChartProject
+source .venv/bin/activate
+cd backend
+alembic upgrade head
+```
+
+This applies [0001_initial_core_schema.py](/Users/michaelsullivan/Code/ChartProject/backend/migrations/versions/0001_initial_core_schema.py).
+
+### 3. Verify database connectivity
+
+Run the local dev stack:
+
+```bash
+cd /Users/michaelsullivan/Code/ChartProject
+./scripts/dev.sh
+```
+
+Then open [http://127.0.0.1:5173](http://127.0.0.1:5173).
+
+When Postgres is reachable, the JSON on the page should include:
+
+```json
+"database": {
+  "connected": true,
+  "status": "ok",
+  "detail": "Connection succeeded."
+}
+```
 
 ### Backend
 
@@ -74,7 +121,16 @@ curl http://127.0.0.1:8000/api/health
 Expected response:
 
 ```json
-{"status":"ok","app_name":"ChartProject API","environment":"development"}
+{
+  "status": "ok",
+  "app_name": "ChartProject API",
+  "environment": "development",
+  "database": {
+    "connected": true,
+    "status": "ok",
+    "detail": "Connection succeeded."
+  }
+}
 ```
 
 ### Frontend

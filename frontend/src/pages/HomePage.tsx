@@ -46,6 +46,10 @@ export function HomePage({ health, error, isLoading }: HomePageProps) {
                 <dt>Environment</dt>
                 <dd>{health.environment}</dd>
               </div>
+              <div>
+                <dt>Database</dt>
+                <dd>{health.database.status}</dd>
+              </div>
             </dl>
             <pre className="json-panel">{JSON.stringify(health, null, 2)}</pre>
           </>
