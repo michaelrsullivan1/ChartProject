@@ -8,6 +8,7 @@ import type { HealthResponse } from "./types/health";
 export default function App() {
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -15,14 +16,21 @@ export default function App() {
     async function loadHealth() {
       try {
         const response = await fetchHealth();
+        console.info("ChartProject health check succeeded", response);
         if (!cancelled) {
           setHealth(response);
+          setError(null);
         }
       } catch (loadError) {
+        console.error("ChartProject health check failed", loadError);
         if (!cancelled) {
           setError(
             loadError instanceof Error ? loadError.message : "Unknown health check failure",
           );
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
         }
       }
     }
@@ -36,7 +44,7 @@ export default function App() {
 
   return (
     <AppShell>
-      <HomePage health={health} error={error} />
+      <HomePage health={health} error={error} isLoading={isLoading} />
     </AppShell>
   );
 }
