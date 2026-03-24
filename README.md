@@ -178,3 +178,33 @@ compose.yaml
 2. Run the first generic ingest with a single X user ID.
 3. Add backup and restore scripts for moving the database between machines.
 4. Start persisting and validating real source data.
+
+## Raw ingest safety
+
+The current raw ingest path is designed for cautious full-history backfills before normalization:
+
+- resolves a username through the user info endpoint
+- fetches timeline pages sequentially by `userId`
+- archives every raw response page into `raw_ingestion_artifacts`
+- retries transient request failures
+- waits briefly between page requests
+- stores cursor progress on `ingestion_runs`
+- supports resume from a failed run with `--resume-run-id`
+
+Example command shape:
+
+```bash
+cd /Users/michaelsullivan/Code/ChartProject
+source .venv/bin/activate
+cd backend
+python scripts/ingest/fetch_user_tweets.py --username someuser
+```
+
+Useful options:
+
+- `--exclude-replies`
+- `--include-parent-tweet`
+- `--page-delay-seconds 0.25`
+- `--max-retries 3`
+- `--retry-backoff-seconds 1.0`
+- `--resume-run-id <id>`

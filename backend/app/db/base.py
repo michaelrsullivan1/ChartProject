@@ -13,12 +13,3 @@ convention = {
 
 class Base(DeclarativeBase):
     metadata = MetaData(naming_convention=convention)
-
-
-from app.models import (  # noqa: E402,F401
-    IngestionRun,
-    RawIngestionArtifact,
-    Tweet,
-    TweetReference,
-    User,
-)

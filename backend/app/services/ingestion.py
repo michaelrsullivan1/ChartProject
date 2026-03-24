@@ -1,44 +1,325 @@
 from dataclasses import dataclass
 from datetime import UTC, datetime
+import time
 from typing import Any
+
+from sqlalchemy import select
+from sqlalchemy.orm import Session, sessionmaker
+
+from app.db.session import SessionLocal
+from app.models.ingestion_run import IngestionRun
+from app.models.raw_ingestion_artifact import RawIngestionArtifact
+from app.services.twitterapi_client import (
+    TwitterApiClient,
+    TwitterUserInfoRequest,
+    TwitterUserTimelineRequest,
+)
 
 
 @dataclass(slots=True)
 class IngestionRequest:
-    user_id: str
-    import_type: str = "backfill"
-    since: str | None = None
-    until: str | None = None
+    username: str
+    import_type: str = "full_backfill"
+    include_replies: bool = True
+    include_parent_tweet: bool = False
+    page_delay_seconds: float = 0.25
+    max_retries: int = 3
+    retry_backoff_seconds: float = 1.0
+    resume_run_id: int | None = None
     dry_run: bool = False
 
 
 @dataclass(slots=True)
 class IngestionSummary:
-    source_name: str
-    endpoint_name: str
-    target_user_platform_id: str
-    import_type: str
+    run_id: int | None
+    username: str
+    resolved_user_platform_id: str | None
     started_at: datetime
+    completed_at: datetime | None
+    import_type: str
+    pages_fetched: int
+    artifacts_created: int
+    tweets_returned: int
+    status: str
+    resumed_from_run_id: int | None
+    last_cursor: str | None
     dry_run: bool
     notes: str
-    raw_record_count_estimate: int | None = None
 
 
-def build_ingestion_summary(
+def archive_user_timeline_raw(
     request: IngestionRequest,
-    raw_payload: dict[str, Any] | None = None,
+    *,
+    client: TwitterApiClient | None = None,
+    session_factory: sessionmaker[Session] = SessionLocal,
 ) -> IngestionSummary:
-    record_count_estimate = None
-    if raw_payload and isinstance(raw_payload.get("tweets"), list):
-        record_count_estimate = len(raw_payload["tweets"])
-
-    return IngestionSummary(
-        source_name="twitterapi.io",
-        endpoint_name="user_tweets",
-        target_user_platform_id=request.user_id,
-        import_type=request.import_type,
-        started_at=datetime.now(UTC),
-        dry_run=request.dry_run,
-        notes="Scaffold summary only. Parsing and DB commit are the next implementation steps.",
-        raw_record_count_estimate=record_count_estimate,
+    started_at = datetime.now(UTC)
+    run_id: int | None = None
+    resolved_user_platform_id: str | None = None
+    pages_fetched = 0
+    artifacts_created = 0
+    tweets_returned = 0
+    status = "started"
+    resumed_from_run_id: int | None = None
+    next_cursor_to_request = ""
+    notes = (
+        "Raw-only archive. No normalization or relational upserts are performed in this step."
     )
+    own_client = client is None
+    client = client or TwitterApiClient(
+        max_retries=request.max_retries,
+        retry_backoff_seconds=request.retry_backoff_seconds,
+    )
+
+    session: Session | None = None
+    run: IngestionRun | None = None
+
+    try:
+        if not request.dry_run:
+            session = session_factory()
+            if request.resume_run_id is not None:
+                run = _load_resumable_run(session, request.resume_run_id)
+                resumed_from_run_id = run.id
+                run.status = "started"
+                run.completed_at = None
+                session.commit()
+            else:
+                run = _create_ingestion_run(session, request, started_at)
+            run_id = run.id
+            pages_fetched = run.pages_fetched
+            tweets_returned = run.raw_tweets_fetched
+            next_cursor_to_request = run.last_cursor or ""
+
+        if resumed_from_run_id is not None and run and run.target_user_platform_id:
+            resolved_user_platform_id = run.target_user_platform_id
+        else:
+            user_info_payload = client.get_user_info(TwitterUserInfoRequest(username=request.username))
+            user_data = user_info_payload.get("data")
+            if not isinstance(user_data, dict):
+                raise RuntimeError("twitterapi.io user info response did not include a data object.")
+
+            resolved_user_platform_id = _extract_required_string(
+                user_data,
+                "id",
+                "user info response",
+            )
+
+            if session and run:
+                run.target_user_platform_id = resolved_user_platform_id
+                session.commit()
+                _store_raw_artifact(
+                    session=session,
+                    ingestion_run_id=run.id,
+                    artifact_type="user_info",
+                    payload_json=_wrap_raw_payload(
+                        endpoint="/twitter/user/info",
+                        params={"userName": request.username},
+                        response_payload=user_info_payload,
+                    ),
+                    record_count_estimate=1,
+                )
+                artifacts_created += 1
+
+        while True:
+            timeline_payload = client.get_user_timeline_page(
+                TwitterUserTimelineRequest(
+                    user_id=resolved_user_platform_id,
+                    include_replies=request.include_replies,
+                    include_parent_tweet=request.include_parent_tweet,
+                    cursor=next_cursor_to_request,
+                )
+            )
+
+            tweets = timeline_payload.get("tweets")
+            if not isinstance(tweets, list):
+                raise RuntimeError(
+                    "twitterapi.io timeline response did not include a tweets array."
+                )
+
+            pages_fetched += 1
+            tweets_returned += len(tweets)
+            next_cursor = timeline_payload.get("next_cursor")
+            has_next_page = bool(timeline_payload.get("has_next_page"))
+
+            if session and run:
+                page_index = run.pages_fetched + 1
+                _store_raw_artifact(
+                    session=session,
+                    ingestion_run_id=run.id,
+                    artifact_type="user_timeline_page",
+                    payload_json=_wrap_raw_payload(
+                        endpoint="/twitter/user/tweet_timeline",
+                        params={
+                            "userId": resolved_user_platform_id,
+                            "includeReplies": request.include_replies,
+                            "includeParentTweet": request.include_parent_tweet,
+                            "cursor": next_cursor_to_request,
+                            "pageIndex": page_index,
+                        },
+                        response_payload=timeline_payload,
+                    ),
+                    record_count_estimate=len(tweets),
+                )
+                artifacts_created += 1
+                run.pages_fetched = pages_fetched
+                run.raw_tweets_fetched = tweets_returned
+                run.last_cursor = next_cursor if has_next_page else None
+                session.commit()
+
+            if not has_next_page or not isinstance(next_cursor, str) or next_cursor == "":
+                break
+
+            next_cursor_to_request = next_cursor
+            if request.page_delay_seconds > 0:
+                time.sleep(request.page_delay_seconds)
+
+        completed_at = datetime.now(UTC)
+        status = "completed"
+        notes = (
+            "Raw archive completed successfully. "
+            f"Fetched {pages_fetched} timeline pages and archived {tweets_returned} tweets."
+        )
+
+        if session and run:
+            run.completed_at = completed_at
+            run.status = status
+            run.last_cursor = None
+            run.notes = notes
+            session.commit()
+
+        return IngestionSummary(
+            run_id=run_id,
+            username=request.username,
+            resolved_user_platform_id=resolved_user_platform_id,
+            started_at=started_at,
+            completed_at=completed_at,
+            import_type=request.import_type,
+            pages_fetched=pages_fetched,
+            artifacts_created=artifacts_created,
+            tweets_returned=tweets_returned,
+            status=status,
+            resumed_from_run_id=resumed_from_run_id,
+            last_cursor=None,
+            dry_run=request.dry_run,
+            notes=notes,
+        )
+    except Exception as exc:
+        completed_at = datetime.now(UTC)
+        status = "failed"
+        notes = f"Raw archive failed: {exc}"
+        if session and run:
+            session.rollback()
+            run.status = status
+            run.completed_at = completed_at
+            run.last_cursor = next_cursor_to_request or run.last_cursor
+            run.pages_fetched = pages_fetched
+            run.raw_tweets_fetched = tweets_returned
+            run.notes = notes
+            session.commit()
+
+        return IngestionSummary(
+            run_id=run_id,
+            username=request.username,
+            resolved_user_platform_id=resolved_user_platform_id,
+            started_at=started_at,
+            completed_at=completed_at,
+            import_type=request.import_type,
+            pages_fetched=pages_fetched,
+            artifacts_created=artifacts_created,
+            tweets_returned=tweets_returned,
+            status=status,
+            resumed_from_run_id=resumed_from_run_id,
+            last_cursor=next_cursor_to_request or None,
+            dry_run=request.dry_run,
+            notes=notes,
+        )
+    finally:
+        if session:
+            session.close()
+        if own_client:
+            client.close()
+
+
+def _create_ingestion_run(
+    session: Session,
+    request: IngestionRequest,
+    started_at: datetime,
+) -> IngestionRun:
+    run = IngestionRun(
+        source_name="twitterapi.io",
+        endpoint_name="user_timeline_raw_archive",
+        target_user_platform_id=None,
+        import_type=request.import_type,
+        started_at=started_at,
+        status="started",
+        last_cursor="",
+        pages_fetched=0,
+        raw_tweets_fetched=0,
+        notes=(
+            f"username={request.username}; "
+            f"include_replies={request.include_replies}; "
+            f"include_parent_tweet={request.include_parent_tweet}"
+        ),
+    )
+    session.add(run)
+    session.commit()
+    session.refresh(run)
+    return run
+
+
+def _load_resumable_run(session: Session, run_id: int) -> IngestionRun:
+    run = session.scalar(select(IngestionRun).where(IngestionRun.id == run_id))
+    if run is None:
+        raise RuntimeError(f"No ingestion run found for resume_run_id={run_id}.")
+    if run.status == "completed":
+        raise RuntimeError(f"Ingestion run {run_id} is already completed and cannot be resumed.")
+    return run
+
+
+def _store_raw_artifact(
+    *,
+    session: Session,
+    ingestion_run_id: int,
+    artifact_type: str,
+    payload_json: dict[str, Any],
+    record_count_estimate: int | None,
+) -> RawIngestionArtifact:
+    artifact = RawIngestionArtifact(
+        ingestion_run_id=ingestion_run_id,
+        artifact_type=artifact_type,
+        payload_json=payload_json,
+        record_count_estimate=record_count_estimate,
+        source_path=None,
+        created_at=datetime.now(UTC),
+    )
+    session.add(artifact)
+    session.commit()
+    session.refresh(artifact)
+    return artifact
+
+
+def _wrap_raw_payload(
+    *,
+    endpoint: str,
+    params: dict[str, Any],
+    response_payload: dict[str, Any],
+) -> dict[str, Any]:
+    return {
+        "endpoint": endpoint,
+        "request": {
+            "params": params,
+            "fetched_at": datetime.now(UTC).isoformat(),
+        },
+        "response": response_payload,
+    }
+
+
+def _extract_required_string(
+    payload: dict[str, Any],
+    key: str,
+    context: str,
+) -> str:
+    value = payload.get(key)
+    if not isinstance(value, str) or value == "":
+        raise RuntimeError(f"Missing required string '{key}' in {context}.")
+    return value

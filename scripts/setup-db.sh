@@ -25,9 +25,8 @@ if [ ! -d "$VENV_DIR" ]; then
   python3 -m venv "$VENV_DIR"
 fi
 
-if [ ! -x "$VENV_DIR/bin/alembic" ]; then
-  "$VENV_DIR/bin/pip" install -e "$BACKEND_DIR"
-fi
+echo "Syncing backend dependencies..."
+"$VENV_DIR/bin/pip" install -e "$BACKEND_DIR"
 
 if [ ! -f "$BACKEND_DIR/.env" ]; then
   cp "$BACKEND_DIR/.env.example" "$BACKEND_DIR/.env"

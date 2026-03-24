@@ -15,6 +15,7 @@ app/models/tweet.py
 app/models/tweet_reference.py
 app/models/user.py
 app/schemas/health.py
+app/services/health.py
 app/services/ingestion.py
 app/services/twitterapi_client.py
 chartproject_backend.egg-info/PKG-INFO

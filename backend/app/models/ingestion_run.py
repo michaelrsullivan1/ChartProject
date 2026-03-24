@@ -20,6 +20,9 @@ class IngestionRun(Base):
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="started")
+    last_cursor: Mapped[str | None] = mapped_column(String(512))
+    pages_fetched: Mapped[int] = mapped_column(nullable=False, default=0)
+    raw_tweets_fetched: Mapped[int] = mapped_column(nullable=False, default=0)
     notes: Mapped[str | None] = mapped_column(Text)
 
     target_user: Mapped["User | None"] = relationship(back_populates="ingestion_runs")
