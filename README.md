@@ -2,137 +2,104 @@
 
 ChartProject is a local-first X/Twitter research archive and visualization system.
 
-The current foundation follows the architecture in [ProjectPlan.md](/Users/michaelsullivan/Code/ChartProject/ProjectPlan.md):
+The architecture source of truth is [ProjectPlan.md](/Users/michaelsullivan/Code/ChartProject/ProjectPlan.md).
 
-- `backend/` contains the FastAPI app, SQLAlchemy models, Alembic scaffold, and ingestion entry points
-- `frontend/` contains the React + Vite shell
-- `data/` holds raw artifacts, exports, and backups outside the app code
-- `docs/decisions/` stores lightweight architecture decisions
+## Current state
 
-## Current foundation choices
+The local foundation is working end-to-end:
 
-- Raw API payloads are archived in Postgres first via `raw_ingestion_artifacts`
-- Ingestion is generic and designed to accept a target X user ID at runtime
-- Frontend work is intentionally minimal until the ingestion and data layers are in place
+- containerized Postgres
+- Alembic migrations
+- FastAPI backend health check
+- React frontend that confirms backend and database connectivity on page load
 
-## Next implementation steps
+If the stack is healthy, the frontend should show:
 
-1. Configure Postgres and environment variables.
-2. Run the first Alembic migration for the core tables.
-3. Wire the `twitterapi.io` client to the real endpoint details.
-4. Run the first generic ingest with a single X user ID.
+- `Health check succeeded.`
+- backend `status: ok`
+- database `status: ok`
+- the full JSON health payload rendered on the page
 
-## Run the scaffold
-
-These commands verify the current foundation only. They do not require the real Twitter API integration yet.
-
-### One command for local dev
+## Quick start
 
 From the repo root:
 
 ```bash
-./scripts/dev.sh
-```
-
-That script will:
-- create `.venv/` if needed
-- install backend dependencies if needed
-- create `backend/.env` from `.env.example` if missing
-- install frontend dependencies if needed
-- start the FastAPI backend on `127.0.0.1:8000`
-- start the Vite frontend on `127.0.0.1:5173`
-
-When both are running, open [http://127.0.0.1:5173](http://127.0.0.1:5173).
-
-The homepage will run the backend health check automatically. You should see:
-- a visible `Health check succeeded.` message on the page
-- the returned JSON rendered on the page
-- a matching success log in the browser console
-- a database status inside the returned health payload
-
-## Postgres and migrations
-
-The portable local setup for this repo is a Docker-managed Postgres instance defined in [compose.yaml](/Users/michaelsullivan/Code/ChartProject/compose.yaml). That gives you the same database shape and credentials on any machine with Docker installed.
-
-### Recommended setup
-
-1. Install and start Docker Desktop.
-2. From the repo root, run:
-
-```bash
 ./scripts/setup-db.sh
-```
-
-That script will:
-- create `.venv/` if needed
-- install backend dependencies if needed
-- create `backend/.env` from [backend/.env.example](/Users/michaelsullivan/Code/ChartProject/backend/.env.example) if missing
-- start the `postgres:16` container from [compose.yaml](/Users/michaelsullivan/Code/ChartProject/compose.yaml)
-- wait for Postgres to become ready
-- run `alembic upgrade head`
-
-The default local database URL is:
-
-```env
-CHART_DATABASE_URL=postgresql+psycopg://chartproject:chartproject@localhost:5433/chartproject
-```
-
-This applies [0001_initial_core_schema.py](/Users/michaelsullivan/Code/ChartProject/backend/migrations/versions/0001_initial_core_schema.py).
-
-### Verify database connectivity
-
-After `./scripts/setup-db.sh`, start the app:
-
-```bash
 ./scripts/dev.sh
 ```
 
 Then open [http://127.0.0.1:5173](http://127.0.0.1:5173).
 
-When Postgres is reachable, the health payload should include:
+## Daily commands
 
-```json
-"database": {
-  "connected": true,
-  "status": "ok",
-  "detail": "Connection succeeded."
-}
-```
-
-### Move to another machine
-
-To recreate the same local environment elsewhere:
-
-1. Clone the repo.
-2. Install Docker Desktop.
-3. Run `./scripts/setup-db.sh`.
-4. Run `./scripts/dev.sh`.
-
-That is the intended portable workflow for local development.
-
-### Backend
+Set up or re-apply the local database:
 
 ```bash
-cd /Users/michaelsullivan/Code/ChartProject
-
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e backend
-
-cd backend
-cp .env.example .env
-uvicorn app.main:app --reload
+./scripts/setup-db.sh
 ```
 
-### Backend health check
+Start backend and frontend for local development:
 
-In a separate terminal:
+```bash
+./scripts/dev.sh
+```
+
+Check backend health directly:
 
 ```bash
 curl http://127.0.0.1:8000/api/health
 ```
 
-Expected response:
+Check the Postgres container:
+
+```bash
+docker compose ps
+```
+
+Stop the local Postgres container:
+
+```bash
+docker compose down
+```
+
+## Postgres setup
+
+The local database is intentionally containerized and defined in [compose.yaml](/Users/michaelsullivan/Code/ChartProject/compose.yaml). This is the portable development setup for the repo because it makes the database runtime reproducible across machines.
+
+### Why this setup exists
+
+- same Postgres version on different machines
+- less machine-specific configuration drift
+- easier to recreate the environment from the repo itself
+- easier to move the project to another machine later
+
+### Current local connection details
+
+The backend expects:
+
+```env
+CHART_DATABASE_URL=postgresql+psycopg://chartproject:chartproject@localhost:5433/chartproject
+```
+
+The host port is `5433`, not `5432`.
+
+This project uses `5433` deliberately so it does not collide with other local Postgres instances that may already be using the default `5432`.
+
+### What `./scripts/setup-db.sh` does
+
+- creates `.venv/` if needed
+- installs backend dependencies if needed
+- creates `backend/.env` from [backend/.env.example](/Users/michaelsullivan/Code/ChartProject/backend/.env.example) if missing
+- starts the `postgres:16` container from [compose.yaml](/Users/michaelsullivan/Code/ChartProject/compose.yaml)
+- waits for Postgres to become ready
+- runs `alembic upgrade head`
+
+This applies [0001_initial_core_schema.py](/Users/michaelsullivan/Code/ChartProject/backend/migrations/versions/0001_initial_core_schema.py).
+
+## Verification
+
+After `./scripts/setup-db.sh` and `./scripts/dev.sh`, the expected backend health response is:
 
 ```json
 {
@@ -147,9 +114,37 @@ Expected response:
 }
 ```
 
-### Frontend
+If the frontend is working, that same state should appear visibly in the UI.
 
-In a separate terminal:
+## Move to another machine
+
+To recreate the same local environment elsewhere:
+
+1. Clone the repo.
+2. Install a Docker-compatible runtime.
+3. Run `./scripts/setup-db.sh`.
+4. Run `./scripts/dev.sh`.
+
+That is the intended portable workflow for local development.
+
+## Manual backend/frontend commands
+
+If you need to run pieces separately instead of using the scripts:
+
+### Backend
+
+```bash
+cd /Users/michaelsullivan/Code/ChartProject
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e backend
+
+cd backend
+cp .env.example .env
+uvicorn app.main:app --reload
+```
+
+### Frontend
 
 ```bash
 cd /Users/michaelsullivan/Code/ChartProject/frontend
@@ -159,14 +154,27 @@ npm run dev
 
 Open [http://127.0.0.1:5173](http://127.0.0.1:5173).
 
-If the backend is running, the frontend will load the health status through the Vite `/api` proxy.
-
-## Local structure
+## Project layout
 
 ```text
 backend/
 frontend/
 data/
 docs/
+scripts/
 ProjectPlan.md
+compose.yaml
 ```
+
+## Current foundation choices
+
+- Raw API payloads are archived in Postgres first via `raw_ingestion_artifacts`
+- Ingestion is generic and designed to accept a target X user ID at runtime
+- Frontend work is intentionally minimal until the ingestion and data layers are in place
+
+## Next implementation steps
+
+1. Wire the `twitterapi.io` client to the real endpoint details.
+2. Run the first generic ingest with a single X user ID.
+3. Add backup and restore scripts for moving the database between machines.
+4. Start persisting and validating real source data.
