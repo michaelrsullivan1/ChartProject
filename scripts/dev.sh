@@ -38,6 +38,15 @@ if [ ! -d "$FRONTEND_DIR/node_modules" ]; then
   )
 fi
 
+if command -v docker >/dev/null 2>&1 && [ -f "$ROOT_DIR/compose.yaml" ]; then
+  if docker info >/dev/null 2>&1; then
+    echo "Starting Postgres via Docker Compose"
+    docker compose -f "$ROOT_DIR/compose.yaml" up -d postgres >/dev/null
+  else
+    echo "Docker is installed but not running. Continuing without auto-starting Postgres."
+  fi
+fi
+
 cleanup() {
   if [ -n "${BACKEND_PID:-}" ]; then
     kill "$BACKEND_PID" >/dev/null 2>&1 || true

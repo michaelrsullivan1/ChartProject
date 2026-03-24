@@ -52,41 +52,44 @@ The homepage will run the backend health check automatically. You should see:
 
 ## Postgres and migrations
 
-The backend health endpoint now attempts a real database connection. Until Postgres is running and migrated, the API health status will likely be `degraded`.
+The portable local setup for this repo is a Docker-managed Postgres instance defined in [compose.yaml](/Users/michaelsullivan/Code/ChartProject/compose.yaml). That gives you the same database shape and credentials on any machine with Docker installed.
 
-### 1. Create the local database
+### Recommended setup
 
-If PostgreSQL is already installed locally and `createdb` is available:
+1. Install and start Docker Desktop.
+2. From the repo root, run:
 
 ```bash
-createdb chartproject
+./scripts/setup-db.sh
 ```
 
-If your local Postgres user is not `postgres`, update `CHART_DATABASE_URL` in [backend/.env.example](/Users/michaelsullivan/Code/ChartProject/backend/.env.example) and then copy it into `backend/.env`.
+That script will:
+- create `.venv/` if needed
+- install backend dependencies if needed
+- create `backend/.env` from [backend/.env.example](/Users/michaelsullivan/Code/ChartProject/backend/.env.example) if missing
+- start the `postgres:16` container from [compose.yaml](/Users/michaelsullivan/Code/ChartProject/compose.yaml)
+- wait for Postgres to become ready
+- run `alembic upgrade head`
 
-### 2. Apply the first migration
+The default local database URL is:
 
-```bash
-cd /Users/michaelsullivan/Code/ChartProject
-source .venv/bin/activate
-cd backend
-alembic upgrade head
+```env
+CHART_DATABASE_URL=postgresql+psycopg://chartproject:chartproject@localhost:5433/chartproject
 ```
 
 This applies [0001_initial_core_schema.py](/Users/michaelsullivan/Code/ChartProject/backend/migrations/versions/0001_initial_core_schema.py).
 
-### 3. Verify database connectivity
+### Verify database connectivity
 
-Run the local dev stack:
+After `./scripts/setup-db.sh`, start the app:
 
 ```bash
-cd /Users/michaelsullivan/Code/ChartProject
 ./scripts/dev.sh
 ```
 
 Then open [http://127.0.0.1:5173](http://127.0.0.1:5173).
 
-When Postgres is reachable, the JSON on the page should include:
+When Postgres is reachable, the health payload should include:
 
 ```json
 "database": {
@@ -95,6 +98,17 @@ When Postgres is reachable, the JSON on the page should include:
   "detail": "Connection succeeded."
 }
 ```
+
+### Move to another machine
+
+To recreate the same local environment elsewhere:
+
+1. Clone the repo.
+2. Install Docker Desktop.
+3. Run `./scripts/setup-db.sh`.
+4. Run `./scripts/dev.sh`.
+
+That is the intended portable workflow for local development.
 
 ### Backend
 
