@@ -66,6 +66,17 @@ class IngestionSummary:
     notes: str
 
 
+@dataclass(slots=True)
+class SearchPaginationState:
+    seen_tweet_ids: set[str]
+    seen_page_signatures: set[tuple[str, ...]]
+    seen_request_states: set[tuple[str, str]]
+    seen_max_ids: set[str]
+    active_max_id: str | None
+    next_cursor_to_request: str
+    last_min_id: str | None
+
+
 def archive_user_info_raw(
     request: RawUserInfoRequest,
     *,
@@ -224,9 +235,6 @@ def archive_tweet_search_window_raw(
     artifacts_created = 0
     tweets_returned = 0
     resumed_from_run_id: int | None = None
-    next_cursor_to_request = ""
-    seen_cursors: set[str] = set()
-    seen_page_signatures: set[tuple[str, ...]] = set()
     notes = (
         "Raw-only archive of twitterapi.io advanced_search pages. "
         "No normalization or relational upserts are performed in this step."
@@ -241,6 +249,16 @@ def archive_tweet_search_window_raw(
     run: IngestionRun | None = None
 
     try:
+        pagination_state = SearchPaginationState(
+            seen_tweet_ids=set(),
+            seen_page_signatures=set(),
+            seen_request_states=set(),
+            seen_max_ids=set(),
+            active_max_id=None,
+            next_cursor_to_request="",
+            last_min_id=None,
+        )
+
         if not request.dry_run:
             session = session_factory()
             if request.resume_run_id is not None:
@@ -267,19 +285,33 @@ def archive_tweet_search_window_raw(
                     target_user_platform_id=request.target_user_platform_id,
                 )
             run_id = run.id
-            pages_fetched = run.pages_fetched
-            tweets_returned = run.raw_tweets_fetched
-            next_cursor_to_request = run.last_cursor or ""
-            if next_cursor_to_request:
-                seen_cursors.add(next_cursor_to_request)
             if run.target_user_platform_id:
                 request.target_user_platform_id = run.target_user_platform_id
+            pagination_state = _reconstruct_search_pagination_state(
+                session=session,
+                ingestion_run_id=run.id,
+                base_query=query,
+            )
+            pages_fetched = run.pages_fetched
+            tweets_returned = len(pagination_state.seen_tweet_ids)
 
         while True:
+            effective_query = _build_effective_search_query(
+                base_query=query,
+                max_id=pagination_state.active_max_id,
+            )
+            request_state = (effective_query, pagination_state.next_cursor_to_request)
+            if request_state in pagination_state.seen_request_states:
+                raise RuntimeError(
+                    "twitterapi.io advanced_search repeated the same query/cursor request state. "
+                    "Aborting to avoid a pagination loop."
+                )
+            pagination_state.seen_request_states.add(request_state)
+
             request_params = _build_advanced_search_request_params(
-                query=query,
+                query=effective_query,
                 query_type=request.query_type,
-                cursor=next_cursor_to_request,
+                cursor=pagination_state.next_cursor_to_request,
             )
             if request.debug:
                 _print_debug_request(
@@ -289,9 +321,9 @@ def archive_tweet_search_window_raw(
 
             search_payload = client.get_tweet_advanced_search_page(
                 TwitterTweetAdvancedSearchRequest(
-                    query=query,
+                    query=effective_query,
                     query_type=request.query_type,
-                    cursor=next_cursor_to_request,
+                    cursor=pagination_state.next_cursor_to_request,
                 )
             )
             if request.debug:
@@ -303,7 +335,7 @@ def archive_tweet_search_window_raw(
             tweets = _extract_search_tweets(search_payload)
             if not isinstance(tweets, list):
                 if session and run:
-                    page_index = run.pages_fetched + 1
+                    page_index = pages_fetched + 1
                     _store_raw_artifact(
                         session=session,
                         ingestion_run_id=run.id,
@@ -311,9 +343,9 @@ def archive_tweet_search_window_raw(
                         payload_json=_wrap_raw_payload(
                             endpoint="/twitter/tweet/advanced_search",
                             params=_build_advanced_search_request_params(
-                                query=query,
+                                query=effective_query,
                                 query_type=request.query_type,
-                                cursor=next_cursor_to_request,
+                                cursor=pagination_state.next_cursor_to_request,
                                 page_index=page_index,
                             ),
                             response_payload=search_payload,
@@ -328,51 +360,56 @@ def archive_tweet_search_window_raw(
                 )
 
             page_signature = _build_page_signature(tweets)
-            if page_signature and page_signature in seen_page_signatures:
-                if session and run:
-                    page_index = run.pages_fetched + 1
-                    _store_raw_artifact(
-                        session=session,
-                        ingestion_run_id=run.id,
-                        artifact_type="tweet_advanced_search_page_duplicate",
-                        payload_json=_wrap_raw_payload(
-                            endpoint="/twitter/tweet/advanced_search",
-                            params=_build_advanced_search_request_params(
-                                query=query,
-                                query_type=request.query_type,
-                                cursor=next_cursor_to_request,
-                                page_index=page_index,
-                            ),
-                            response_payload=search_payload,
-                        ),
-                        record_count_estimate=len(tweets),
-                    )
-                    artifacts_created += 1
-
-                raise RuntimeError(
-                    "twitterapi.io returned a duplicate advanced_search page while paginating. "
-                    "Aborting to avoid looping on the same tweet set."
-                )
-
+            duplicate_page = bool(
+                page_signature and page_signature in pagination_state.seen_page_signatures
+            )
+            new_tweet_ids = _extract_new_tweet_ids(
+                tweets=tweets,
+                seen_tweet_ids=pagination_state.seen_tweet_ids,
+            )
+            if new_tweet_ids:
+                pagination_state.seen_tweet_ids.update(new_tweet_ids)
+                pagination_state.last_min_id = new_tweet_ids[-1]
             pages_fetched += 1
-            tweets_returned += len(tweets)
             next_cursor = search_payload.get("next_cursor")
             has_next_page = bool(search_payload.get("has_next_page"))
             if page_signature:
-                seen_page_signatures.add(page_signature)
+                pagination_state.seen_page_signatures.add(page_signature)
+            tweets_returned = len(pagination_state.seen_tweet_ids)
+
+            should_continue_with_cursor = (
+                has_next_page
+                and isinstance(next_cursor, str)
+                and next_cursor != ""
+                and bool(new_tweet_ids)
+                and not duplicate_page
+            )
+            next_max_id = _select_next_max_id(
+                last_min_id=pagination_state.last_min_id,
+                current_max_id=pagination_state.active_max_id,
+                seen_max_ids=pagination_state.seen_max_ids,
+            )
+            should_switch_to_max_id = not should_continue_with_cursor and next_max_id is not None
+            if should_switch_to_max_id:
+                pagination_state.seen_max_ids.add(next_max_id)
 
             if session and run:
-                page_index = run.pages_fetched + 1
+                page_index = pages_fetched
+                artifact_type = (
+                    "tweet_advanced_search_page_duplicate"
+                    if duplicate_page or not new_tweet_ids
+                    else "tweet_advanced_search_page"
+                )
                 _store_raw_artifact(
                     session=session,
                     ingestion_run_id=run.id,
-                    artifact_type="tweet_advanced_search_page",
+                    artifact_type=artifact_type,
                     payload_json=_wrap_raw_payload(
                         endpoint="/twitter/tweet/advanced_search",
                         params=_build_advanced_search_request_params(
-                            query=query,
+                            query=effective_query,
                             query_type=request.query_type,
-                            cursor=next_cursor_to_request,
+                            cursor=pagination_state.next_cursor_to_request,
                             page_index=page_index,
                         ),
                         response_payload=search_payload,
@@ -382,27 +419,40 @@ def archive_tweet_search_window_raw(
                 artifacts_created += 1
                 run.pages_fetched = pages_fetched
                 run.raw_tweets_fetched = tweets_returned
-                run.last_cursor = next_cursor if has_next_page else None
+                run.last_cursor = next_cursor if should_continue_with_cursor else None
                 session.commit()
 
-            if not has_next_page or not isinstance(next_cursor, str) or next_cursor == "":
-                break
+            if should_continue_with_cursor:
+                pagination_state.next_cursor_to_request = next_cursor
+                if request.page_delay_seconds > 0:
+                    time.sleep(request.page_delay_seconds)
+                continue
 
-            if next_cursor in seen_cursors:
-                raise RuntimeError(
-                    "twitterapi.io returned a cursor that was already seen in this run. "
-                    "Aborting to avoid a pagination loop."
+            if should_switch_to_max_id:
+                if request.debug:
+                    _print_debug_message(
+                        (
+                            "cursor pagination stopped yielding new tweets; "
+                            f"switching to max_id:{next_max_id}"
+                        )
+                    )
+                pagination_state.active_max_id = next_max_id
+                pagination_state.next_cursor_to_request = ""
+                if request.page_delay_seconds > 0:
+                    time.sleep(request.page_delay_seconds)
+                continue
+
+            if request.debug and (duplicate_page or not new_tweet_ids):
+                _print_debug_message(
+                    "stopping advanced_search window after a non-advancing page and no new max_id anchor"
                 )
-
-            next_cursor_to_request = next_cursor
-            seen_cursors.add(next_cursor_to_request)
-            if request.page_delay_seconds > 0:
-                time.sleep(request.page_delay_seconds)
+                break
 
         completed_at = datetime.now(UTC)
         notes = (
             "Raw advanced_search archive completed successfully. "
-            f"Fetched {pages_fetched} pages and archived {tweets_returned} tweets for query {query!r}."
+            f"Fetched {pages_fetched} pages and archived {tweets_returned} unique tweets "
+            f"for query {query!r} using {len(pagination_state.seen_max_ids)} max_id transitions."
         )
         if session and run:
             run.completed_at = completed_at
@@ -438,7 +488,7 @@ def archive_tweet_search_window_raw(
             session.rollback()
             run.status = "failed"
             run.completed_at = completed_at
-            run.last_cursor = next_cursor_to_request or run.last_cursor
+            run.last_cursor = pagination_state.next_cursor_to_request or run.last_cursor
             run.pages_fetched = pages_fetched
             run.raw_tweets_fetched = tweets_returned
             run.notes = notes
@@ -460,7 +510,7 @@ def archive_tweet_search_window_raw(
             tweets_returned=tweets_returned,
             status="failed",
             resumed_from_run_id=resumed_from_run_id,
-            last_cursor=next_cursor_to_request or None,
+            last_cursor=pagination_state.next_cursor_to_request or None,
             dry_run=request.dry_run,
             notes=notes,
         )
@@ -520,6 +570,103 @@ def _load_resumable_run(
     if run.status == "completed":
         raise RuntimeError(f"Ingestion run {run_id} is already completed and cannot be resumed.")
     return run
+
+
+def _reconstruct_search_pagination_state(
+    *,
+    session: Session,
+    ingestion_run_id: int,
+    base_query: str,
+) -> SearchPaginationState:
+    state = SearchPaginationState(
+        seen_tweet_ids=set(),
+        seen_page_signatures=set(),
+        seen_request_states=set(),
+        seen_max_ids=set(),
+        active_max_id=None,
+        next_cursor_to_request="",
+        last_min_id=None,
+    )
+    artifacts = session.scalars(
+        select(RawIngestionArtifact)
+        .where(RawIngestionArtifact.ingestion_run_id == ingestion_run_id)
+        .order_by(RawIngestionArtifact.id)
+    ).all()
+
+    for artifact in artifacts:
+        if not artifact.artifact_type.startswith("tweet_advanced_search_page"):
+            continue
+
+        payload = artifact.payload_json
+        if not isinstance(payload, dict):
+            continue
+        request_payload = payload.get("request")
+        response_payload = payload.get("response")
+        if not isinstance(request_payload, dict) or not isinstance(response_payload, dict):
+            continue
+        params = request_payload.get("params")
+        if not isinstance(params, dict):
+            continue
+
+        request_query = params.get("query")
+        if not isinstance(request_query, str) or request_query == "":
+            continue
+        request_cursor = params.get("cursor")
+        if not isinstance(request_cursor, str):
+            request_cursor = ""
+
+        state.seen_request_states.add((request_query, request_cursor))
+        request_max_id = _extract_query_max_id(request_query)
+        if request_max_id:
+            state.seen_max_ids.add(request_max_id)
+        state.active_max_id = request_max_id
+
+        tweets = _extract_search_tweets(response_payload)
+        if not isinstance(tweets, list):
+            continue
+
+        page_signature = _build_page_signature(tweets)
+        duplicate_page = bool(page_signature and page_signature in state.seen_page_signatures)
+        if page_signature:
+            state.seen_page_signatures.add(page_signature)
+
+        new_tweet_ids = _extract_new_tweet_ids(
+            tweets=tweets,
+            seen_tweet_ids=state.seen_tweet_ids,
+        )
+        if new_tweet_ids:
+            state.seen_tweet_ids.update(new_tweet_ids)
+            state.last_min_id = new_tweet_ids[-1]
+
+        next_cursor = response_payload.get("next_cursor")
+        has_next_page = bool(response_payload.get("has_next_page"))
+        should_continue_with_cursor = (
+            has_next_page
+            and isinstance(next_cursor, str)
+            and next_cursor != ""
+            and bool(new_tweet_ids)
+            and not duplicate_page
+        )
+
+        next_max_id = _select_next_max_id(
+            last_min_id=state.last_min_id,
+            current_max_id=request_max_id,
+            seen_max_ids=state.seen_max_ids,
+        )
+        if should_continue_with_cursor:
+            state.next_cursor_to_request = next_cursor
+            state.active_max_id = request_max_id
+        elif next_max_id is not None:
+            state.seen_max_ids.add(next_max_id)
+            state.active_max_id = next_max_id
+            state.next_cursor_to_request = ""
+        else:
+            state.active_max_id = request_max_id
+            state.next_cursor_to_request = ""
+
+    if state.active_max_id == _extract_query_max_id(base_query):
+        state.active_max_id = None
+    return state
 
 
 def _store_raw_artifact(
@@ -585,6 +732,12 @@ def _build_advanced_search_query(
     return " ".join(parts)
 
 
+def _build_effective_search_query(*, base_query: str, max_id: str | None) -> str:
+    if not max_id:
+        return base_query
+    return f"{base_query} max_id:{max_id}"
+
+
 def _build_advanced_search_request_params(
     *,
     query: str,
@@ -617,6 +770,45 @@ def _extract_required_string(
     if not isinstance(value, str) or value == "":
         raise RuntimeError(f"Missing required string '{key}' in {context}.")
     return value
+
+
+def _extract_query_max_id(query: str) -> str | None:
+    for token in query.split():
+        if token.startswith("max_id:"):
+            max_id = token.removeprefix("max_id:").strip()
+            if max_id:
+                return max_id
+    return None
+
+
+def _extract_new_tweet_ids(
+    *,
+    tweets: list[Any],
+    seen_tweet_ids: set[str],
+) -> list[str]:
+    new_tweet_ids: list[str] = []
+    for tweet in tweets:
+        if not isinstance(tweet, dict):
+            continue
+        tweet_id = tweet.get("id")
+        if isinstance(tweet_id, str) and tweet_id and tweet_id not in seen_tweet_ids:
+            new_tweet_ids.append(tweet_id)
+    return new_tweet_ids
+
+
+def _select_next_max_id(
+    *,
+    last_min_id: str | None,
+    current_max_id: str | None,
+    seen_max_ids: set[str],
+) -> str | None:
+    if not last_min_id:
+        return None
+    if last_min_id == current_max_id:
+        return None
+    if last_min_id in seen_max_ids:
+        return None
+    return last_min_id
 
 
 def _extract_search_tweets(payload: dict[str, Any]) -> Any:
@@ -663,6 +855,10 @@ def _summarize_payload_shape(payload: dict[str, Any]) -> str:
 
 def _print_debug_request(*, endpoint: str, params: dict[str, Any]) -> None:
     print(f"[debug] request endpoint={endpoint} params={params}")
+
+
+def _print_debug_message(message: str) -> None:
+    print(f"[debug] {message}")
 
 
 def _print_debug_response(*, label: str, payload: dict[str, Any]) -> None:
