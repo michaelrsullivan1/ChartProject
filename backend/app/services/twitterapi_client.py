@@ -12,10 +12,9 @@ class TwitterUserInfoRequest:
 
 
 @dataclass(slots=True)
-class TwitterUserTimelineRequest:
+class TwitterUserLastTweetsRequest:
     user_id: str
     include_replies: bool = True
-    include_parent_tweet: bool = False
     cursor: str = ""
 
 
@@ -56,16 +55,15 @@ class TwitterApiClient:
             params={"userName": request.username},
         )
 
-    def get_user_timeline_page(
+    def get_user_last_tweets_page(
         self,
-        request: TwitterUserTimelineRequest,
+        request: TwitterUserLastTweetsRequest,
     ) -> dict[str, Any]:
         return self._get_json(
-            "/twitter/user/tweet_timeline",
+            "/twitter/user/last_tweets",
             params={
                 "userId": request.user_id,
                 "includeReplies": str(request.include_replies).lower(),
-                "includeParentTweet": str(request.include_parent_tweet).lower(),
                 "cursor": request.cursor,
             },
         )

@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from datetime import UTC, datetime
+import json
 import time
 from typing import Any
 
@@ -12,7 +13,7 @@ from app.models.raw_ingestion_artifact import RawIngestionArtifact
 from app.services.twitterapi_client import (
     TwitterApiClient,
     TwitterUserInfoRequest,
-    TwitterUserTimelineRequest,
+    TwitterUserLastTweetsRequest,
 )
 
 
@@ -21,11 +22,11 @@ class IngestionRequest:
     username: str
     import_type: str = "full_backfill"
     include_replies: bool = True
-    include_parent_tweet: bool = False
     page_delay_seconds: float = 0.25
     max_retries: int = 3
     retry_backoff_seconds: float = 1.0
     resume_run_id: int | None = None
+    debug: bool = False
     dry_run: bool = False
 
 
@@ -62,6 +63,8 @@ def archive_user_timeline_raw(
     status = "started"
     resumed_from_run_id: int | None = None
     next_cursor_to_request = ""
+    seen_cursors: set[str] = set()
+    seen_page_signatures: set[tuple[str, ...]] = set()
     notes = (
         "Raw-only archive. No normalization or relational upserts are performed in this step."
     )
@@ -89,11 +92,23 @@ def archive_user_timeline_raw(
             pages_fetched = run.pages_fetched
             tweets_returned = run.raw_tweets_fetched
             next_cursor_to_request = run.last_cursor or ""
+            if next_cursor_to_request:
+                seen_cursors.add(next_cursor_to_request)
 
         if resumed_from_run_id is not None and run and run.target_user_platform_id:
             resolved_user_platform_id = run.target_user_platform_id
         else:
+            if request.debug:
+                _print_debug_request(
+                    endpoint="/twitter/user/info",
+                    params={"userName": request.username},
+                )
             user_info_payload = client.get_user_info(TwitterUserInfoRequest(username=request.username))
+            if request.debug:
+                _print_debug_response(
+                    label="user_info",
+                    payload=user_info_payload,
+                )
             user_data = user_info_payload.get("data")
             if not isinstance(user_data, dict):
                 raise RuntimeError("twitterapi.io user info response did not include a data object.")
@@ -121,38 +136,101 @@ def archive_user_timeline_raw(
                 artifacts_created += 1
 
         while True:
-            timeline_payload = client.get_user_timeline_page(
-                TwitterUserTimelineRequest(
+            timeline_params = {
+                "userId": resolved_user_platform_id,
+                "includeReplies": request.include_replies,
+                "cursor": next_cursor_to_request,
+            }
+            if request.debug:
+                _print_debug_request(
+                    endpoint="/twitter/user/last_tweets",
+                    params=timeline_params,
+                )
+            timeline_payload = client.get_user_last_tweets_page(
+                TwitterUserLastTweetsRequest(
                     user_id=resolved_user_platform_id,
                     include_replies=request.include_replies,
-                    include_parent_tweet=request.include_parent_tweet,
                     cursor=next_cursor_to_request,
                 )
             )
+            if request.debug:
+                _print_debug_response(
+                    label="user_last_tweets_page",
+                    payload=timeline_payload,
+                )
 
-            tweets = timeline_payload.get("tweets")
+            tweets = _extract_timeline_tweets(timeline_payload)
             if not isinstance(tweets, list):
+                if session and run:
+                    page_index = run.pages_fetched + 1
+                    _store_raw_artifact(
+                        session=session,
+                        ingestion_run_id=run.id,
+                        artifact_type="user_last_tweets_page_unexpected",
+                        payload_json=_wrap_raw_payload(
+                            endpoint="/twitter/user/last_tweets",
+                            params={
+                                "userId": resolved_user_platform_id,
+                                "includeReplies": request.include_replies,
+                                "cursor": next_cursor_to_request,
+                                "pageIndex": page_index,
+                            },
+                            response_payload=timeline_payload,
+                        ),
+                        record_count_estimate=0,
+                    )
+                    artifacts_created += 1
+
                 raise RuntimeError(
-                    "twitterapi.io timeline response did not include a tweets array."
+                    "twitterapi.io last_tweets response did not include a tweets array. "
+                    f"Payload shape: {_summarize_payload_shape(timeline_payload)}"
+                )
+
+            page_signature = _build_page_signature(tweets)
+            if page_signature and page_signature in seen_page_signatures:
+                if session and run:
+                    page_index = run.pages_fetched + 1
+                    _store_raw_artifact(
+                        session=session,
+                        ingestion_run_id=run.id,
+                        artifact_type="user_last_tweets_page_duplicate",
+                        payload_json=_wrap_raw_payload(
+                            endpoint="/twitter/user/last_tweets",
+                            params={
+                                "userId": resolved_user_platform_id,
+                                "includeReplies": request.include_replies,
+                                "cursor": next_cursor_to_request,
+                                "pageIndex": page_index,
+                            },
+                            response_payload=timeline_payload,
+                        ),
+                        record_count_estimate=len(tweets),
+                    )
+                    artifacts_created += 1
+
+                raise RuntimeError(
+                    "twitterapi.io returned a duplicate last_tweets page while paginating. "
+                    "Aborting to avoid looping on the same tweet set."
                 )
 
             pages_fetched += 1
             tweets_returned += len(tweets)
             next_cursor = timeline_payload.get("next_cursor")
             has_next_page = bool(timeline_payload.get("has_next_page"))
+            if page_signature:
+                seen_page_signatures.add(page_signature)
 
             if session and run:
                 page_index = run.pages_fetched + 1
                 _store_raw_artifact(
                     session=session,
                     ingestion_run_id=run.id,
-                    artifact_type="user_timeline_page",
+                    artifact_type="user_last_tweets_page",
                     payload_json=_wrap_raw_payload(
-                        endpoint="/twitter/user/tweet_timeline",
+                        endpoint="/twitter/user/last_tweets",
                         params={
                             "userId": resolved_user_platform_id,
                             "includeReplies": request.include_replies,
-                            "includeParentTweet": request.include_parent_tweet,
                             "cursor": next_cursor_to_request,
                             "pageIndex": page_index,
                         },
@@ -169,7 +247,14 @@ def archive_user_timeline_raw(
             if not has_next_page or not isinstance(next_cursor, str) or next_cursor == "":
                 break
 
+            if next_cursor in seen_cursors:
+                raise RuntimeError(
+                    "twitterapi.io returned a cursor that was already seen in this run. "
+                    "Aborting to avoid a pagination loop."
+                )
+
             next_cursor_to_request = next_cursor
+            seen_cursors.add(next_cursor_to_request)
             if request.page_delay_seconds > 0:
                 time.sleep(request.page_delay_seconds)
 
@@ -177,7 +262,7 @@ def archive_user_timeline_raw(
         status = "completed"
         notes = (
             "Raw archive completed successfully. "
-            f"Fetched {pages_fetched} timeline pages and archived {tweets_returned} tweets."
+            f"Fetched {pages_fetched} last_tweets pages and archived {tweets_returned} tweets."
         )
 
         if session and run:
@@ -247,7 +332,7 @@ def _create_ingestion_run(
 ) -> IngestionRun:
     run = IngestionRun(
         source_name="twitterapi.io",
-        endpoint_name="user_timeline_raw_archive",
+        endpoint_name="user_last_tweets_raw_archive",
         target_user_platform_id=None,
         import_type=request.import_type,
         started_at=started_at,
@@ -258,7 +343,7 @@ def _create_ingestion_run(
         notes=(
             f"username={request.username}; "
             f"include_replies={request.include_replies}; "
-            f"include_parent_tweet={request.include_parent_tweet}"
+            "endpoint=/twitter/user/last_tweets"
         ),
     )
     session.add(run)
@@ -323,3 +408,69 @@ def _extract_required_string(
     if not isinstance(value, str) or value == "":
         raise RuntimeError(f"Missing required string '{key}' in {context}.")
     return value
+
+
+def _summarize_payload_keys(payload: dict[str, Any]) -> str:
+    keys = sorted(str(key) for key in payload.keys())
+    if not keys:
+        return "<none>"
+    return ", ".join(keys)
+
+
+def _summarize_payload_shape(payload: dict[str, Any]) -> str:
+    parts = [f"top-level keys: {_summarize_payload_keys(payload)}"]
+    data = payload.get("data")
+    if isinstance(data, list):
+        parts.append(f"data=list(len={len(data)})")
+    elif isinstance(data, dict):
+        parts.append(f"data=dict(keys={_summarize_payload_keys(data)})")
+    elif data is None:
+        parts.append("data=<none>")
+    else:
+        parts.append(f"data={type(data).__name__}")
+    tweets = payload.get("tweets")
+    if isinstance(tweets, list):
+        parts.append(f"tweets=list(len={len(tweets)})")
+    elif tweets is None:
+        parts.append("tweets=<none>")
+    else:
+        parts.append(f"tweets={type(tweets).__name__}")
+    return "; ".join(parts)
+
+
+def _extract_timeline_tweets(payload: dict[str, Any]) -> Any:
+    tweets = payload.get("tweets")
+    if isinstance(tweets, list):
+        return tweets
+
+    data = payload.get("data")
+    if isinstance(data, list):
+        return data
+    if isinstance(data, dict):
+        nested_tweets = data.get("tweets")
+        if isinstance(nested_tweets, list):
+            return nested_tweets
+
+    return None
+
+
+def _print_debug_request(*, endpoint: str, params: dict[str, Any]) -> None:
+    print(f"[debug] request endpoint={endpoint} params={params}")
+
+
+def _print_debug_response(*, label: str, payload: dict[str, Any]) -> None:
+    print(f"[debug] response {label} shape: {_summarize_payload_shape(payload)}")
+    preview = json.dumps(payload, indent=2, ensure_ascii=False, default=str)
+    if len(preview) > 4000:
+        preview = f"{preview[:4000]}\n...<truncated>"
+    print(f"[debug] response {label} payload:\n{preview}")
+
+
+def _build_page_signature(tweets: list[Any]) -> tuple[str, ...]:
+    signature: list[str] = []
+    for tweet in tweets:
+        if isinstance(tweet, dict):
+            tweet_id = tweet.get("id")
+            if isinstance(tweet_id, str) and tweet_id:
+                signature.append(tweet_id)
+    return tuple(signature)

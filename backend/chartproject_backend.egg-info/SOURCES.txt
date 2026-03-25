@@ -6,6 +6,7 @@ app/api/router.py
 app/api/routes/health.py
 app/core/config.py
 app/db/base.py
+app/db/models.py
 app/db/session.py
 app/models/__init__.py
 app/models/ingestion_run.py

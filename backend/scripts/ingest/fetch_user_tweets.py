@@ -8,7 +8,7 @@ from app.services.ingestion import IngestionRequest, archive_user_timeline_raw
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Archive raw twitterapi.io user info and paginated timeline responses for a single X "
+            "Archive raw twitterapi.io user info and paginated last_tweets responses for a single X "
             "username before any normalization occurs."
         )
     )
@@ -23,11 +23,6 @@ def parse_args() -> argparse.Namespace:
         "--exclude-replies",
         action="store_true",
         help="Exclude replies from the timeline request. Default behavior is to include them.",
-    )
-    parser.add_argument(
-        "--include-parent-tweet",
-        action="store_true",
-        help="Include parent tweet payloads when the user tweet is a reply. Default is off.",
     )
     parser.add_argument(
         "--page-delay-seconds",
@@ -53,6 +48,11 @@ def parse_args() -> argparse.Namespace:
         help="Resume a previously failed raw archive run from its stored cursor progress.",
     )
     parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Print request params and response payload previews to the terminal for diagnosis.",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Fetch and summarize without writing an ingestion run or raw artifacts to the database.",
@@ -66,11 +66,11 @@ def main() -> None:
         username=args.username,
         import_type=args.import_type,
         include_replies=not args.exclude_replies,
-        include_parent_tweet=args.include_parent_tweet,
         page_delay_seconds=args.page_delay_seconds,
         max_retries=args.max_retries,
         retry_backoff_seconds=args.retry_backoff_seconds,
         resume_run_id=args.resume_run_id,
+        debug=args.debug,
         dry_run=args.dry_run,
     )
     summary = archive_user_timeline_raw(request)
