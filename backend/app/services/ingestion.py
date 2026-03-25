@@ -136,11 +136,11 @@ def archive_user_timeline_raw(
                 artifacts_created += 1
 
         while True:
-            timeline_params = {
-                "userId": resolved_user_platform_id,
-                "includeReplies": request.include_replies,
-                "cursor": next_cursor_to_request,
-            }
+            timeline_params = _build_last_tweets_request_params(
+                username=request.username,
+                include_replies=request.include_replies,
+                cursor=next_cursor_to_request,
+            )
             if request.debug:
                 _print_debug_request(
                     endpoint="/twitter/user/last_tweets",
@@ -148,7 +148,7 @@ def archive_user_timeline_raw(
                 )
             timeline_payload = client.get_user_last_tweets_page(
                 TwitterUserLastTweetsRequest(
-                    user_id=resolved_user_platform_id,
+                    user_name=request.username,
                     include_replies=request.include_replies,
                     cursor=next_cursor_to_request,
                 )
@@ -169,12 +169,12 @@ def archive_user_timeline_raw(
                         artifact_type="user_last_tweets_page_unexpected",
                         payload_json=_wrap_raw_payload(
                             endpoint="/twitter/user/last_tweets",
-                            params={
-                                "userId": resolved_user_platform_id,
-                                "includeReplies": request.include_replies,
-                                "cursor": next_cursor_to_request,
-                                "pageIndex": page_index,
-                            },
+                            params=_build_last_tweets_request_params(
+                                username=request.username,
+                                include_replies=request.include_replies,
+                                cursor=next_cursor_to_request,
+                                page_index=page_index,
+                            ),
                             response_payload=timeline_payload,
                         ),
                         record_count_estimate=0,
@@ -196,12 +196,12 @@ def archive_user_timeline_raw(
                         artifact_type="user_last_tweets_page_duplicate",
                         payload_json=_wrap_raw_payload(
                             endpoint="/twitter/user/last_tweets",
-                            params={
-                                "userId": resolved_user_platform_id,
-                                "includeReplies": request.include_replies,
-                                "cursor": next_cursor_to_request,
-                                "pageIndex": page_index,
-                            },
+                            params=_build_last_tweets_request_params(
+                                username=request.username,
+                                include_replies=request.include_replies,
+                                cursor=next_cursor_to_request,
+                                page_index=page_index,
+                            ),
                             response_payload=timeline_payload,
                         ),
                         record_count_estimate=len(tweets),
@@ -228,12 +228,12 @@ def archive_user_timeline_raw(
                     artifact_type="user_last_tweets_page",
                     payload_json=_wrap_raw_payload(
                         endpoint="/twitter/user/last_tweets",
-                        params={
-                            "userId": resolved_user_platform_id,
-                            "includeReplies": request.include_replies,
-                            "cursor": next_cursor_to_request,
-                            "pageIndex": page_index,
-                        },
+                        params=_build_last_tweets_request_params(
+                            username=request.username,
+                            include_replies=request.include_replies,
+                            cursor=next_cursor_to_request,
+                            page_index=page_index,
+                        ),
                         response_payload=timeline_payload,
                     ),
                     record_count_estimate=len(tweets),
@@ -343,7 +343,8 @@ def _create_ingestion_run(
         notes=(
             f"username={request.username}; "
             f"include_replies={request.include_replies}; "
-            "endpoint=/twitter/user/last_tweets"
+            "endpoint=/twitter/user/last_tweets; "
+            "timeline_lookup=userName"
         ),
     )
     session.add(run)
@@ -408,6 +409,24 @@ def _extract_required_string(
     if not isinstance(value, str) or value == "":
         raise RuntimeError(f"Missing required string '{key}' in {context}.")
     return value
+
+
+def _build_last_tweets_request_params(
+    *,
+    username: str,
+    include_replies: bool,
+    cursor: str,
+    page_index: int | None = None,
+) -> dict[str, Any]:
+    params: dict[str, Any] = {
+        "userName": username,
+        "includeReplies": include_replies,
+    }
+    if cursor:
+        params["cursor"] = cursor
+    if page_index is not None:
+        params["pageIndex"] = page_index
+    return params
 
 
 def _summarize_payload_keys(payload: dict[str, Any]) -> str:

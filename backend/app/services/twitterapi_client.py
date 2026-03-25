@@ -13,7 +13,8 @@ class TwitterUserInfoRequest:
 
 @dataclass(slots=True)
 class TwitterUserLastTweetsRequest:
-    user_id: str
+    user_id: str | None = None
+    user_name: str | None = None
     include_replies: bool = True
     cursor: str = ""
 
@@ -59,13 +60,23 @@ class TwitterApiClient:
         self,
         request: TwitterUserLastTweetsRequest,
     ) -> dict[str, Any]:
+        params: dict[str, Any] = {
+            "includeReplies": str(request.include_replies).lower(),
+        }
+        if request.user_id:
+            params["userId"] = request.user_id
+        if request.user_name:
+            params["userName"] = request.user_name
+        if request.cursor:
+            params["cursor"] = request.cursor
+        if ("userId" in params) == ("userName" in params):
+            raise RuntimeError(
+                "TwitterUserLastTweetsRequest requires exactly one of user_id or user_name."
+            )
+
         return self._get_json(
             "/twitter/user/last_tweets",
-            params={
-                "userId": request.user_id,
-                "includeReplies": str(request.include_replies).lower(),
-                "cursor": request.cursor,
-            },
+            params=params,
         )
 
     def _get_json(self, path: str, params: dict[str, Any]) -> dict[str, Any]:
