@@ -19,6 +19,13 @@ class TwitterUserLastTweetsRequest:
     cursor: str = ""
 
 
+@dataclass(slots=True)
+class TwitterTweetAdvancedSearchRequest:
+    query: str
+    query_type: str = "Latest"
+    cursor: str = ""
+
+
 class TwitterApiClient:
     """
     Provider boundary for twitterapi.io.
@@ -76,6 +83,21 @@ class TwitterApiClient:
 
         return self._get_json(
             "/twitter/user/last_tweets",
+            params=params,
+        )
+
+    def get_tweet_advanced_search_page(
+        self,
+        request: TwitterTweetAdvancedSearchRequest,
+    ) -> dict[str, Any]:
+        params: dict[str, Any] = {
+            "query": request.query,
+            "queryType": request.query_type,
+        }
+        if request.cursor:
+            params["cursor"] = request.cursor
+        return self._get_json(
+            "/twitter/tweet/advanced_search",
             params=params,
         )
 
