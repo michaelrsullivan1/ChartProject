@@ -169,42 +169,99 @@ compose.yaml
 ## Current foundation choices
 
 - Raw API payloads are archived in Postgres first via `raw_ingestion_artifacts`
-- Ingestion is generic and designed to accept a target X user ID at runtime
+- Historical tweet backfills currently use `twitterapi.io` `advanced_search`
+- Historical backfills are sliced into UTC time windows and paginated with `cursor` plus `max_id`
 - Frontend work is intentionally minimal until the ingestion and data layers are in place
 
 ## Next implementation steps
 
-1. Wire the `twitterapi.io` client to the real endpoint details.
-2. Run the first generic ingest with a single X user ID.
-3. Add backup and restore scripts for moving the database between machines.
-4. Start persisting and validating real source data.
+1. Add a read-only extraction layer that flattens archived raw tweets into clean exports or views.
+2. Normalize archived raw users and tweets into the canonical relational tables.
+3. Add validation queries and scripts for coverage, duplicates, and date-boundary checks.
+4. Add backup and restore scripts for moving the database between machines.
 
 ## Raw ingest safety
 
 The current raw ingest path is designed for cautious full-history backfills before normalization:
 
 - resolves a username through the user info endpoint
-- fetches timeline pages sequentially by `userId`
-- archives every raw response page into `raw_ingestion_artifacts`
+- archives raw user info responses into `raw_ingestion_artifacts`
+- fetches tweets with `twitterapi.io` `advanced_search`
+- builds bounded queries in the shape `from:<username> since:<UTC> until:<UTC>`
+- archives every raw search response page into `raw_ingestion_artifacts`
 - retries transient request failures
+- deduplicates tweets by tweet ID within each window
+- uses `cursor` pagination first, then falls back to `max_id:<oldest_seen_tweet_id>` when pages stop advancing
 - waits briefly between page requests
-- stores cursor progress on `ingestion_runs`
-- supports resume from a failed run with `--resume-run-id`
+- stores run progress on `ingestion_runs`
+- supports resume from a failed single-window run with `--resume-run-id`
 
-Example command shape:
+## Ingest scripts
+
+The current raw-ingest scripts live under [backend/scripts/ingest](/Users/michaelsullivan/Code/ChartProject/backend/scripts/ingest).
+
+### 1. Fetch raw user info
 
 ```bash
 cd /Users/michaelsullivan/Code/ChartProject
 source .venv/bin/activate
 cd backend
-python scripts/ingest/fetch_user_tweets.py --username someuser
+python scripts/ingest/fetch_user_info.py --username someuser --debug
 ```
 
-Useful options:
+### 2. Fetch one UTC tweet window
 
-- `--exclude-replies`
-- `--include-parent-tweet`
-- `--page-delay-seconds 0.25`
+Use ISO 8601 UTC timestamps with a trailing `Z`:
+- `2024-01-01T00:00:00Z`
+- `2024-02-01T00:00:00Z`
+
+Example:
+
+```bash
+cd /Users/michaelsullivan/Code/ChartProject
+source .venv/bin/activate
+cd backend
+python scripts/ingest/fetch_user_tweets.py \
+  --username someuser \
+  --since 2024-01-01T00:00:00Z \
+  --until 2024-02-01T00:00:00Z \
+  --page-delay-seconds 0.5 \
+  --debug
+```
+
+### 3. Fetch a larger history range in monthly windows
+
+This wrapper runs raw user info once, then iterates month-by-month across a larger UTC range.
+
+Example:
+
+```bash
+cd /Users/michaelsullivan/Code/ChartProject
+source .venv/bin/activate
+cd backend
+python scripts/ingest/fetch_user_tweets_history.py \
+  --username someuser \
+  --since 2024-01-01T00:00:00Z \
+  --until 2025-01-01T00:00:00Z \
+  --window-months 1 \
+  --page-delay-seconds 0.5 \
+  --debug
+```
+
+### Why monthly windows
+
+In practice, the provider's pagination is much more stable when historical backfills are broken into smaller UTC windows. The current recommended default is:
+
+- larger overall history ranges
+- `--window-months 1`
+- `queryType=Latest`
+- `cursor` plus `max_id` continuation inside each month
+
+### Useful options
+
+- `--page-delay-seconds 0.5`
 - `--max-retries 3`
 - `--retry-backoff-seconds 1.0`
 - `--resume-run-id <id>`
+- `--query-fragment "<extra advanced search terms>"`
+- `--window-months 1`
