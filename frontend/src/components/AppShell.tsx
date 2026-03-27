@@ -1,10 +1,20 @@
 import type { ReactNode } from "react";
 
 type AppShellProps = {
+  activePage: "home" | "michael-saylor-vs-btc";
+  onNavigate: (page: "home" | "michael-saylor-vs-btc") => void;
   children: ReactNode;
 };
 
-export function AppShell({ children }: AppShellProps) {
+const navItems: Array<{
+  key: "home" | "michael-saylor-vs-btc";
+  label: string;
+}> = [
+  { key: "home", label: "Foundation" },
+  { key: "michael-saylor-vs-btc", label: "Michael Saylor vs BTC" },
+];
+
+export function AppShell({ activePage, onNavigate, children }: AppShellProps) {
   return (
     <div className="app-shell">
       <header className="hero">
@@ -14,6 +24,18 @@ export function AppShell({ children }: AppShellProps) {
           Backend ingestion and archival come first. The frontend stays lean
           until the data layer is trustworthy.
         </p>
+        <nav className="page-nav" aria-label="Primary">
+          {navItems.map((item) => (
+            <button
+              key={item.key}
+              className={`page-nav-link${activePage === item.key ? " is-active" : ""}`}
+              onClick={() => onNavigate(item.key)}
+              type="button"
+            >
+              {item.label}
+            </button>
+          ))}
+        </nav>
       </header>
       <main>{children}</main>
     </div>

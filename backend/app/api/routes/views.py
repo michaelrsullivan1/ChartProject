@@ -6,14 +6,14 @@ from app.services.author_vs_btc_view import AuthorVsBtcViewRequest, build_author
 router = APIRouter(prefix="/views")
 
 
-@router.get("/author-vs-btc/{username}")
-def author_vs_btc_view(
-    username: str,
+@router.get("/michael-saylor-vs-btc")
+def michael_saylor_vs_btc_view(
     granularity: str = Query(default="week", pattern="^(day|week)$"),
 ) -> dict[str, object]:
     return build_author_vs_btc_view(
         AuthorVsBtcViewRequest(
-            username=username,
+            username="saylor",
             granularity=granularity,
+            view_name="michael-saylor-vs-btc",
         )
     )

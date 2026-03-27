@@ -17,6 +17,7 @@ from app.services.market_data import floor_to_day, floor_to_week
 class AuthorVsBtcViewRequest:
     username: str
     granularity: str = "week"
+    view_name: str = "author-vs-btc"
 
 
 def build_author_vs_btc_view(
@@ -71,7 +72,7 @@ def build_author_vs_btc_view(
         ]
 
         return {
-            "view": "author-vs-btc",
+            "view": request.view_name,
             "subject": {
                 "platform_user_id": user.platform_user_id,
                 "username": user.username,

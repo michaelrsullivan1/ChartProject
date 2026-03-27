@@ -178,7 +178,7 @@ compose.yaml
 - BTC/USD daily history is archived locally from the FRED `CBBTCUSD` series
 - Canonical relational tables now include `users`, `tweets`, `tweet_references`, and `market_price_points`
 - Validation scripts exist for normalized tweet data and normalized BTC price data
-- The first view endpoint is intentionally specific and request-time only: `/api/views/author-vs-btc/{username}`
+- The first view endpoint is intentionally specific and request-time only: `/api/views/michael-saylor-vs-btc`
 - Frontend work remains intentionally minimal until the data and first view layers are in place
 
 ## Next implementation steps
@@ -350,12 +350,12 @@ python scripts/validate/validate_market_price_points.py --asset-symbol BTC --quo
 The first dedicated backend view endpoint is:
 
 ```text
-/api/views/author-vs-btc/{username}?granularity=week
+/api/views/michael-saylor-vs-btc?granularity=week
 ```
 
 Current behavior:
 
-- `username` identifies the subject
+- the subject is fixed to Michael Saylor for this page
 - `granularity` supports `day` or `week` and currently defaults to `week`
 - tweet counts include all authored tweets, including replies and quote tweets
 - tweet series are zero-filled for a continuous UTC timeline

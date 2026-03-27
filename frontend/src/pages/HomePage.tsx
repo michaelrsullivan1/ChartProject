@@ -9,8 +9,8 @@ type HomePageProps = {
 const foundationItems = [
   "FastAPI app shell with a health endpoint",
   "Core SQLAlchemy models for users, tweets, runs, and raw artifacts",
-  "Generic ingestion entry point that accepts a single X user ID",
-  "React + Vite shell for later analytical pages",
+  "Working local-first normalization and validation flow for tweet archives",
+  "Dedicated Michael Saylor vs BTC endpoint ready for frontend consumption",
 ];
 
 export function HomePage({ health, error, isLoading }: HomePageProps) {
