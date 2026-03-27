@@ -20,7 +20,7 @@ class MarketPricePoint(TimestampMixin, Base):
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    source_name: Mapped[str] = mapped_column(String(64), nullable=False, default="coingecko")
+    source_name: Mapped[str] = mapped_column(String(64), nullable=False, default="fred")
     asset_symbol: Mapped[str] = mapped_column(String(16), nullable=False, index=True)
     quote_currency: Mapped[str] = mapped_column(String(16), nullable=False, index=True)
     interval: Mapped[str] = mapped_column(String(16), nullable=False, index=True)

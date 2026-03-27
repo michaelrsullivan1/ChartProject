@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 import csv
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 import io
 from typing import Any
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -14,33 +14,7 @@ from app.db.session import SessionLocal
 from app.models.ingestion_run import IngestionRun
 from app.models.market_price_point import MarketPricePoint
 from app.models.raw_ingestion_artifact import RawIngestionArtifact
-from app.services.coingecko_client import CoinGeckoClient, CoinGeckoMarketChartRangeRequest
 from app.services.fred_client import FredClient
-
-
-@dataclass(slots=True)
-class RawMarketChartRangeRequest:
-    asset_symbol: str = "BTC"
-    quote_currency: str = "USD"
-    source_asset_id: str = "bitcoin"
-    interval: str = "day"
-    since: datetime | None = None
-    until: datetime | None = None
-    import_type: str = "full_backfill"
-    dry_run: bool = False
-
-
-@dataclass(slots=True)
-class RawMarketChartRangeSummary:
-    run_id: int | None
-    asset_symbol: str
-    quote_currency: str
-    interval: str
-    points_archived: int
-    status: str
-    started_at: datetime
-    completed_at: datetime | None
-    notes: str
 
 
 @dataclass(slots=True)
@@ -51,6 +25,19 @@ class RawFredSeriesRequest:
     interval: str = "day"
     import_type: str = "full_backfill"
     dry_run: bool = False
+
+
+@dataclass(slots=True)
+class RawMarketDataSummary:
+    run_id: int | None
+    asset_symbol: str
+    quote_currency: str
+    interval: str
+    points_archived: int
+    status: str
+    started_at: datetime
+    completed_at: datetime | None
+    notes: str
 
 
 @dataclass(slots=True)
@@ -114,95 +101,7 @@ class MarketPriceSnapshot:
     price: float
     market_cap: float | None
     total_volume: float | None
-    source_name: str = "coingecko"
-
-
-def archive_btc_market_chart_range_raw(
-    request: RawMarketChartRangeRequest,
-    *,
-    client: CoinGeckoClient | None = None,
-    session_factory: sessionmaker[Session] = SessionLocal,
-) -> RawMarketChartRangeSummary:
-    _validate_market_request(request)
-    started_at = datetime.now(UTC)
-    own_client = client is None
-    client = client or CoinGeckoClient()
-    session: Session | None = None
-    run: IngestionRun | None = None
-    run_id: int | None = None
-
-    try:
-        payload = client.get_market_chart_range(
-            CoinGeckoMarketChartRangeRequest(
-                coin_id=request.source_asset_id,
-                vs_currency=request.quote_currency.lower(),
-                from_unix_seconds=int(request.since.timestamp()),
-                to_unix_seconds=int(request.until.timestamp()),
-            )
-        )
-        points_archived = len(_extract_market_chart_points(payload))
-        if not request.dry_run:
-            session = session_factory()
-            run = _create_market_ingestion_run(
-                session=session,
-                source_name="coingecko",
-                endpoint_name="coingecko_market_chart_range_raw_archive",
-                import_type=request.import_type,
-                started_at=started_at,
-                notes=(
-                    f"asset_symbol={request.asset_symbol}; quote_currency={request.quote_currency}; "
-                    f"interval={request.interval}; source_asset_id={request.source_asset_id}"
-                ),
-                requested_since=request.since,
-                requested_until=request.until,
-            )
-            run_id = run.id
-            _store_market_raw_artifact(
-                session=session,
-                ingestion_run_id=run.id,
-                artifact_type="coingecko_market_chart_range",
-                payload_json={
-                    "endpoint": "/coins/{id}/market_chart/range",
-                    "request": {
-                        "asset_symbol": request.asset_symbol,
-                        "quote_currency": request.quote_currency,
-                        "source_asset_id": request.source_asset_id,
-                        "interval": request.interval,
-                        "since": request.since.isoformat(),
-                        "until": request.until.isoformat(),
-                        "fetched_at": datetime.now(UTC).isoformat(),
-                    },
-                    "response": payload,
-                },
-                record_count_estimate=points_archived,
-            )
-            completed_at = datetime.now(UTC)
-            run.completed_at = completed_at
-            run.status = "completed"
-            run.notes = (
-                f"Archived {points_archived} CoinGecko market price points for "
-                f"{request.asset_symbol}/{request.quote_currency}."
-            )
-            session.commit()
-        else:
-            completed_at = datetime.now(UTC)
-
-        return RawMarketChartRangeSummary(
-            run_id=run_id,
-            asset_symbol=request.asset_symbol,
-            quote_currency=request.quote_currency,
-            interval=request.interval,
-            points_archived=points_archived,
-            status="completed",
-            started_at=started_at,
-            completed_at=completed_at,
-            notes="Raw market chart archive completed successfully.",
-        )
-    finally:
-        if session is not None:
-            session.close()
-        if own_client:
-            client.close()
+    source_name: str = "fred"
 
 
 def archive_fred_btc_daily_raw(
@@ -210,14 +109,16 @@ def archive_fred_btc_daily_raw(
     *,
     client: FredClient | None = None,
     session_factory: sessionmaker[Session] = SessionLocal,
-) -> RawMarketChartRangeSummary:
+) -> RawMarketDataSummary:
+    if request.interval != "day":
+        raise RuntimeError("FRED BTC ingestion currently supports only interval=day.")
+
     own_client = client is None
     client = client or FredClient()
     started_at = datetime.now(UTC)
     session: Session | None = None
     run: IngestionRun | None = None
     run_id: int | None = None
-
     try:
         csv_text = client.get_series_csv(request.series_id)
         points_archived = len(_extract_fred_series_points(csv_text))
@@ -233,8 +134,6 @@ def archive_fred_btc_daily_raw(
                     f"asset_symbol={request.asset_symbol}; quote_currency={request.quote_currency}; "
                     f"interval={request.interval}; series_id={request.series_id}"
                 ),
-                requested_since=None,
-                requested_until=None,
             )
             run_id = run.id
             _store_market_raw_artifact(
@@ -245,8 +144,8 @@ def archive_fred_btc_daily_raw(
                     "endpoint": "/graph/fredgraph.csv",
                     "request": {
                         "series_id": request.series_id,
-                        "asset_symbol": request.asset_symbol,
-                        "quote_currency": request.quote_currency,
+                        "asset_symbol": request.asset_symbol.upper(),
+                        "quote_currency": request.quote_currency.upper(),
                         "interval": request.interval,
                         "fetched_at": datetime.now(UTC).isoformat(),
                     },
@@ -261,16 +160,16 @@ def archive_fred_btc_daily_raw(
             run.status = "completed"
             run.notes = (
                 f"Archived {points_archived} FRED price points for "
-                f"{request.asset_symbol}/{request.quote_currency}."
+                f"{request.asset_symbol.upper()}/{request.quote_currency.upper()}."
             )
             session.commit()
         else:
             completed_at = datetime.now(UTC)
 
-        return RawMarketChartRangeSummary(
+        return RawMarketDataSummary(
             run_id=run_id,
-            asset_symbol=request.asset_symbol,
-            quote_currency=request.quote_currency,
+            asset_symbol=request.asset_symbol.upper(),
+            quote_currency=request.quote_currency.upper(),
             interval=request.interval,
             points_archived=points_archived,
             status="completed",
@@ -300,8 +199,8 @@ def normalize_market_price_points(
         )
         if request.dry_run:
             return NormalizeMarketPriceSummary(
-                asset_symbol=request.asset_symbol,
-                quote_currency=request.quote_currency,
+                asset_symbol=request.asset_symbol.upper(),
+                quote_currency=request.quote_currency.upper(),
                 interval=request.interval,
                 raw_artifacts_scanned=raw_artifacts_scanned,
                 raw_point_count=len(snapshots),
@@ -329,8 +228,8 @@ def normalize_market_price_points(
             )
         ).one()
         return NormalizeMarketPriceSummary(
-            asset_symbol=request.asset_symbol,
-            quote_currency=request.quote_currency,
+            asset_symbol=request.asset_symbol.upper(),
+            quote_currency=request.quote_currency.upper(),
             interval=request.interval,
             raw_artifacts_scanned=raw_artifacts_scanned,
             raw_point_count=len(snapshots),
@@ -375,11 +274,16 @@ def validate_market_price_points(
         normalized_first_point_at = normalized_rows[0][0] if normalized_rows else None
         normalized_last_point_at = normalized_rows[-1][0] if normalized_rows else None
         status = "PASS"
-        if missing_keys or extra_keys or raw_first_point_at != normalized_first_point_at or raw_last_point_at != normalized_last_point_at:
+        if (
+            missing_keys
+            or extra_keys
+            or raw_first_point_at != normalized_first_point_at
+            or raw_last_point_at != normalized_last_point_at
+        ):
             status = "FAIL"
         return ValidateMarketPriceSummary(
-            asset_symbol=request.asset_symbol,
-            quote_currency=request.quote_currency,
+            asset_symbol=request.asset_symbol.upper(),
+            quote_currency=request.quote_currency.upper(),
             interval=request.interval,
             status=status,
             raw_artifacts_scanned=raw_artifacts_scanned,
@@ -428,17 +332,6 @@ def render_market_price_validation_report(summary: ValidateMarketPriceSummary) -
     return "\n".join(lines)
 
 
-def _validate_market_request(request: RawMarketChartRangeRequest) -> None:
-    if request.since is None or request.until is None:
-        raise RuntimeError("BTC market chart requests require both since and until timestamps.")
-    if request.since.tzinfo is None or request.until.tzinfo is None:
-        raise RuntimeError("BTC market chart timestamps must be timezone-aware.")
-    if request.until <= request.since:
-        raise RuntimeError("BTC market chart requests require until > since.")
-    if request.interval != "day":
-        raise RuntimeError("Only interval=day is currently supported for BTC market data.")
-
-
 def _create_market_ingestion_run(
     session: Session,
     *,
@@ -447,15 +340,13 @@ def _create_market_ingestion_run(
     import_type: str,
     started_at: datetime,
     notes: str,
-    requested_since: datetime | None,
-    requested_until: datetime | None,
 ) -> IngestionRun:
     run = IngestionRun(
         source_name=source_name,
         endpoint_name=endpoint_name,
         import_type=import_type,
-        requested_since=requested_since,
-        requested_until=requested_until,
+        requested_since=None,
+        requested_until=None,
         started_at=started_at,
         status="started",
         last_cursor=None,
@@ -491,40 +382,6 @@ def _store_market_raw_artifact(
     return artifact
 
 
-def _extract_market_chart_points(payload: dict[str, Any]) -> list[tuple[datetime, float, float | None, float | None]]:
-    prices = _extract_xy_series(payload.get("prices"))
-    market_caps = _extract_xy_series(payload.get("market_caps"))
-    total_volumes = _extract_xy_series(payload.get("total_volumes"))
-    market_cap_map = {observed_at: value for observed_at, value in market_caps}
-    total_volume_map = {observed_at: value for observed_at, value in total_volumes}
-    points: list[tuple[datetime, float, float | None, float | None]] = []
-    for observed_at, price in prices:
-        points.append(
-            (
-                observed_at,
-                price,
-                market_cap_map.get(observed_at),
-                total_volume_map.get(observed_at),
-            )
-        )
-    return points
-
-
-def _extract_xy_series(value: Any) -> list[tuple[datetime, float]]:
-    if not isinstance(value, list):
-        return []
-    rows: list[tuple[datetime, float]] = []
-    for item in value:
-        if not isinstance(item, list) or len(item) != 2:
-            continue
-        timestamp_ms, numeric_value = item
-        if not isinstance(timestamp_ms, (int, float)) or not isinstance(numeric_value, (int, float)):
-            continue
-        observed_at = datetime.fromtimestamp(float(timestamp_ms) / 1000, tz=UTC)
-        rows.append((observed_at, float(numeric_value)))
-    return rows
-
-
 def _extract_fred_series_points(csv_text: str) -> list[tuple[datetime, float, float | None, float | None]]:
     reader = csv.DictReader(io.StringIO(csv_text))
     rows: list[tuple[datetime, float, float | None, float | None]] = []
@@ -558,7 +415,8 @@ def _build_market_snapshots(
         select(RawIngestionArtifact, IngestionRun)
         .join(IngestionRun, IngestionRun.id == RawIngestionArtifact.ingestion_run_id)
         .where(
-            RawIngestionArtifact.artifact_type.in_(["coingecko_market_chart_range", "fred_series_csv"])
+            RawIngestionArtifact.artifact_type == "fred_series_csv",
+            IngestionRun.source_name == "fred",
         )
         .order_by(RawIngestionArtifact.id)
     ).all()
@@ -577,34 +435,28 @@ def _build_market_snapshots(
             continue
         if request_payload.get("interval") != interval:
             continue
-
-        if artifact.artifact_type == "coingecko_market_chart_range" and run.source_name == "coingecko":
-            rows = _extract_market_chart_points(response_payload)
-        elif artifact.artifact_type == "fred_series_csv" and run.source_name == "fred":
-            csv_text = response_payload.get("csv_text")
-            rows = _extract_fred_series_points(csv_text) if isinstance(csv_text, str) else []
-        else:
-            rows = []
+        csv_text = response_payload.get("csv_text")
+        if not isinstance(csv_text, str):
+            continue
 
         raw_artifacts_scanned += 1
-        for observed_at, price, market_cap, total_volume in rows:
-            bucket_observed_at = floor_to_day(observed_at) if interval == "day" else observed_at
+        for observed_at, price, market_cap, total_volume in _extract_fred_series_points(csv_text):
             snapshot = MarketPriceSnapshot(
                 asset_symbol=asset_symbol.upper(),
                 quote_currency=quote_currency.upper(),
                 interval=interval,
-                observed_at=bucket_observed_at,
+                observed_at=floor_to_day(observed_at),
                 price=price,
                 market_cap=market_cap,
                 total_volume=total_volume,
                 source_name=run.source_name,
             )
-            snapshots[bucket_observed_at] = snapshot
+            snapshots[snapshot.observed_at] = snapshot
             raw_first_point_at = (
-                bucket_observed_at if raw_first_point_at is None else min(raw_first_point_at, bucket_observed_at)
+                snapshot.observed_at if raw_first_point_at is None else min(raw_first_point_at, snapshot.observed_at)
             )
             raw_last_point_at = (
-                bucket_observed_at if raw_last_point_at is None else max(raw_last_point_at, bucket_observed_at)
+                snapshot.observed_at if raw_last_point_at is None else max(raw_last_point_at, snapshot.observed_at)
             )
 
     if not snapshots:

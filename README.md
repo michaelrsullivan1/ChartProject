@@ -12,6 +12,10 @@ The local foundation is working end-to-end:
 - Alembic migrations
 - FastAPI backend health check
 - React frontend that confirms backend and database connectivity on page load
+- raw-first X/Twitter ingest archived in Postgres
+- canonical tweet normalization and validation for `saylor`
+- local BTC/USD daily archive, normalization, and validation
+- first dedicated backend view for `author-vs-btc`
 
 If the stack is healthy, the frontend should show:
 
@@ -95,7 +99,7 @@ This project uses `5433` deliberately so it does not collide with other local Po
 - waits for Postgres to become ready
 - runs `alembic upgrade head`
 
-This applies [0001_initial_core_schema.py](/Users/michaelsullivan/Code/ChartProject/backend/migrations/versions/0001_initial_core_schema.py).
+This applies the current Alembic chain through [0003_add_market_price_points.py](/Users/michaelsullivan/Code/ChartProject/backend/migrations/versions/0003_add_market_price_points.py).
 
 ## Verification
 
@@ -171,13 +175,17 @@ compose.yaml
 - Raw API payloads are archived in Postgres first via `raw_ingestion_artifacts`
 - Historical tweet backfills currently use `twitterapi.io` `advanced_search`
 - Historical backfills are sliced into UTC time windows and paginated with `cursor` plus `max_id`
-- Frontend work is intentionally minimal until the ingestion and data layers are in place
+- BTC/USD daily history is archived locally from the FRED `CBBTCUSD` series
+- Canonical relational tables now include `users`, `tweets`, `tweet_references`, and `market_price_points`
+- Validation scripts exist for normalized tweet data and normalized BTC price data
+- The first view endpoint is intentionally specific and request-time only: `/api/views/author-vs-btc/{username}`
+- Frontend work remains intentionally minimal until the data and first view layers are in place
 
 ## Next implementation steps
 
-1. Add a read-only extraction layer that flattens archived raw tweets into clean exports or views.
-2. Normalize archived raw users and tweets into the canonical relational tables.
-3. Add validation queries and scripts for coverage, duplicates, and date-boundary checks.
+1. Wire the frontend to the first backend view endpoint and evaluate the chart visually.
+2. Decide whether tweet granularity should remain weekly or switch to daily for this first chart.
+3. Decide whether BTC should remain daily in the payload or also be aggregated for presentation.
 4. Add backup and restore scripts for moving the database between machines.
 
 ## Raw ingest safety
@@ -195,6 +203,26 @@ The current raw ingest path is designed for cautious full-history backfills befo
 - waits briefly between page requests
 - stores run progress on `ingestion_runs`
 - supports resume from a failed single-window run with `--resume-run-id`
+
+## Canonical data and local market data
+
+The current normalized/local tables are:
+
+- `users`
+- `tweets`
+- `tweet_references`
+- `market_price_points`
+- `ingestion_runs`
+- `raw_ingestion_artifacts`
+
+The working local data flow is now:
+
+1. Archive raw tweet and BTC source payloads into `raw_ingestion_artifacts`.
+2. Normalize those archived payloads into canonical relational tables.
+3. Run local validation against raw vs normalized data.
+4. Build dedicated backend view payloads from canonical tables only.
+
+No live provider calls are required for normalization, validation, or the `author-vs-btc` view.
 
 ## Ingest scripts
 
@@ -265,3 +293,73 @@ In practice, the provider's pagination is much more stable when historical backf
 - `--resume-run-id <id>`
 - `--query-fragment "<extra advanced search terms>"`
 - `--window-months 1`
+
+### 4. Fetch raw BTC/USD daily history
+
+BTC/USD daily data is currently archived from the FRED `CBBTCUSD` series.
+
+```bash
+cd /Users/michaelsullivan/Code/ChartProject
+source .venv/bin/activate
+cd backend
+python scripts/ingest/fetch_btc_fred_daily.py
+```
+
+## Normalization scripts
+
+### Normalize archived tweets for one user
+
+```bash
+cd /Users/michaelsullivan/Code/ChartProject
+source .venv/bin/activate
+cd backend
+python scripts/normalize/normalize_archived_user.py --username saylor
+```
+
+### Normalize archived BTC price points
+
+```bash
+cd /Users/michaelsullivan/Code/ChartProject
+source .venv/bin/activate
+cd backend
+python scripts/normalize/normalize_market_price_points.py --asset-symbol BTC --quote-currency USD --interval day
+```
+
+## Validation scripts
+
+### Validate normalized tweets for one user
+
+```bash
+cd /Users/michaelsullivan/Code/ChartProject
+source .venv/bin/activate
+cd backend
+python scripts/validate/validate_normalized_user.py --username saylor
+```
+
+### Validate normalized BTC price points
+
+```bash
+cd /Users/michaelsullivan/Code/ChartProject
+source .venv/bin/activate
+cd backend
+python scripts/validate/validate_market_price_points.py --asset-symbol BTC --quote-currency USD --interval day
+```
+
+## First backend view
+
+The first dedicated backend view endpoint is:
+
+```text
+/api/views/author-vs-btc/{username}?granularity=week
+```
+
+Current behavior:
+
+- `username` identifies the subject
+- `granularity` supports `day` or `week` and currently defaults to `week`
+- tweet counts include all authored tweets, including replies and quote tweets
+- tweet series are zero-filled for a continuous UTC timeline
+- BTC series come from local `market_price_points`
+- the endpoint returns one payload containing both tweet activity and BTC price data
+
+Current local BTC coverage begins on `2014-12-01T00:00:00Z` because that is where the FRED `CBBTCUSD` series starts.
