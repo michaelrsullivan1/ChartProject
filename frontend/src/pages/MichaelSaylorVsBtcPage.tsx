@@ -185,7 +185,7 @@ function MichaelSaylorChartSection({ payload }: { payload: MichaelSaylorVsBtcRes
           </span>
           <span className="chart-legend-item">
             <span className="chart-swatch chart-swatch-tweet" />
-            Weekly tweet histogram
+            Weekly tweet trend
           </span>
         </div>
         <p className="chart-caption">
