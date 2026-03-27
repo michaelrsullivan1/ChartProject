@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   ColorType,
@@ -7,6 +7,7 @@ import {
   createChart,
   type HistogramData,
   type LineData,
+  type MouseEventParams,
   type Time,
 } from "lightweight-charts";
 
@@ -15,6 +16,34 @@ import type { MichaelSaylorVsBtcResponse } from "../api/michaelSaylorVsBtc";
 type MichaelSaylorVsBtcTradingViewChartProps = {
   payload: MichaelSaylorVsBtcResponse;
 };
+
+type HoverSnapshot = {
+  dateLabel: string;
+  btcPriceLabel: string;
+  tweetCountLabel: string;
+  hasBtcValue: boolean;
+};
+
+type SeriesPoint = {
+  time: string;
+  value: number;
+};
+
+const currencyFormatter = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+const integerFormatter = new Intl.NumberFormat("en-US");
+
+const fullDateFormatter = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+  timeZone: "UTC",
+});
 
 const chartOptions = {
   layout: {
@@ -54,8 +83,8 @@ const chartOptions = {
     timeVisible: true,
     secondsVisible: false,
     rightOffset: 4,
-    barSpacing: 8,
-    minBarSpacing: 0.4,
+    barSpacing: 8.5,
+    minBarSpacing: 1.5,
   },
   handleScroll: {
     mouseWheel: true,
@@ -74,6 +103,15 @@ export function MichaelSaylorVsBtcTradingViewChart({
   payload,
 }: MichaelSaylorVsBtcTradingViewChartProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const btcSeriesData = useMemo(() => buildBtcSeries(payload), [payload]);
+  const tweetSeriesData = useMemo(() => buildTweetSeries(payload), [payload]);
+  const [hoverSnapshot, setHoverSnapshot] = useState<HoverSnapshot>(() =>
+    buildLatestHoverSnapshot(btcSeriesData, tweetSeriesData),
+  );
+
+  useEffect(() => {
+    setHoverSnapshot(buildLatestHoverSnapshot(btcSeriesData, tweetSeriesData));
+  }, [btcSeriesData, tweetSeriesData]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -108,7 +146,7 @@ export function MichaelSaylorVsBtcTradingViewChart({
       {
         title: "Tweets / week",
         color: "#ffb240",
-        lastValueVisible: false,
+        lastValueVisible: true,
         priceLineVisible: false,
         priceFormat: {
           type: "volume",
@@ -131,14 +169,37 @@ export function MichaelSaylorVsBtcTradingViewChart({
       },
     });
 
-    btcSeries.setData(buildBtcSeries(payload));
-    tweetSeries.setData(buildTweetSeries(payload));
+    btcSeries.setData(btcSeriesData);
+    tweetSeries.setData(tweetSeriesData);
 
     const panes = chart.panes();
     panes[0]?.setHeight(320);
-    panes[1]?.setHeight(160);
+    panes[1]?.setHeight(180);
 
     chart.timeScale().fitContent();
+
+    const handleCrosshairMove = (param: MouseEventParams<Time>) => {
+      if (!param.point || !param.time) {
+        setHoverSnapshot(buildLatestHoverSnapshot(btcSeriesData, tweetSeriesData));
+        return;
+      }
+
+      const btcPoint = param.seriesData.get(btcSeries) as LineData<Time> | undefined;
+      const tweetPoint = param.seriesData.get(tweetSeries) as HistogramData<Time> | undefined;
+
+      setHoverSnapshot({
+        dateLabel: formatTimeLabel(param.time),
+        btcPriceLabel:
+          btcPoint?.value !== undefined ? currencyFormatter.format(btcPoint.value) : "No BTC data",
+        tweetCountLabel:
+          tweetPoint?.value !== undefined
+            ? `${integerFormatter.format(tweetPoint.value)} tweets`
+            : "No tweet bucket",
+        hasBtcValue: btcPoint?.value !== undefined,
+      });
+    };
+
+    chart.subscribeCrosshairMove(handleCrosshairMove);
 
     const resizeObserver = new ResizeObserver((entries) => {
       const entry = entries[0];
@@ -152,12 +213,36 @@ export function MichaelSaylorVsBtcTradingViewChart({
     resizeObserver.observe(container);
 
     return () => {
+      chart.unsubscribeCrosshairMove(handleCrosshairMove);
       resizeObserver.disconnect();
       chart.remove();
     };
-  }, [payload]);
+  }, [btcSeriesData, tweetSeriesData]);
 
-  return <div className="tradingview-chart" ref={containerRef} />;
+  return (
+    <div className="tradingview-chart-shell">
+      <div className="chart-hover-strip" aria-live="polite">
+        <div className="chart-hover-item">
+          <span className="chart-hover-label">Date</span>
+          <span className="chart-hover-value">{hoverSnapshot.dateLabel}</span>
+        </div>
+        <div className="chart-hover-item">
+          <span className="chart-hover-label">BTC</span>
+          <span
+            className={`chart-hover-value${hoverSnapshot.hasBtcValue ? "" : " is-muted"}`}
+          >
+            {hoverSnapshot.btcPriceLabel}
+          </span>
+        </div>
+        <div className="chart-hover-item">
+          <span className="chart-hover-label">Tweets That Week</span>
+          <span className="chart-hover-value">{hoverSnapshot.tweetCountLabel}</span>
+        </div>
+      </div>
+
+      <div className="tradingview-chart" ref={containerRef} />
+    </div>
+  );
 }
 
 function buildBtcSeries(payload: MichaelSaylorVsBtcResponse): LineData<Time>[] {
@@ -168,11 +253,68 @@ function buildBtcSeries(payload: MichaelSaylorVsBtcResponse): LineData<Time>[] {
 }
 
 function buildTweetSeries(payload: MichaelSaylorVsBtcResponse): HistogramData<Time>[] {
-  return payload.tweet_series.map((point) => ({
-    time: toBusinessDay(point.period_start),
-    value: point.tweet_count,
-    color: point.tweet_count === 0 ? "rgba(255, 178, 64, 0.18)" : "#ffb240",
-  }));
+  const series: HistogramData<Time>[] = [];
+
+  for (const point of payload.tweet_series) {
+    for (const day of expandWeek(point.period_start)) {
+      series.push({
+        time: day,
+        value: point.tweet_count,
+        color: point.tweet_count === 0 ? "rgba(255, 178, 64, 0.14)" : "#ffb240",
+      });
+    }
+  }
+
+  return series;
+}
+
+function buildLatestHoverSnapshot(
+  btcSeriesData: LineData<Time>[],
+  tweetSeriesData: HistogramData<Time>[],
+): HoverSnapshot {
+  const latestBtc = btcSeriesData[btcSeriesData.length - 1];
+  const latestTweets = tweetSeriesData[tweetSeriesData.length - 1];
+  const time = latestBtc?.time ?? latestTweets?.time ?? "1970-01-01";
+
+  return {
+    dateLabel: formatTimeLabel(time),
+    btcPriceLabel:
+      latestBtc?.value !== undefined ? currencyFormatter.format(latestBtc.value) : "No BTC data",
+    tweetCountLabel:
+      latestTweets?.value !== undefined
+        ? `${integerFormatter.format(latestTweets.value)} tweets`
+        : "No tweet bucket",
+    hasBtcValue: latestBtc?.value !== undefined,
+  };
+}
+
+function expandWeek(periodStart: string): string[] {
+  const result: string[] = [];
+  const start = new Date(periodStart);
+
+  for (let dayOffset = 0; dayOffset < 7; dayOffset += 1) {
+    const next = new Date(start);
+    next.setUTCDate(start.getUTCDate() + dayOffset);
+    result.push(next.toISOString().slice(0, 10));
+  }
+
+  return result;
+}
+
+function formatTimeLabel(time: Time): string {
+  return fullDateFormatter.format(normalizeTime(time));
+}
+
+function normalizeTime(time: Time): Date {
+  if (typeof time === "string") {
+    return new Date(`${time}T00:00:00Z`);
+  }
+
+  if (typeof time === "number") {
+    return new Date(time * 1000);
+  }
+
+  return new Date(Date.UTC(time.year, time.month - 1, time.day));
 }
 
 function toBusinessDay(value: string): string {

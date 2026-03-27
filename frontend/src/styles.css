@@ -227,6 +227,46 @@ body {
   overflow: hidden;
 }
 
+.tradingview-chart-shell {
+  display: grid;
+  gap: 10px;
+}
+
+.chart-hover-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.chart-hover-item {
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 245, 220, 0.1);
+  border-radius: 16px;
+  background: rgba(21, 17, 13, 0.72);
+}
+
+.chart-hover-label,
+.chart-hover-value {
+  display: block;
+}
+
+.chart-hover-label {
+  color: var(--accent);
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.chart-hover-value {
+  margin-top: 6px;
+  color: #fff2d0;
+  font-size: 1rem;
+}
+
+.chart-hover-value.is-muted {
+  color: var(--muted);
+}
+
 .tradingview-chart {
   width: 100%;
   height: 560px;
@@ -303,6 +343,10 @@ body {
 
 @media (max-width: 560px) {
   .metric-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .chart-hover-strip {
     grid-template-columns: 1fr;
   }
 
