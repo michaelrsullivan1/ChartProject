@@ -16,6 +16,8 @@ export type MichaelSaylorVsBtcResponse = {
     period_start: string;
     tweet_count: number;
     like_count: number;
+    bookmark_count: number;
+    impression_count: number;
   }>;
   btc_series: Array<{
     timestamp: string;

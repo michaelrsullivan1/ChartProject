@@ -45,7 +45,12 @@ def build_author_vs_btc_view(
             raise RuntimeError(f"No canonical user found for username={request.username!r}.")
 
         tweet_rows = session.execute(
-            select(Tweet.created_at_platform, Tweet.like_count)
+            select(
+                Tweet.created_at_platform,
+                Tweet.like_count,
+                Tweet.bookmark_count,
+                Tweet.impression_count,
+            )
             .where(Tweet.author_user_id == user.id)
             .order_by(Tweet.created_at_platform)
         ).all()
@@ -178,17 +183,27 @@ def build_author_top_tweet_for_week(
 
 
 def _build_tweet_series(
-    tweet_rows: list[tuple[datetime, int | None]],
+    tweet_rows: list[tuple[datetime, int | None, int | None, int | None]],
     *,
     bucket_fn,
     granularity: str,
 ) -> list[dict[str, object]]:
     counts: dict[datetime, dict[str, int]] = {}
-    for tweet_time, like_count in tweet_rows:
+    for tweet_time, like_count, bookmark_count, impression_count in tweet_rows:
         bucket_start = bucket_fn(tweet_time)
-        bucket = counts.setdefault(bucket_start, {"tweet_count": 0, "like_count": 0})
+        bucket = counts.setdefault(
+            bucket_start,
+            {
+                "tweet_count": 0,
+                "like_count": 0,
+                "bookmark_count": 0,
+                "impression_count": 0,
+            },
+        )
         bucket["tweet_count"] += 1
         bucket["like_count"] += like_count or 0
+        bucket["bookmark_count"] += bookmark_count or 0
+        bucket["impression_count"] += impression_count or 0
 
     sorted_buckets = sorted(counts.keys())
     current = sorted_buckets[0]
@@ -201,6 +216,8 @@ def _build_tweet_series(
                 "period_start": current.isoformat().replace("+00:00", "Z"),
                 "tweet_count": counts.get(current, {}).get("tweet_count", 0),
                 "like_count": counts.get(current, {}).get("like_count", 0),
+                "bookmark_count": counts.get(current, {}).get("bookmark_count", 0),
+                "impression_count": counts.get(current, {}).get("impression_count", 0),
             }
         )
         current += step

@@ -49,7 +49,7 @@ type SelectedWeek = {
 };
 
 type PriceMode = "btc" | "mstr" | "both";
-type ActivityMode = "tweets" | "likes";
+type ActivityMode = "tweets" | "likes" | "bookmarks" | "impressions";
 type SentimentMode = "raw" | "weighted-4w" | "weighted-8w" | "weighted-12w";
 type SentimentSeriesPoint = BaselineData<Time> | WhitespaceData<Time>;
 
@@ -165,10 +165,7 @@ export function MichaelSaylorVsBtcTradingViewChart({
   const [sentimentMode, setSentimentMode] = useState<SentimentMode>("weighted-8w");
   const btcSeriesData = useMemo(() => buildBtcSeries(payload), [payload]);
   const mstrSeriesData = useMemo(() => buildMstrSeries(payload), [payload]);
-  const activitySeriesData = useMemo(
-    () => buildActivitySeries(payload, activityMode),
-    [payload, activityMode],
-  );
+  const activitySeriesData = useMemo(() => buildActivitySeries(payload, activityMode), [payload, activityMode]);
   const sentimentSeriesData = useMemo<SentimentSeriesPoint[]>(
     () => buildSentimentSeries(sentimentPayload, sentimentMode),
     [sentimentPayload, sentimentMode],
@@ -193,6 +190,7 @@ export function MichaelSaylorVsBtcTradingViewChart({
     response: null,
     error: null,
   });
+  const activityVisuals = useMemo(() => getActivityVisuals(activityMode), [activityMode]);
 
   useEffect(() => {
     setHoverSnapshot(
@@ -332,15 +330,9 @@ export function MichaelSaylorVsBtcTradingViewChart({
       AreaSeries,
       {
         title: "",
-        lineColor: activityMode === "tweets" ? "#76c7ff" : "#ff6c8b",
-        topColor:
-          activityMode === "tweets"
-            ? "rgba(118, 199, 255, 0.22)"
-            : "rgba(255, 108, 139, 0.22)",
-        bottomColor:
-          activityMode === "tweets"
-            ? "rgba(118, 199, 255, 0.02)"
-            : "rgba(255, 108, 139, 0.03)",
+        lineColor: activityVisuals.lineColor,
+        topColor: activityVisuals.topColor,
+        bottomColor: activityVisuals.bottomColor,
         lineWidth: 3,
         lineType: LineType.Curved,
         lastValueVisible: false,
@@ -348,7 +340,7 @@ export function MichaelSaylorVsBtcTradingViewChart({
         crosshairMarkerVisible: true,
         crosshairMarkerRadius: 5,
         crosshairMarkerBorderWidth: 2,
-        crosshairMarkerBorderColor: activityMode === "tweets" ? "#76c7ff" : "#ff6c8b",
+        crosshairMarkerBorderColor: activityVisuals.markerBorderColor,
         crosshairMarkerBackgroundColor: "#17130f",
         priceFormat: {
           type: "volume",
@@ -565,6 +557,8 @@ export function MichaelSaylorVsBtcTradingViewChart({
               [
                 ["tweets", "Tweets / week"],
                 ["likes", "Likes / week"],
+                ["bookmarks", "Bookmarks / week"],
+                ["impressions", "Impressions / week"],
               ] as const
             ).map(([mode, label]) => (
               <button
@@ -578,7 +572,7 @@ export function MichaelSaylorVsBtcTradingViewChart({
             ))}
           </div>
           <p className="chart-control-note">
-            Switch the middle pane between authored tweet volume and the total likes earned by
+            Switch the middle pane between authored tweet volume and weekly engagement totals for
             tweets created in each week.
           </p>
         </div>
@@ -843,7 +837,7 @@ function buildActivitySeries(
 ): AreaData<Time>[] {
   return payload.tweet_series.map((point) => ({
     time: toBusinessDay(point.period_start),
-    value: activityMode === "tweets" ? point.tweet_count : point.like_count,
+    value: activityValueForMode(point, activityMode),
   }));
 }
 
@@ -990,17 +984,96 @@ function sentimentModeLabel(mode: SentimentMode): string {
 }
 
 function activityModeLabel(mode: ActivityMode): string {
-  return mode === "tweets" ? "Tweets / week" : "Likes / week";
+  switch (mode) {
+    case "tweets":
+      return "Tweets / week";
+    case "likes":
+      return "Likes / week";
+    case "bookmarks":
+      return "Bookmarks / week";
+    case "impressions":
+      return "Impressions / week";
+  }
 }
 
 function activityHoverLabel(mode: ActivityMode): string {
-  return mode === "tweets" ? "Tweets That Week" : "Likes That Week";
+  switch (mode) {
+    case "tweets":
+      return "Tweets That Week";
+    case "likes":
+      return "Likes That Week";
+    case "bookmarks":
+      return "Bookmarks That Week";
+    case "impressions":
+      return "Impressions That Week";
+  }
 }
 
 function formatActivityHoverValue(mode: ActivityMode, value: number): string {
-  return mode === "tweets"
-    ? `${integerFormatter.format(value)} tweets`
-    : `${integerFormatter.format(value)} likes`;
+  switch (mode) {
+    case "tweets":
+      return `${integerFormatter.format(value)} tweets`;
+    case "likes":
+      return `${integerFormatter.format(value)} likes`;
+    case "bookmarks":
+      return `${integerFormatter.format(value)} bookmarks`;
+    case "impressions":
+      return `${formatCompactCount(value)} impressions`;
+  }
+}
+
+function activityValueForMode(
+  point: MichaelSaylorVsBtcResponse["tweet_series"][number],
+  mode: ActivityMode,
+): number {
+  switch (mode) {
+    case "tweets":
+      return point.tweet_count;
+    case "likes":
+      return point.like_count;
+    case "bookmarks":
+      return point.bookmark_count;
+    case "impressions":
+      return point.impression_count;
+  }
+}
+
+function getActivityVisuals(mode: ActivityMode): {
+  lineColor: string;
+  topColor: string;
+  bottomColor: string;
+  markerBorderColor: string;
+} {
+  switch (mode) {
+    case "tweets":
+      return {
+        lineColor: "#76c7ff",
+        topColor: "rgba(118, 199, 255, 0.22)",
+        bottomColor: "rgba(118, 199, 255, 0.02)",
+        markerBorderColor: "#76c7ff",
+      };
+    case "likes":
+      return {
+        lineColor: "#ff6c8b",
+        topColor: "rgba(255, 108, 139, 0.22)",
+        bottomColor: "rgba(255, 108, 139, 0.03)",
+        markerBorderColor: "#ff6c8b",
+      };
+    case "bookmarks":
+      return {
+        lineColor: "#d5a6ff",
+        topColor: "rgba(213, 166, 255, 0.22)",
+        bottomColor: "rgba(213, 166, 255, 0.03)",
+        markerBorderColor: "#d5a6ff",
+      };
+    case "impressions":
+      return {
+        lineColor: "#4fe0c6",
+        topColor: "rgba(79, 224, 198, 0.22)",
+        bottomColor: "rgba(79, 224, 198, 0.03)",
+        markerBorderColor: "#4fe0c6",
+      };
+  }
 }
 
 function computeWeightedSentimentDeviation(
