@@ -174,14 +174,17 @@ function MichaelSaylorChartSection({
           </p>
         </article>
         <article className="metric-card">
-          <p className="metric-label">Best / Worst Sentiment Weeks</p>
-          <p className="metric-value">
-            {formatSignedPercent(sentimentExtremes.best.value)} /{" "}
-            {formatSignedPercent(sentimentExtremes.worst.value)}
-          </p>
+          <p className="metric-label">Best Sentiment Week</p>
+          <p className="metric-value">{formatSignedPercent(sentimentExtremes.best.value)}</p>
           <p className="metric-note">
-            Best {formatCompactDate(sentimentExtremes.best.periodStart)} · Worst{" "}
-            {formatCompactDate(sentimentExtremes.worst.periodStart)}
+            Week of {formatCompactDate(sentimentExtremes.best.periodStart)}
+          </p>
+        </article>
+        <article className="metric-card">
+          <p className="metric-label">Worst Sentiment Week</p>
+          <p className="metric-value">{formatSignedPercent(sentimentExtremes.worst.value)}</p>
+          <p className="metric-note">
+            Week of {formatCompactDate(sentimentExtremes.worst.periodStart)}
           </p>
         </article>
       </div>
