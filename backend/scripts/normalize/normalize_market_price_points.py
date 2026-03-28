@@ -13,7 +13,7 @@ from app.services.market_data import NormalizeMarketPriceRequest, normalize_mark
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Normalize archived BTC/USD market chart artifacts into canonical market_price_points."
+        description="Normalize archived market chart artifacts into canonical market_price_points."
     )
     parser.add_argument("--asset-symbol", default="BTC")
     parser.add_argument("--quote-currency", default="USD")

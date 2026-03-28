@@ -15,7 +15,7 @@ from app.services.market_data import (
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Validate canonical market_price_points against archived raw BTC market chart artifacts."
+        description="Validate canonical market_price_points against archived raw market chart artifacts."
     )
     parser.add_argument("--asset-symbol", default="BTC")
     parser.add_argument("--quote-currency", default="USD")

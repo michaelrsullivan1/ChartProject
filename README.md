@@ -15,6 +15,7 @@ One full local flow is working end-to-end:
 - raw-first X/Twitter ingest archived into Postgres via `raw_ingestion_artifacts`
 - canonical normalization and validation for archived `saylor` tweet history
 - raw BTC/USD FRED ingest plus canonical normalization and validation
+- raw MSTR/USD Twelve Data ingest plus canonical normalization and validation
 - versioned RoBERTa tweet sentiment scoring stored in Postgres
 - a working chart flow from canonical data to backend payloads to frontend rendering
 - click-through drilldown for the top liked tweet in a selected week
@@ -31,7 +32,7 @@ The Foundation page still runs the backend health check and renders the full JSO
 The Michael Saylor page currently:
 
 - requests `/api/views/michael-saylor-vs-btc?granularity=week`
-- renders BTC and tweet-count panes with a shared time axis
+- renders BTC, MSTR, activity, and sentiment panes with a shared time axis
 - keeps BTC daily and tweet counts weekly in the current UI
 - shows hover state for the active date
 - loads the top liked tweet for the clicked week from a companion backend endpoint
@@ -59,6 +60,12 @@ Start backend and frontend for local development:
 
 ```bash
 ./scripts/dev.sh
+```
+
+Refresh local chart market data for both BTC and MSTR:
+
+```bash
+./scripts/refresh-market-data.sh
 ```
 
 Check backend health directly:
@@ -111,6 +118,12 @@ For X/Twitter ingest, also set:
 
 ```env
 CHART_TWITTERAPI_API_KEY=
+```
+
+For Twelve Data equity history, also set:
+
+```env
+CHART_TWELVEDATA_API_KEY=
 ```
 
 ### What `./scripts/setup-db.sh` does
@@ -181,7 +194,7 @@ The main runtime data directories currently kept in the repo are:
 
 ### Current data flow
 
-1. Archive raw user info, tweet search pages, and BTC market data into `raw_ingestion_artifacts`.
+1. Archive raw user info, tweet search pages, and market data payloads into `raw_ingestion_artifacts`.
 2. Normalize archived payloads into canonical relational tables.
 3. Run validation against raw versus normalized data.
 4. Enrich canonical tweets with versioned sentiment scores.
@@ -189,6 +202,11 @@ The main runtime data directories currently kept in the repo are:
 6. Render the current frontend chart from those backend view payloads.
 
 No live provider calls are required for normalization, validation, the Michael Saylor vs BTC page, or the top-liked-tweet drilldown.
+
+Current local market sources:
+
+- `BTC/USD` daily closes from FRED
+- `MSTR/USD` daily closes from Twelve Data
 
 ## Raw ingest behavior
 
@@ -222,7 +240,9 @@ Current behavior:
 - tweet counts include all authored tweets, including replies and quote tweets
 - tweet series are zero-filled for a continuous UTC timeline
 - BTC series come from local `market_price_points`
+- MSTR series come from local `market_price_points`
 - BTC stays daily in the payload and in the current chart UI
+- MSTR stays daily in the payload and in the current chart UI
 - the click drilldown ranks tweets within the selected week by `like_count`
 
 Current local BTC coverage begins on `2014-12-01T00:00:00Z` because that is where the FRED `CBBTCUSD` series starts.
@@ -292,6 +312,43 @@ cd backend
 python scripts/ingest/fetch_btc_fred_daily.py
 ```
 
+### Fetch raw MSTR/USD daily history
+
+```bash
+cd /Users/michaelsullivan/Code/ChartProject
+source .venv/bin/activate
+cd backend
+python scripts/ingest/fetch_equity_twelvedata_daily.py --symbol MSTR --asset-symbol MSTR
+```
+
+Useful options:
+
+- `--import-type full_backfill`
+- `--import-type refresh`
+- `--dry-run`
+
+Current refresh behavior:
+
+- the chart does not call Twelve Data at request time
+- MSTR prices are stored locally after ingest and normalization
+- running the fetch script again archives a new raw snapshot and the normalize step upserts canonical rows by day
+- the current Twelve Data script still requests the provider's full daily history response on each fetch, even for `refresh`
+- because normalization is idempotent, rerunning refresh updates local data safely rather than duplicating rows
+
+### Refresh both chart market sources in one pass
+
+```bash
+./scripts/refresh-market-data.sh
+```
+
+Notes:
+
+- refreshes `BTC/USD` from FRED and `MSTR/USD` from Twelve Data
+- normalizes both assets into `market_price_points`
+- validates both assets against archived raw payloads
+- uses `IMPORT_TYPE=refresh` by default
+- you can force a labeled backfill run with `IMPORT_TYPE=full_backfill ./scripts/refresh-market-data.sh`
+
 ## Normalization scripts
 
 ### Normalize archived tweets for one user
@@ -312,6 +369,15 @@ cd backend
 python scripts/normalize/normalize_market_price_points.py --asset-symbol BTC --quote-currency USD --interval day
 ```
 
+### Normalize archived MSTR price points
+
+```bash
+cd /Users/michaelsullivan/Code/ChartProject
+source .venv/bin/activate
+cd backend
+python scripts/normalize/normalize_market_price_points.py --asset-symbol MSTR --quote-currency USD --interval day
+```
+
 ## Validation scripts
 
 ### Validate normalized tweets for one user
@@ -330,6 +396,15 @@ cd /Users/michaelsullivan/Code/ChartProject
 source .venv/bin/activate
 cd backend
 python scripts/validate/validate_market_price_points.py --asset-symbol BTC --quote-currency USD --interval day
+```
+
+### Validate normalized MSTR price points
+
+```bash
+cd /Users/michaelsullivan/Code/ChartProject
+source .venv/bin/activate
+cd backend
+python scripts/validate/validate_market_price_points.py --asset-symbol MSTR --quote-currency USD --interval day
 ```
 
 ## Enrichment scripts
