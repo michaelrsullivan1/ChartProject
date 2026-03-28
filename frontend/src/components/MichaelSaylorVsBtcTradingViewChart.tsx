@@ -38,7 +38,6 @@ type TopTweetPanelState = {
 
 type SelectedWeek = {
   weekStart: string;
-  tweetCount: number;
 };
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
@@ -161,16 +160,6 @@ export function MichaelSaylorVsBtcTradingViewChart({
 
     const activeWeek = selectedWeek;
 
-    if (activeWeek.tweetCount === 0) {
-      setTopTweetPanel({
-        status: "loaded",
-        weekStart: activeWeek.weekStart,
-        response: null,
-        error: null,
-      });
-      return;
-    }
-
     const cached = topTweetCacheRef.current.get(activeWeek.weekStart);
     if (cached) {
       setTopTweetPanel({
@@ -242,13 +231,16 @@ export function MichaelSaylorVsBtcTradingViewChart({
 
     const btcSeries = chart.addSeries(LineSeries, {
       title: "BTC/USD",
-      color: "#76c7ff",
+      color: "#ffb240",
       lineWidth: 2,
       crosshairMarkerVisible: true,
-      crosshairMarkerRadius: 4,
+      crosshairMarkerRadius: 5,
+      crosshairMarkerBorderWidth: 2,
+      crosshairMarkerBorderColor: "#ffb240",
+      crosshairMarkerBackgroundColor: "#17130f",
       lastValueVisible: true,
       priceLineVisible: true,
-      priceLineColor: "#76c7ff",
+      priceLineColor: "#ffb240",
       priceFormat: {
         type: "price",
         precision: 2,
@@ -260,15 +252,18 @@ export function MichaelSaylorVsBtcTradingViewChart({
       AreaSeries,
       {
         title: "Tweets / week",
-        lineColor: "#ffb240",
-        topColor: "rgba(255, 178, 64, 0.22)",
-        bottomColor: "rgba(255, 178, 64, 0.02)",
+        lineColor: "#76c7ff",
+        topColor: "rgba(118, 199, 255, 0.22)",
+        bottomColor: "rgba(118, 199, 255, 0.02)",
         lineWidth: 3,
         lineType: LineType.Curved,
         lastValueVisible: true,
         priceLineVisible: false,
         crosshairMarkerVisible: true,
-        crosshairMarkerRadius: 4,
+        crosshairMarkerRadius: 5,
+        crosshairMarkerBorderWidth: 2,
+        crosshairMarkerBorderColor: "#76c7ff",
+        crosshairMarkerBackgroundColor: "#17130f",
         priceFormat: {
           type: "volume",
         },
@@ -334,7 +329,6 @@ export function MichaelSaylorVsBtcTradingViewChart({
 
       setSelectedWeek({
         weekStart,
-        tweetCount: tweetPoint.value,
       });
 
       setTopTweetPanel((current) => ({
@@ -474,11 +468,7 @@ function TopLikedTweetCardBody({
         <p className="top-tweet-status">{topTweetPanel.error ?? "Top tweet request failed."}</p>
       ) : null}
 
-      {topTweetPanel.status === "loaded" && (selectedWeek?.tweetCount ?? 0) === 0 ? (
-        <p className="top-tweet-status">No tweets were authored in this selected week.</p>
-      ) : null}
-
-      {topTweetPanel.status === "loaded" && (selectedWeek?.tweetCount ?? 0) !== 0 && topTweet === null ? (
+      {topTweetPanel.status === "loaded" && topTweet === null ? (
         <p className="top-tweet-status">No top liked tweet was found for this selected week.</p>
       ) : null}
 

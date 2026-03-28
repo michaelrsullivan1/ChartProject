@@ -42,12 +42,20 @@ body {
   width: min(1560px, calc(100vw - 24px));
 }
 
+.app-shell.app-shell-dashboard {
+  padding-top: 20px;
+}
+
 .hero {
   padding: 32px;
   border: 1px solid var(--panel-border);
   border-radius: 28px;
   background: linear-gradient(180deg, rgba(57, 37, 21, 0.86), rgba(20, 16, 12, 0.9));
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.28);
+}
+
+.hero.hero-compact {
+  padding: 18px 24px;
 }
 
 .eyebrow {
@@ -77,6 +85,10 @@ body {
   gap: 12px;
   margin-top: 28px;
   flex-wrap: wrap;
+}
+
+.hero.hero-compact .page-nav {
+  margin-top: 8px;
 }
 
 .page-nav-link {
@@ -117,6 +129,10 @@ body {
   display: grid;
   gap: 24px;
   margin-top: 24px;
+}
+
+.app-shell.app-shell-dashboard .content-stack {
+  margin-top: 16px;
 }
 
 .panel {
@@ -484,11 +500,11 @@ body {
 }
 
 .chart-swatch-tweet {
-  background: #ffb240;
+  background: #76c7ff;
 }
 
 .chart-swatch-btc {
-  background: #76c7ff;
+  background: #ffb240;
 }
 
 .chart-caption {
@@ -519,6 +535,10 @@ body {
 
   .hero {
     padding: 24px;
+  }
+
+  .hero.hero-compact {
+    padding: 16px 18px;
   }
 
   .metric-strip {

@@ -15,15 +15,19 @@ const navItems: Array<{
 ];
 
 export function AppShell({ activePage, onNavigate, children }: AppShellProps) {
+  const isDashboardPage = activePage === "michael-saylor-vs-btc";
+
   return (
-    <div className={`app-shell${activePage === "michael-saylor-vs-btc" ? " app-shell-wide" : ""}`}>
-      <header className="hero">
-        <p className="eyebrow">ChartProject</p>
-        <h1>Local-first X research foundation</h1>
-        <p className="hero-copy">
-          Backend ingestion and archival come first. The frontend stays lean
-          until the data layer is trustworthy.
-        </p>
+    <div className={`app-shell${isDashboardPage ? " app-shell-wide app-shell-dashboard" : ""}`}>
+      <header className={`hero${isDashboardPage ? " hero-compact" : ""}`}>
+        <p className="eyebrow">Sentiment Analysis</p>
+        {!isDashboardPage ? <h1>Local-first X research foundation</h1> : null}
+        {!isDashboardPage ? (
+          <p className="hero-copy">
+            Backend ingestion and archival come first. The frontend stays lean
+            until the data layer is trustworthy.
+          </p>
+        ) : null}
         <nav className="page-nav" aria-label="Primary">
           {navItems.map((item) => (
             <button
