@@ -341,11 +341,7 @@ export function MichaelSaylorVsBtcTradingViewChart({
         lineType: LineType.Curved,
         lastValueVisible: false,
         priceLineVisible: false,
-        crosshairMarkerVisible: true,
-        crosshairMarkerRadius: 5,
-        crosshairMarkerBorderWidth: 2,
-        crosshairMarkerBorderColor: activityVisuals.markerBorderColor,
-        crosshairMarkerBackgroundColor: "#17130f",
+        crosshairMarkerVisible: false,
         priceFormat: {
           type: "volume",
         },
@@ -374,15 +370,11 @@ export function MichaelSaylorVsBtcTradingViewChart({
         lineType: LineType.Curved,
         lastValueVisible: false,
         priceLineVisible: false,
-        crosshairMarkerVisible: true,
-        crosshairMarkerRadius: 5,
-        crosshairMarkerBorderWidth: 2,
-        crosshairMarkerBorderColor: "#7af0b6",
-        crosshairMarkerBackgroundColor: "#17130f",
+        crosshairMarkerVisible: false,
         priceFormat: {
-          type: "price",
-          precision: 3,
+          type: "custom",
           minMove: 0.001,
+          formatter: formatSignedSentimentPercent,
         },
         autoscaleInfoProvider: () => ({
           priceRange: sentimentRange,
@@ -468,7 +460,7 @@ export function MichaelSaylorVsBtcTradingViewChart({
             ? formatActivityHoverValue(activityMode, activityPoint.value)
             : `No ${activityMode} bucket`,
         sentimentLabel: hasSeriesValue(sentimentPoint)
-          ? `${formatSignedSentiment(sentimentPoint.value)} vs baseline`
+          ? formatSignedSentiment(sentimentPoint.value)
           : "No sentiment bucket",
         hasBtcValue: btcPoint?.value !== undefined,
         hasMstrValue: mstrPoint?.value !== undefined,
@@ -644,7 +636,7 @@ export function MichaelSaylorVsBtcTradingViewChart({
             <span className="chart-hover-value">{hoverSnapshot.tweetCountLabel}</span>
           </div>
           <div className="chart-hover-item">
-            <span className="chart-hover-label">Sentiment Vs Baseline</span>
+            <span className="chart-hover-label">Sentiment Deviation</span>
             <span className="chart-hover-value">{hoverSnapshot.sentimentLabel}</span>
           </div>
         </div>
@@ -919,7 +911,7 @@ function buildLatestHoverSnapshot(
         : `No ${activityMode} bucket`,
     sentimentLabel:
       hasSeriesValue(latestSentiment)
-        ? `${formatSignedSentiment(latestSentiment.value)} vs baseline`
+        ? formatSignedSentiment(latestSentiment.value)
         : "No sentiment bucket",
     hasBtcValue: latestBtc?.value !== undefined,
     hasMstrValue: latestMstr?.value !== undefined,
@@ -974,20 +966,25 @@ function formatCompactCount(value: number): string {
 }
 
 function formatSignedSentiment(value: number): string {
-  const formatted = value.toFixed(3);
-  return value > 0 ? `+${formatted}` : formatted;
+  return formatSignedSentimentPercent(value);
+}
+
+function formatSignedSentimentPercent(value: number): string {
+  const percentage = value * 100;
+  const formatted = percentage.toFixed(1);
+  return percentage > 0 ? `+${formatted}%` : `${formatted}%`;
 }
 
 function sentimentModeLabel(mode: SentimentMode): string {
   switch (mode) {
     case "weighted-4w":
-      return "Sentiment vs baseline (4W weighted)";
+      return "Sentiment deviation (4W weighted)";
     case "weighted-8w":
-      return "Sentiment vs baseline (8W weighted)";
+      return "Sentiment deviation (8W weighted)";
     case "weighted-12w":
-      return "Sentiment vs baseline (12W weighted)";
+      return "Sentiment deviation (12W weighted)";
     case "raw":
-      return "Sentiment vs baseline (raw)";
+      return "Sentiment deviation (raw)";
   }
 }
 

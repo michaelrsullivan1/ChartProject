@@ -11,7 +11,7 @@ const navItems: Array<{
   label: string;
 }> = [
   { key: "home", label: "Foundation" },
-  { key: "michael-saylor-vs-btc", label: "Michael Saylor vs BTC" },
+  { key: "michael-saylor-vs-btc", label: "Michael Saylor Overview" },
 ];
 
 export function AppShell({ activePage, onNavigate, children }: AppShellProps) {
@@ -23,7 +23,7 @@ export function AppShell({ activePage, onNavigate, children }: AppShellProps) {
         <header className="dashboard-topbar">
           <div className="dashboard-topbar-brand">
             <span className="dashboard-topbar-kicker">Sentiment Analysis</span>
-            <span className="dashboard-topbar-title">Michael Saylor vs BTC</span>
+            <span className="dashboard-topbar-title">Michael Saylor Overview</span>
           </div>
           <nav className="dashboard-nav" aria-label="Primary">
             {navItems.map((item) => (

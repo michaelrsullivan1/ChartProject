@@ -25,12 +25,6 @@ const fullDateFormatter = new Intl.DateTimeFormat("en-US", {
   timeZone: "UTC",
 });
 
-const monthYearFormatter = new Intl.DateTimeFormat("en-US", {
-  month: "short",
-  year: "numeric",
-  timeZone: "UTC",
-});
-
 export function MichaelSaylorVsBtcPage() {
   const [payload, setPayload] = useState<MichaelSaylorVsBtcResponse | null>(null);
   const [sentimentPayload, setSentimentPayload] = useState<MichaelSaylorSentimentResponse | null>(
@@ -106,15 +100,10 @@ function MichaelSaylorChartSection({
 }) {
   const tweetCounts = payload.tweet_series.map((point) => point.tweet_count);
   const totalTweets = tweetCounts.reduce((sum, value) => sum + value, 0);
-  const zeroTweetWeeks = tweetCounts.filter((value) => value === 0).length;
   const maxTweetWeek = tweetCounts.reduce((max, value) => Math.max(max, value), 0);
-  const averageSentimentIndex = sentimentPayload.summary.average_sentiment_index;
   const latestBtcPoint = payload.btc_series[payload.btc_series.length - 1];
   const latestBtc = latestBtcPoint?.price_usd ?? 0;
-  const btcFirstIso = payload.btc_series[0]?.timestamp ?? payload.range.start;
   const btcLastIso = latestBtcPoint?.timestamp ?? payload.range.end;
-  const zeroWeekShare =
-    tweetCounts.length === 0 ? 0 : (zeroTweetWeeks / payload.tweet_series.length) * 100;
 
   return (
     <>
@@ -133,16 +122,6 @@ function MichaelSaylorChartSection({
           <p className="metric-label">Latest BTC</p>
           <p className="metric-value">{chartCurrencyFormatter.format(latestBtc)}</p>
           <p className="metric-note">Daily close from {formatFullDate(btcLastIso)}</p>
-        </article>
-        <article className="metric-card">
-          <p className="metric-label">Zero-filled weeks</p>
-          <p className="metric-value">{Math.round(zeroWeekShare)}%</p>
-          <p className="metric-note">{integerFormatter.format(zeroTweetWeeks)} weeks at zero</p>
-        </article>
-        <article className="metric-card">
-          <p className="metric-label">Baseline Sentiment</p>
-          <p className="metric-value">{formatSignedDecimal(averageSentimentIndex, 3)}</p>
-          <p className="metric-note">Average sentiment index across scored tweets</p>
         </article>
       </div>
 
@@ -169,7 +148,7 @@ function MichaelSaylorChartSection({
           </span>
           <span className="chart-legend-item">
             <span className="chart-swatch chart-swatch-sentiment" />
-            Sentiment deviation from baseline
+            Sentiment deviation
           </span>
         </div>
       </div>
@@ -177,17 +156,8 @@ function MichaelSaylorChartSection({
   );
 }
 
-function formatMonthYear(value: string | number): string {
-  return monthYearFormatter.format(normalizeDateValue(value));
-}
-
 function formatFullDate(value: string | number): string {
   return fullDateFormatter.format(normalizeDateValue(value));
-}
-
-function formatSignedDecimal(value: number, fractionDigits: number): string {
-  const formatted = value.toFixed(fractionDigits);
-  return value > 0 ? `+${formatted}` : formatted;
 }
 
 function normalizeDateValue(value: string | number): Date | number {
