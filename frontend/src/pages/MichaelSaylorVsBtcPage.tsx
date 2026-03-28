@@ -80,15 +80,18 @@ export function MichaelSaylorVsBtcPage() {
   }, []);
 
   return (
-    <section className="content-stack">
-      <article className="panel panel-accent">
-        <h2>Michael Saylor vs BTC</h2>
-        <p className="status-copy">
-          TradingView Lightweight Charts now renders the dedicated Michael Saylor view with synced
-          panes, pan and zoom, and a shared timeline across BTC and tweet activity.
-        </p>
-        {isLoading ? <p className="status-copy">Loading Michael Saylor view...</p> : null}
-        {error ? <p className="status-copy">{error}</p> : null}
+    <section className="dashboard-page">
+      <article className="panel panel-accent dashboard-workspace">
+        <div className="dashboard-workspace-header">
+          <div>
+            <p className="eyebrow dashboard-eyebrow">Michael Saylor vs BTC</p>
+            <p className="dashboard-subtitle">
+              Synced price, activity, and sentiment panes with a shared research timeline.
+            </p>
+          </div>
+          {isLoading ? <p className="status-copy">Loading Michael Saylor view...</p> : null}
+          {error ? <p className="status-copy">{error}</p> : null}
+        </div>
         {payload && sentimentPayload ? (
           <MichaelSaylorChartSection
             payload={payload}
@@ -96,79 +99,6 @@ export function MichaelSaylorVsBtcPage() {
           />
         ) : null}
       </article>
-
-      {payload && sentimentPayload ? (
-        <div className="content-grid">
-          <article className="panel">
-            <h2>Rendered from</h2>
-            <dl className="status-grid">
-              <div>
-                <dt>Endpoint</dt>
-                <dd>
-                  <code>/api/views/michael-saylor-vs-btc?granularity=week</code>
-                </dd>
-              </div>
-              <div>
-                <dt>Activity Series</dt>
-                <dd>
-                  {payload.tweet_series.length} weekly points with both authored tweet counts and
-                  weekly like totals
-                </dd>
-              </div>
-              <div>
-                <dt>BTC Series</dt>
-                <dd>{payload.btc_series.length} daily points from local FRED archive</dd>
-              </div>
-              <div>
-                <dt>MSTR Series</dt>
-                <dd>{payload.mstr_series.length} daily points from local equity archive</dd>
-              </div>
-              <div>
-                <dt>Sentiment Series</dt>
-                <dd>
-                  {sentimentPayload.sentiment_series.length} weekly points centered on the user
-                  baseline
-                </dd>
-              </div>
-              <div>
-                <dt>Timeline</dt>
-                <dd>
-                  {formatMonthYear(payload.range.start)} to{" "}
-                  {formatMonthYear(
-                    payload.btc_series[payload.btc_series.length - 1]?.timestamp ?? payload.range.end,
-                  )}
-                </dd>
-              </div>
-            </dl>
-          </article>
-
-          <article className="panel">
-            <h2>Immediate read</h2>
-            <ul className="feature-list">
-              <li>
-                The tweet history begins in {formatMonthYear(payload.range.start)}, while BTC data
-                only starts in {formatMonthYear(payload.btc_series[0]?.timestamp ?? payload.range.start)}.
-              </li>
-              <li>
-                The middle pane can now switch between authored tweet volume and total weekly likes,
-                which helps separate posting cadence from audience response.
-              </li>
-              <li>
-                Daily BTC next to weekly tweet buckets is readable in separate panes, but the
-                cadence mismatch is now much easier to inspect.
-              </li>
-              <li>
-                The top pane can switch between BTC, MSTR, or both at once, which makes it easier
-                to compare the author&apos;s tone against both the asset and the equity proxy.
-              </li>
-              <li>
-                The new sentiment pane is centered at zero, so weeks above the baseline read as
-                more positive than Saylor&apos;s own average and weeks below it read as more negative.
-              </li>
-            </ul>
-          </article>
-        </div>
-      ) : null}
     </section>
   );
 }
@@ -194,7 +124,7 @@ function MichaelSaylorChartSection({
 
   return (
     <>
-      <div className="metric-strip">
+      <div className="metric-strip metric-strip-dashboard">
         <article className="metric-card">
           <p className="metric-label">Authored tweets</p>
           <p className="metric-value">{integerFormatter.format(totalTweets)}</p>
@@ -222,14 +152,14 @@ function MichaelSaylorChartSection({
         </article>
       </div>
 
-      <div className="chart-shell">
+      <div className="chart-shell chart-shell-dashboard">
         <MichaelSaylorVsBtcTradingViewChart
           payload={payload}
           sentimentPayload={sentimentPayload}
         />
       </div>
 
-      <div className="chart-caption-row">
+      <div className="chart-caption-row chart-caption-row-dashboard">
         <div className="chart-legend" aria-label="Chart legend">
           <span className="chart-legend-item">
             <span className="chart-swatch chart-swatch-btc" />
