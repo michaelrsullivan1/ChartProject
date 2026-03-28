@@ -120,6 +120,10 @@ export function MichaelSaylorVsBtcPage() {
                 <dd>{payload.btc_series.length} daily points from local FRED archive</dd>
               </div>
               <div>
+                <dt>MSTR Series</dt>
+                <dd>{payload.mstr_series.length} daily points from local equity archive</dd>
+              </div>
+              <div>
                 <dt>Sentiment Series</dt>
                 <dd>
                   {sentimentPayload.sentiment_series.length} weekly points centered on the user
@@ -152,6 +156,10 @@ export function MichaelSaylorVsBtcPage() {
               <li>
                 Daily BTC next to weekly tweet buckets is readable in separate panes, but the
                 cadence mismatch is now much easier to inspect.
+              </li>
+              <li>
+                The top pane can switch between BTC, MSTR, or both at once, which makes it easier
+                to compare the author&apos;s tone against both the asset and the equity proxy.
               </li>
               <li>
                 The new sentiment pane is centered at zero, so weeks above the baseline read as
@@ -226,6 +234,10 @@ function MichaelSaylorChartSection({
           <span className="chart-legend-item">
             <span className="chart-swatch chart-swatch-btc" />
             BTC/USD line
+          </span>
+          <span className="chart-legend-item">
+            <span className="chart-swatch chart-swatch-mstr" />
+            MSTR line
           </span>
           <span className="chart-legend-item">
             <span className="chart-swatch chart-swatch-tweet" />

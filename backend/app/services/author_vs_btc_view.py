@@ -57,14 +57,28 @@ def build_author_vs_btc_view(
 
         range_start = tweet_series[0]["period_start"]
         range_end = tweet_series[-1]["period_start"]
+        range_start_dt = datetime.fromisoformat(range_start.replace("Z", "+00:00"))
+        range_end_dt = datetime.fromisoformat(range_end.replace("Z", "+00:00")) + timedelta(days=7)
+
         btc_rows = session.execute(
             select(MarketPricePoint.observed_at, MarketPricePoint.price)
             .where(
                 MarketPricePoint.asset_symbol == "BTC",
                 MarketPricePoint.quote_currency == "USD",
                 MarketPricePoint.interval == "day",
-                MarketPricePoint.observed_at >= datetime.fromisoformat(range_start.replace("Z", "+00:00")),
-                MarketPricePoint.observed_at <= datetime.fromisoformat(range_end.replace("Z", "+00:00")) + timedelta(days=7),
+                MarketPricePoint.observed_at >= range_start_dt,
+                MarketPricePoint.observed_at <= range_end_dt,
+            )
+            .order_by(MarketPricePoint.observed_at)
+        ).all()
+        mstr_rows = session.execute(
+            select(MarketPricePoint.observed_at, MarketPricePoint.price)
+            .where(
+                MarketPricePoint.asset_symbol == "MSTR",
+                MarketPricePoint.quote_currency == "USD",
+                MarketPricePoint.interval == "day",
+                MarketPricePoint.observed_at >= range_start_dt,
+                MarketPricePoint.observed_at <= range_end_dt,
             )
             .order_by(MarketPricePoint.observed_at)
         ).all()
@@ -76,6 +90,13 @@ def build_author_vs_btc_view(
             }
             for observed_at, price in btc_rows
         ]
+        mstr_series = [
+            {
+                "timestamp": observed_at.astimezone(UTC).isoformat().replace("+00:00", "Z"),
+                "price_usd": price,
+            }
+            for observed_at, price in mstr_rows
+        ]
 
         return {
             "view": request.view_name,
@@ -86,12 +107,14 @@ def build_author_vs_btc_view(
             },
             "tweet_granularity": granularity,
             "btc_granularity": "day",
+            "mstr_granularity": "day",
             "range": {
                 "start": tweet_series[0]["period_start"],
                 "end": tweet_series[-1]["period_start"],
             },
             "tweet_series": tweet_series,
             "btc_series": btc_series,
+            "mstr_series": mstr_series,
         }
     finally:
         session.close()

@@ -30,9 +30,11 @@ type MichaelSaylorVsBtcTradingViewChartProps = {
 type HoverSnapshot = {
   dateLabel: string;
   btcPriceLabel: string;
+  mstrPriceLabel: string;
   tweetCountLabel: string;
   sentimentLabel: string;
   hasBtcValue: boolean;
+  hasMstrValue: boolean;
 };
 
 type TopTweetPanelState = {
@@ -46,6 +48,7 @@ type SelectedWeek = {
   weekStart: string;
 };
 
+type PriceMode = "btc" | "mstr" | "both";
 type ActivityMode = "tweets" | "likes";
 type SentimentMode = "raw" | "weighted-4w";
 type SentimentSeriesPoint = BaselineData<Time> | WhitespaceData<Time>;
@@ -95,6 +98,11 @@ const chartOptions = {
     },
     textColor: "#d4c5ad",
     attributionLogo: false,
+    panes: {
+      enableResize: true,
+      separatorColor: "rgba(255, 245, 220, 0.16)",
+      separatorHoverColor: "rgba(255, 178, 64, 0.2)",
+    },
   },
   grid: {
     vertLines: {
@@ -135,7 +143,10 @@ const chartOptions = {
     vertTouchDrag: false,
   },
   handleScale: {
-    axisPressedMouseMove: true,
+    axisPressedMouseMove: {
+      time: true,
+      price: false,
+    },
     mouseWheel: true,
     pinch: true,
   },
@@ -147,9 +158,11 @@ export function MichaelSaylorVsBtcTradingViewChart({
 }: MichaelSaylorVsBtcTradingViewChartProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const topTweetCacheRef = useRef(new Map<string, MichaelSaylorTopLikedTweetResponse>());
+  const [priceMode, setPriceMode] = useState<PriceMode>("btc");
   const [activityMode, setActivityMode] = useState<ActivityMode>("tweets");
   const [sentimentMode, setSentimentMode] = useState<SentimentMode>("weighted-4w");
   const btcSeriesData = useMemo(() => buildBtcSeries(payload), [payload]);
+  const mstrSeriesData = useMemo(() => buildMstrSeries(payload), [payload]);
   const activitySeriesData = useMemo(
     () => buildActivitySeries(payload, activityMode),
     [payload, activityMode],
@@ -159,7 +172,13 @@ export function MichaelSaylorVsBtcTradingViewChart({
     [sentimentPayload, sentimentMode],
   );
   const [hoverSnapshot, setHoverSnapshot] = useState<HoverSnapshot>(() =>
-    buildLatestHoverSnapshot(btcSeriesData, activitySeriesData, sentimentSeriesData, activityMode),
+    buildLatestHoverSnapshot(
+      btcSeriesData,
+      mstrSeriesData,
+      activitySeriesData,
+      sentimentSeriesData,
+      activityMode,
+    ),
   );
   const [selectedWeek, setSelectedWeek] = useState<SelectedWeek | null>(null);
   const [topTweetPanel, setTopTweetPanel] = useState<TopTweetPanelState>({
@@ -171,9 +190,15 @@ export function MichaelSaylorVsBtcTradingViewChart({
 
   useEffect(() => {
     setHoverSnapshot(
-      buildLatestHoverSnapshot(btcSeriesData, activitySeriesData, sentimentSeriesData, activityMode),
+      buildLatestHoverSnapshot(
+        btcSeriesData,
+        mstrSeriesData,
+        activitySeriesData,
+        sentimentSeriesData,
+        activityMode,
+      ),
     );
-  }, [btcSeriesData, activitySeriesData, sentimentSeriesData, activityMode]);
+  }, [btcSeriesData, mstrSeriesData, activitySeriesData, sentimentSeriesData, activityMode]);
 
   useEffect(() => {
     if (selectedWeek === null) {
@@ -249,6 +274,14 @@ export function MichaelSaylorVsBtcTradingViewChart({
       ...chartOptions,
       width: container.clientWidth,
       height: container.clientHeight,
+      leftPriceScale: {
+        visible: priceMode === "mstr" || priceMode === "both",
+        borderVisible: false,
+      },
+      rightPriceScale: {
+        visible: priceMode === "btc" || priceMode === "both",
+        borderVisible: false,
+      },
     });
 
     const btcSeries = chart.addSeries(LineSeries, {
@@ -268,6 +301,25 @@ export function MichaelSaylorVsBtcTradingViewChart({
         precision: 2,
         minMove: 0.01,
       },
+    });
+    const mstrSeries = chart.addSeries(LineSeries, {
+      title: "MSTR",
+      color: "#ff6c8b",
+      lineWidth: 2,
+      crosshairMarkerVisible: true,
+      crosshairMarkerRadius: 5,
+      crosshairMarkerBorderWidth: 2,
+      crosshairMarkerBorderColor: "#ff6c8b",
+      crosshairMarkerBackgroundColor: "#17130f",
+      lastValueVisible: true,
+      priceLineVisible: true,
+      priceLineColor: "#ff6c8b",
+      priceFormat: {
+        type: "price",
+        precision: 2,
+        minMove: 0.01,
+      },
+      priceScaleId: "left",
     });
 
     const activitySeries = chart.addSeries(
@@ -331,28 +383,41 @@ export function MichaelSaylorVsBtcTradingViewChart({
       2,
     );
 
-    btcSeries.priceScale().applyOptions({
+    chart.priceScale("right", 0).applyOptions({
       scaleMargins: {
         top: 0.12,
         bottom: 0.08,
       },
     });
+    chart.priceScale("left", 0).applyOptions({
+      visible: priceMode === "mstr" || priceMode === "both",
+      borderVisible: false,
+      scaleMargins: {
+        top: 0.12,
+        bottom: 0.08,
+      },
+    });
+    chart.priceScale("right", 0).applyOptions({
+      visible: priceMode === "btc" || priceMode === "both",
+      borderVisible: false,
+    });
 
-    activitySeries.priceScale().applyOptions({
+    chart.priceScale("right", 1).applyOptions({
       scaleMargins: {
         top: 0.16,
         bottom: 0,
       },
     });
 
-    sentimentSeries.priceScale().applyOptions({
+    chart.priceScale("right", 2).applyOptions({
       scaleMargins: {
         top: 0.18,
         bottom: 0.06,
       },
     });
 
-    btcSeries.setData(btcSeriesData);
+    btcSeries.setData(priceMode === "mstr" ? [] : btcSeriesData);
+    mstrSeries.setData(priceMode === "btc" ? [] : mstrSeriesData);
     activitySeries.setData(activitySeriesData);
     sentimentSeries.setData(sentimentSeriesData);
 
@@ -368,6 +433,7 @@ export function MichaelSaylorVsBtcTradingViewChart({
         setHoverSnapshot(
           buildLatestHoverSnapshot(
             btcSeriesData,
+            mstrSeriesData,
             activitySeriesData,
             sentimentSeriesData,
             activityMode,
@@ -377,6 +443,7 @@ export function MichaelSaylorVsBtcTradingViewChart({
       }
 
       const btcPoint = param.seriesData.get(btcSeries) as LineData<Time> | undefined;
+      const mstrPoint = param.seriesData.get(mstrSeries) as LineData<Time> | undefined;
       const activityPoint = findWeeklyPointForTime(param.time, activitySeriesData);
       const sentimentPoint = findWeeklyPointForTime(param.time, sentimentSeriesData);
 
@@ -384,6 +451,10 @@ export function MichaelSaylorVsBtcTradingViewChart({
         dateLabel: formatTimeLabel(param.time),
         btcPriceLabel:
           btcPoint?.value !== undefined ? currencyFormatter.format(btcPoint.value) : "No BTC data",
+        mstrPriceLabel:
+          mstrPoint?.value !== undefined
+            ? currencyFormatter.format(mstrPoint.value)
+            : "No MSTR data",
         tweetCountLabel:
           activityPoint?.value !== undefined
             ? formatActivityHoverValue(activityMode, activityPoint.value)
@@ -392,6 +463,7 @@ export function MichaelSaylorVsBtcTradingViewChart({
           ? `${formatSignedSentiment(sentimentPoint.value)} vs baseline`
           : "No sentiment bucket",
         hasBtcValue: btcPoint?.value !== undefined,
+        hasMstrValue: mstrPoint?.value !== undefined,
       });
     };
 
@@ -439,11 +511,36 @@ export function MichaelSaylorVsBtcTradingViewChart({
       resizeObserver.disconnect();
       chart.remove();
     };
-  }, [btcSeriesData, activitySeriesData, sentimentSeriesData, activityMode]);
+  }, [btcSeriesData, mstrSeriesData, activitySeriesData, sentimentSeriesData, activityMode, priceMode]);
 
   return (
     <div className="tradingview-chart-shell">
       <aside className="chart-sidebar chart-sidebar-left">
+        <div className="chart-control-card">
+          <p className="chart-control-eyebrow">Top Pane</p>
+          <div className="chart-toggle-group chart-toggle-group-compact" role="group" aria-label="Top pane asset">
+            {(
+              [
+                ["btc", "BTC"],
+                ["mstr", "MSTR"],
+                ["both", "Both"],
+              ] as const
+            ).map(([mode, label]) => (
+              <button
+                key={mode}
+                className={`chart-toggle-button${priceMode === mode ? " is-active" : ""}`}
+                onClick={() => setPriceMode(mode)}
+                type="button"
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <p className="chart-control-note">
+            Switch the top pane between BTC price, MSTR price, or both at once with separate price scales.
+          </p>
+        </div>
+
         <div className="chart-control-card">
           <p className="chart-control-eyebrow">Middle Pane</p>
           <div className="chart-toggle-group" role="group" aria-label="Middle pane metric">
@@ -511,6 +608,14 @@ export function MichaelSaylorVsBtcTradingViewChart({
               className={`chart-hover-value${hoverSnapshot.hasBtcValue ? "" : " is-muted"}`}
             >
               {hoverSnapshot.btcPriceLabel}
+            </span>
+          </div>
+          <div className="chart-hover-item">
+            <span className="chart-hover-label">MSTR</span>
+            <span
+              className={`chart-hover-value${hoverSnapshot.hasMstrValue ? "" : " is-muted"}`}
+            >
+              {hoverSnapshot.mstrPriceLabel}
             </span>
           </div>
           <div className="chart-hover-item">
@@ -706,6 +811,13 @@ function buildBtcSeries(payload: MichaelSaylorVsBtcResponse): LineData<Time>[] {
   }));
 }
 
+function buildMstrSeries(payload: MichaelSaylorVsBtcResponse): LineData<Time>[] {
+  return payload.mstr_series.map((point) => ({
+    time: toBusinessDay(point.timestamp),
+    value: point.price_usd,
+  }));
+}
+
 function buildActivitySeries(
   payload: MichaelSaylorVsBtcResponse,
   activityMode: ActivityMode,
@@ -761,19 +873,24 @@ function buildSentimentSeries(
 
 function buildLatestHoverSnapshot(
   btcSeriesData: LineData<Time>[],
+  mstrSeriesData: LineData<Time>[],
   activitySeriesData: AreaData<Time>[],
   sentimentSeriesData: SentimentSeriesPoint[],
   activityMode: ActivityMode,
 ): HoverSnapshot {
   const latestBtc = btcSeriesData[btcSeriesData.length - 1];
+  const latestMstr = mstrSeriesData[mstrSeriesData.length - 1];
   const latestActivity = activitySeriesData[activitySeriesData.length - 1];
   const latestSentiment = sentimentSeriesData[sentimentSeriesData.length - 1];
-  const time = latestBtc?.time ?? latestActivity?.time ?? latestSentiment?.time ?? "1970-01-01";
+  const time =
+    latestBtc?.time ?? latestMstr?.time ?? latestActivity?.time ?? latestSentiment?.time ?? "1970-01-01";
 
   return {
     dateLabel: formatTimeLabel(time),
     btcPriceLabel:
       latestBtc?.value !== undefined ? currencyFormatter.format(latestBtc.value) : "No BTC data",
+    mstrPriceLabel:
+      latestMstr?.value !== undefined ? currencyFormatter.format(latestMstr.value) : "No MSTR data",
     tweetCountLabel:
       latestActivity?.value !== undefined
         ? formatActivityHoverValue(activityMode, latestActivity.value)
@@ -783,6 +900,7 @@ function buildLatestHoverSnapshot(
         ? `${formatSignedSentiment(latestSentiment.value)} vs baseline`
         : "No sentiment bucket",
     hasBtcValue: latestBtc?.value !== undefined,
+    hasMstrValue: latestMstr?.value !== undefined,
   };
 }
 

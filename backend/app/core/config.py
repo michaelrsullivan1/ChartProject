@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg://postgres:postgres@localhost:5432/chartproject"
     twitterapi_base_url: str = "https://api.twitterapi.io"
     twitterapi_api_key: str = ""
+    twelvedata_api_key: str = ""
     frontend_origin: str = "http://localhost:5173"
 
     model_config = SettingsConfigDict(

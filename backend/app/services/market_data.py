@@ -10,17 +10,29 @@ from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.core.config import settings
 from app.db.session import SessionLocal
 from app.models.ingestion_run import IngestionRun
 from app.models.market_price_point import MarketPricePoint
 from app.models.raw_ingestion_artifact import RawIngestionArtifact
 from app.services.fred_client import FredClient
+from app.services.twelvedata_client import TwelveDataClient
 
 
 @dataclass(slots=True)
 class RawFredSeriesRequest:
     series_id: str = "CBBTCUSD"
     asset_symbol: str = "BTC"
+    quote_currency: str = "USD"
+    interval: str = "day"
+    import_type: str = "full_backfill"
+    dry_run: bool = False
+
+
+@dataclass(slots=True)
+class RawEquitySeriesRequest:
+    symbol: str
+    asset_symbol: str
     quote_currency: str = "USD"
     interval: str = "day"
     import_type: str = "full_backfill"
@@ -176,6 +188,84 @@ def archive_fred_btc_daily_raw(
             started_at=started_at,
             completed_at=completed_at,
             notes="Raw FRED BTC daily archive completed successfully.",
+        )
+    finally:
+        if session is not None:
+            session.close()
+        if own_client:
+            client.close()
+
+
+def archive_twelvedata_equity_daily_raw(
+    request: RawEquitySeriesRequest,
+    *,
+    client: TwelveDataClient | None = None,
+    session_factory: sessionmaker[Session] = SessionLocal,
+) -> RawMarketDataSummary:
+    if request.interval != "day":
+        raise RuntimeError("Twelve Data equity ingestion currently supports only interval=day.")
+
+    own_client = client is None
+    client = client or TwelveDataClient(api_key=settings.twelvedata_api_key)
+    started_at = datetime.now(UTC)
+    session: Session | None = None
+    run: IngestionRun | None = None
+    run_id: int | None = None
+    try:
+        response_payload = client.get_time_series_daily_full(request.symbol)
+        points_archived = len(_extract_twelvedata_series_points(response_payload))
+        if not request.dry_run:
+            session = session_factory()
+            run = _create_market_ingestion_run(
+                session=session,
+                source_name="twelvedata",
+                endpoint_name="time_series_raw_archive",
+                import_type=request.import_type,
+                started_at=started_at,
+                notes=(
+                    f"symbol={request.symbol}; asset_symbol={request.asset_symbol}; "
+                    f"quote_currency={request.quote_currency}; interval={request.interval}"
+                ),
+            )
+            run_id = run.id
+            _store_market_raw_artifact(
+                session=session,
+                ingestion_run_id=run.id,
+                artifact_type="twelvedata_time_series_json",
+                payload_json={
+                    "endpoint": "/time_series",
+                    "request": {
+                        "symbol": request.symbol.upper(),
+                        "asset_symbol": request.asset_symbol.upper(),
+                        "quote_currency": request.quote_currency.upper(),
+                        "interval": request.interval,
+                        "fetched_at": datetime.now(UTC).isoformat(),
+                    },
+                    "response": response_payload,
+                },
+                record_count_estimate=points_archived,
+            )
+            completed_at = datetime.now(UTC)
+            run.completed_at = completed_at
+            run.status = "completed"
+            run.notes = (
+                f"Archived {points_archived} Twelve Data price points for "
+                f"{request.asset_symbol.upper()}/{request.quote_currency.upper()}."
+            )
+            session.commit()
+        else:
+            completed_at = datetime.now(UTC)
+
+        return RawMarketDataSummary(
+            run_id=run_id,
+            asset_symbol=request.asset_symbol.upper(),
+            quote_currency=request.quote_currency.upper(),
+            interval=request.interval,
+            points_archived=points_archived,
+            status="completed",
+            started_at=started_at,
+            completed_at=completed_at,
+            notes="Raw Twelve Data equity daily archive completed successfully.",
         )
     finally:
         if session is not None:
@@ -400,6 +490,40 @@ def _extract_fred_series_points(csv_text: str) -> list[tuple[datetime, float, fl
     return rows
 
 
+def _extract_twelvedata_series_points(
+    payload: dict[str, Any],
+) -> list[tuple[datetime, float, float | None, float | None]]:
+    if not isinstance(payload, dict):
+        return []
+    if payload.get("status") == "error":
+        code = payload.get("code")
+        message = payload.get("message")
+        raise RuntimeError(f"Twelve Data returned error code={code!r}: {message}")
+    values = payload.get("values")
+    if not isinstance(values, list):
+        return []
+
+    rows: list[tuple[datetime, float, float | None, float | None]] = []
+    for item in values:
+        if not isinstance(item, dict):
+            continue
+        raw_date = item.get("datetime")
+        raw_price = item.get("close")
+        raw_volume = item.get("volume")
+        if not isinstance(raw_date, str):
+            continue
+        if raw_price is None:
+            continue
+        try:
+            observed_at = datetime.fromisoformat(raw_date).replace(tzinfo=UTC)
+            price = float(raw_price)
+            total_volume = None if raw_volume is None else float(raw_volume)
+        except (TypeError, ValueError):
+            continue
+        rows.append((observed_at, price, None, total_volume))
+    return rows
+
+
 def _build_market_snapshots(
     session: Session,
     *,
@@ -415,8 +539,10 @@ def _build_market_snapshots(
         select(RawIngestionArtifact, IngestionRun)
         .join(IngestionRun, IngestionRun.id == RawIngestionArtifact.ingestion_run_id)
         .where(
-            RawIngestionArtifact.artifact_type == "fred_series_csv",
-            IngestionRun.source_name == "fred",
+            RawIngestionArtifact.artifact_type.in_(
+                ["fred_series_csv", "twelvedata_time_series_json"]
+            ),
+            IngestionRun.source_name.in_(["fred", "twelvedata"]),
         )
         .order_by(RawIngestionArtifact.id)
     ).all()
@@ -427,7 +553,9 @@ def _build_market_snapshots(
             continue
         request_payload = payload.get("request")
         response_payload = payload.get("response")
-        if not isinstance(request_payload, dict) or not isinstance(response_payload, dict):
+        if not isinstance(request_payload, dict):
+            continue
+        if not isinstance(response_payload, (dict, list)):
             continue
         if request_payload.get("asset_symbol") != asset_symbol.upper():
             continue
@@ -435,12 +563,20 @@ def _build_market_snapshots(
             continue
         if request_payload.get("interval") != interval:
             continue
-        csv_text = response_payload.get("csv_text")
-        if not isinstance(csv_text, str):
+        raw_artifacts_scanned += 1
+        if artifact.artifact_type == "fred_series_csv":
+            csv_text = response_payload.get("csv_text")
+            if not isinstance(csv_text, str):
+                continue
+            extracted_rows = _extract_fred_series_points(csv_text)
+        elif artifact.artifact_type == "twelvedata_time_series_json":
+            if not isinstance(response_payload, dict):
+                continue
+            extracted_rows = _extract_twelvedata_series_points(response_payload)
+        else:
             continue
 
-        raw_artifacts_scanned += 1
-        for observed_at, price, market_cap, total_volume in _extract_fred_series_points(csv_text):
+        for observed_at, price, market_cap, total_volume in extracted_rows:
             snapshot = MarketPriceSnapshot(
                 asset_symbol=asset_symbol.upper(),
                 quote_currency=quote_currency.upper(),

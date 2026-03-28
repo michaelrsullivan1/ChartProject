@@ -7,6 +7,7 @@ export type MichaelSaylorVsBtcResponse = {
   };
   tweet_granularity: string;
   btc_granularity: string;
+  mstr_granularity: string;
   range: {
     start: string;
     end: string;
@@ -17,6 +18,10 @@ export type MichaelSaylorVsBtcResponse = {
     like_count: number;
   }>;
   btc_series: Array<{
+    timestamp: string;
+    price_usd: number;
+  }>;
+  mstr_series: Array<{
     timestamp: string;
     price_usd: number;
   }>;

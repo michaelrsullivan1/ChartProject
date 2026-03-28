@@ -294,6 +294,10 @@ body {
   margin-top: 12px;
 }
 
+.chart-toggle-group-compact {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .chart-toggle-button {
   border: 1px solid rgba(255, 245, 220, 0.12);
   border-radius: 999px;
@@ -572,6 +576,10 @@ body {
   background: #ffb240;
 }
 
+.chart-swatch-mstr {
+  background: #ff6c8b;
+}
+
 .chart-swatch-sentiment {
   background: linear-gradient(180deg, #7af0b6 0%, #f0d38a 50%, #ff6c6c 100%);
 }
@@ -625,6 +633,10 @@ body {
   }
 
   .chart-toggle-group {
+    grid-template-columns: 1fr;
+  }
+
+  .chart-toggle-group-compact {
     grid-template-columns: 1fr;
   }
 
