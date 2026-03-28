@@ -30,3 +30,4 @@ class Tweet(TimestampMixin, Base):
 
     author: Mapped["User"] = relationship(back_populates="tweets")
     references: Mapped[list["TweetReference"]] = relationship(back_populates="tweet")
+    sentiment_scores: Mapped[list["TweetSentimentScore"]] = relationship(back_populates="tweet")

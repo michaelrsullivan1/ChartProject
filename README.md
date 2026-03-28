@@ -15,6 +15,7 @@ One full local flow is working end-to-end:
 - raw-first X/Twitter ingest archived into Postgres via `raw_ingestion_artifacts`
 - canonical normalization and validation for archived `saylor` tweet history
 - raw BTC/USD FRED ingest plus canonical normalization and validation
+- versioned RoBERTa tweet sentiment scoring stored in Postgres
 - a working chart flow from canonical data to backend payloads to frontend rendering
 - click-through drilldown for the top liked tweet in a selected week
 
@@ -174,6 +175,7 @@ The main runtime data directories currently kept in the repo are:
 - `tweets`
 - `tweet_references`
 - `market_price_points`
+- `tweet_sentiment_scores`
 - `ingestion_runs`
 - `raw_ingestion_artifacts`
 
@@ -182,8 +184,9 @@ The main runtime data directories currently kept in the repo are:
 1. Archive raw user info, tweet search pages, and BTC market data into `raw_ingestion_artifacts`.
 2. Normalize archived payloads into canonical relational tables.
 3. Run validation against raw versus normalized data.
-4. Build request-time backend view payloads from canonical tables.
-5. Render the current frontend chart from those backend view payloads.
+4. Enrich canonical tweets with versioned sentiment scores.
+5. Build request-time backend view payloads from canonical tables.
+6. Render the current frontend chart from those backend view payloads.
 
 No live provider calls are required for normalization, validation, the Michael Saylor vs BTC page, or the top-liked-tweet drilldown.
 
@@ -328,6 +331,25 @@ source .venv/bin/activate
 cd backend
 python scripts/validate/validate_market_price_points.py --asset-symbol BTC --quote-currency USD --interval day
 ```
+
+## Enrichment scripts
+
+### Score tweet sentiment for one or more normalized users
+
+```bash
+cd /Users/michaelsullivan/Code/ChartProject
+source .venv/bin/activate
+cd backend
+python scripts/enrich/score_tweet_sentiment.py --username saylor
+```
+
+Useful options:
+
+- `--username saylor otheruser`
+- `--dry-run`
+- `--overwrite-existing`
+- `--model-key some-custom-key`
+- `--batch-size 64`
 
 ## Backups
 

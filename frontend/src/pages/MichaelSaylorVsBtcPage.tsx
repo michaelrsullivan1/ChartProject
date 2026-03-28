@@ -4,6 +4,7 @@ import {
   fetchMichaelSaylorVsBtc,
   type MichaelSaylorVsBtcResponse,
 } from "../api/michaelSaylorVsBtc";
+import { fetchMichaelSaylorSentiment } from "../api/michaelSaylorSentiment";
 import { MichaelSaylorVsBtcTradingViewChart } from "../components/MichaelSaylorVsBtcTradingViewChart";
 
 const chartCurrencyFormatter = new Intl.NumberFormat("en-US", {
@@ -63,6 +64,28 @@ export function MichaelSaylorVsBtcPage() {
 
     return () => {
       cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    const abortController = new AbortController();
+
+    async function loadSentiment() {
+      try {
+        const sentimentPayload = await fetchMichaelSaylorSentiment("week", abortController.signal);
+        console.log("ChartProject michael-saylor sentiment payload", sentimentPayload);
+      } catch (loadError) {
+        if (abortController.signal.aborted) {
+          return;
+        }
+        console.error("ChartProject michael-saylor sentiment request failed", loadError);
+      }
+    }
+
+    void loadSentiment();
+
+    return () => {
+      abortController.abort();
     };
   }, []);
 
