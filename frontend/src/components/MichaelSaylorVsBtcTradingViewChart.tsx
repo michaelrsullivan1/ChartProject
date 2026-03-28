@@ -166,6 +166,10 @@ export function MichaelSaylorVsBtcTradingViewChart({
   const btcSeriesData = useMemo(() => buildBtcSeries(payload), [payload]);
   const mstrSeriesData = useMemo(() => buildMstrSeries(payload), [payload]);
   const activitySeriesData = useMemo(() => buildActivitySeries(payload, activityMode), [payload, activityMode]);
+  const activityRange = useMemo(
+    () => buildActivityRange(activitySeriesData, activityMode),
+    [activitySeriesData, activityMode],
+  );
   const sentimentSeriesData = useMemo<SentimentSeriesPoint[]>(
     () => buildSentimentSeries(sentimentPayload, sentimentMode),
     [sentimentPayload, sentimentMode],
@@ -345,6 +349,9 @@ export function MichaelSaylorVsBtcTradingViewChart({
         priceFormat: {
           type: "volume",
         },
+        autoscaleInfoProvider: () => ({
+          priceRange: activityRange,
+        }),
       },
       1,
     );
@@ -516,6 +523,7 @@ export function MichaelSaylorVsBtcTradingViewChart({
     btcSeriesData,
     mstrSeriesData,
     activitySeriesData,
+    activityRange,
     sentimentSeriesData,
     sentimentRange,
     activityMode,
@@ -1074,6 +1082,54 @@ function getActivityVisuals(mode: ActivityMode): {
         markerBorderColor: "#4fe0c6",
       };
   }
+}
+
+function buildActivityRange(
+  points: AreaData<Time>[],
+  mode: ActivityMode,
+): { minValue: number; maxValue: number } {
+  const focusedValues: number[] = [];
+  const fullValues: number[] = [];
+
+  for (const point of points) {
+    const value = point.value;
+    if (typeof value !== "number") {
+      continue;
+    }
+
+    fullValues.push(value);
+    if (normalizeTime(point.time).getTime() >= sentimentRangeFocusStart) {
+      focusedValues.push(value);
+    }
+  }
+
+  const sourceValues = focusedValues.length > 0 ? focusedValues : fullValues;
+  const percentile =
+    mode === "impressions"
+      ? 0.985
+      : mode === "likes" || mode === "bookmarks"
+        ? 0.99
+        : 0.995;
+  const paddingMultiplier =
+    mode === "impressions"
+      ? 1.06
+      : mode === "likes" || mode === "bookmarks"
+        ? 1.08
+        : 1.1;
+  const minimumRange =
+    mode === "impressions"
+      ? 1_000
+      : mode === "likes"
+        ? 100
+        : mode === "bookmarks"
+          ? 25
+          : 5;
+  const maxValue = Math.max(quantile(sourceValues, percentile) * paddingMultiplier, minimumRange);
+
+  return {
+    minValue: 0,
+    maxValue,
+  };
 }
 
 function computeWeightedSentimentDeviation(
