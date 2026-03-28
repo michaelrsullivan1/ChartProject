@@ -162,7 +162,7 @@ export function MichaelSaylorVsBtcTradingViewChart({
   const topTweetCacheRef = useRef(new Map<string, MichaelSaylorTopLikedTweetResponse>());
   const [priceMode, setPriceMode] = useState<PriceMode>("btc");
   const [activityMode, setActivityMode] = useState<ActivityMode>("tweets");
-  const [sentimentMode, setSentimentMode] = useState<SentimentMode>("weighted-4w");
+  const [sentimentMode, setSentimentMode] = useState<SentimentMode>("weighted-8w");
   const btcSeriesData = useMemo(() => buildBtcSeries(payload), [payload]);
   const mstrSeriesData = useMemo(() => buildMstrSeries(payload), [payload]);
   const activitySeriesData = useMemo(
@@ -174,8 +174,8 @@ export function MichaelSaylorVsBtcTradingViewChart({
     [sentimentPayload, sentimentMode],
   );
   const sentimentRange = useMemo(
-    () => buildSymmetricSentimentRange(sentimentSeriesData),
-    [sentimentSeriesData],
+    () => buildSymmetricSentimentRange(sentimentSeriesData, sentimentMode),
+    [sentimentSeriesData, sentimentMode],
   );
   const [hoverSnapshot, setHoverSnapshot] = useState<HoverSnapshot>(() =>
     buildLatestHoverSnapshot(
@@ -291,7 +291,7 @@ export function MichaelSaylorVsBtcTradingViewChart({
     });
 
     const btcSeries = chart.addSeries(LineSeries, {
-      title: "BTC/USD",
+      title: "",
       color: "#ffb240",
       lineWidth: 2,
       crosshairMarkerVisible: true,
@@ -299,8 +299,8 @@ export function MichaelSaylorVsBtcTradingViewChart({
       crosshairMarkerBorderWidth: 2,
       crosshairMarkerBorderColor: "#ffb240",
       crosshairMarkerBackgroundColor: "#17130f",
-      lastValueVisible: true,
-      priceLineVisible: true,
+      lastValueVisible: false,
+      priceLineVisible: false,
       priceLineColor: "#ffb240",
       priceFormat: {
         type: "price",
@@ -309,7 +309,7 @@ export function MichaelSaylorVsBtcTradingViewChart({
       },
     });
     const mstrSeries = chart.addSeries(LineSeries, {
-      title: "MSTR",
+      title: "",
       color: "#ff6c8b",
       lineWidth: 2,
       crosshairMarkerVisible: true,
@@ -317,8 +317,8 @@ export function MichaelSaylorVsBtcTradingViewChart({
       crosshairMarkerBorderWidth: 2,
       crosshairMarkerBorderColor: "#ff6c8b",
       crosshairMarkerBackgroundColor: "#17130f",
-      lastValueVisible: true,
-      priceLineVisible: true,
+      lastValueVisible: false,
+      priceLineVisible: false,
       priceLineColor: "#ff6c8b",
       priceFormat: {
         type: "price",
@@ -331,7 +331,7 @@ export function MichaelSaylorVsBtcTradingViewChart({
     const activitySeries = chart.addSeries(
       AreaSeries,
       {
-        title: activityModeLabel(activityMode),
+        title: "",
         lineColor: activityMode === "tweets" ? "#76c7ff" : "#ff6c8b",
         topColor:
           activityMode === "tweets"
@@ -343,7 +343,7 @@ export function MichaelSaylorVsBtcTradingViewChart({
             : "rgba(255, 108, 139, 0.03)",
         lineWidth: 3,
         lineType: LineType.Curved,
-        lastValueVisible: true,
+        lastValueVisible: false,
         priceLineVisible: false,
         crosshairMarkerVisible: true,
         crosshairMarkerRadius: 5,
@@ -360,7 +360,7 @@ export function MichaelSaylorVsBtcTradingViewChart({
     const sentimentSeries = chart.addSeries(
       BaselineSeries,
       {
-        title: sentimentModeLabel(sentimentMode),
+        title: "",
         baseValue: {
           type: "price",
           price: 0,
@@ -373,7 +373,7 @@ export function MichaelSaylorVsBtcTradingViewChart({
         bottomFillColor2: "rgba(255, 108, 108, 0.04)",
         lineWidth: 3,
         lineType: LineType.Curved,
-        lastValueVisible: true,
+        lastValueVisible: false,
         priceLineVisible: false,
         crosshairMarkerVisible: true,
         crosshairMarkerRadius: 5,
@@ -1032,9 +1032,10 @@ function computeWeightedSentimentDeviation(
 
 function buildSymmetricSentimentRange(
   points: SentimentSeriesPoint[],
+  sentimentMode: SentimentMode,
 ): { minValue: number; maxValue: number } {
-  let focusedMaxAbsoluteValue = 0;
-  let fullMaxAbsoluteValue = 0;
+  const focusedAbsoluteValues: number[] = [];
+  const fullAbsoluteValues: number[] = [];
 
   for (const point of points) {
     if (!hasSeriesValue(point)) {
@@ -1042,21 +1043,56 @@ function buildSymmetricSentimentRange(
     }
 
     const absoluteValue = Math.abs(point.value);
-    fullMaxAbsoluteValue = Math.max(fullMaxAbsoluteValue, absoluteValue);
+    fullAbsoluteValues.push(absoluteValue);
 
     if (normalizeTime(point.time).getTime() >= sentimentRangeFocusStart) {
-      focusedMaxAbsoluteValue = Math.max(focusedMaxAbsoluteValue, absoluteValue);
+      focusedAbsoluteValues.push(absoluteValue);
     }
   }
 
-  const effectiveMaxAbsoluteValue =
-    focusedMaxAbsoluteValue > 0 ? focusedMaxAbsoluteValue : fullMaxAbsoluteValue;
-  const paddedMax = Math.max(effectiveMaxAbsoluteValue * 1.12, 0.05);
+  const sourceValues = focusedAbsoluteValues.length > 0 ? focusedAbsoluteValues : fullAbsoluteValues;
+  const percentile =
+    sentimentMode === "raw"
+      ? 0.98
+      : sentimentMode === "weighted-4w"
+        ? 0.99
+        : sentimentMode === "weighted-8w"
+          ? 0.975
+          : 0.95;
+  const paddingMultiplier =
+    sentimentMode === "raw"
+      ? 1.1
+      : sentimentMode === "weighted-4w"
+        ? 1.08
+        : sentimentMode === "weighted-8w"
+          ? 1.06
+          : 1.04;
+  const minimumRange =
+    sentimentMode === "raw"
+      ? 0.05
+      : sentimentMode === "weighted-4w"
+        ? 0.04
+        : sentimentMode === "weighted-8w"
+          ? 0.035
+          : 0.03;
+  const referenceValue = quantile(sourceValues, percentile);
+  const paddedMax = Math.max(referenceValue * paddingMultiplier, minimumRange);
 
   return {
     minValue: -paddedMax,
     maxValue: paddedMax,
   };
+}
+
+function quantile(values: number[], percentile: number): number {
+  if (values.length === 0) {
+    return 0;
+  }
+
+  const sortedValues = [...values].sort((left, right) => left - right);
+  const position = Math.min(sortedValues.length - 1, Math.max(0, Math.floor(percentile * (sortedValues.length - 1))));
+
+  return sortedValues[position] ?? 0;
 }
 
 function normalizeTime(time: Time): Date {
