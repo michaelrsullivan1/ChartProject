@@ -6,23 +6,34 @@ The architecture source of truth is [ProjectPlan.md](/Users/michaelsullivan/Code
 
 ## Current state
 
-The local foundation is working end-to-end:
+One full local flow is working end-to-end:
 
-- containerized Postgres
-- Alembic migrations
-- FastAPI backend health check
-- React frontend that confirms backend and database connectivity on page load
-- raw-first X/Twitter ingest archived in Postgres
-- canonical tweet normalization and validation for `saylor`
-- local BTC/USD daily archive, normalization, and validation
-- first dedicated backend view for `author-vs-btc`
+- containerized Postgres on Docker Compose
+- Alembic migrations through `0003_add_market_price_points`
+- FastAPI backend with health and view routes
+- React frontend with a Foundation page and a dedicated Michael Saylor vs BTC chart page
+- raw-first X/Twitter ingest archived into Postgres via `raw_ingestion_artifacts`
+- canonical normalization and validation for archived `saylor` tweet history
+- raw BTC/USD FRED ingest plus canonical normalization and validation
+- a working chart flow from canonical data to backend payloads to frontend rendering
+- click-through drilldown for the top liked tweet in a selected week
 
-If the stack is healthy, the frontend should show:
+## Current UI
 
-- `Health check succeeded.`
-- backend `status: ok`
-- database `status: ok`
-- the full JSON health payload rendered on the page
+After the stack is running:
+
+- [http://127.0.0.1:5173](http://127.0.0.1:5173) shows the Foundation page
+- [http://127.0.0.1:5173/#/michael-saylor-vs-btc](http://127.0.0.1:5173/#/michael-saylor-vs-btc) shows the working chart page
+
+The Foundation page still runs the backend health check and renders the full JSON response.
+
+The Michael Saylor page currently:
+
+- requests `/api/views/michael-saylor-vs-btc?granularity=week`
+- renders BTC and tweet-count panes with a shared time axis
+- keeps BTC daily and tweet counts weekly in the current UI
+- shows hover state for the active date
+- loads the top liked tweet for the clicked week from a companion backend endpoint
 
 ## Quick start
 
@@ -35,7 +46,7 @@ From the repo root:
 
 Then open [http://127.0.0.1:5173](http://127.0.0.1:5173).
 
-## Daily commands
+## Common commands
 
 Set up or re-apply the local database:
 
@@ -55,6 +66,18 @@ Check backend health directly:
 curl http://127.0.0.1:8000/api/health
 ```
 
+Create a database backup:
+
+```bash
+./scripts/backup-db.sh
+```
+
+Restore the database from the most recent backup:
+
+```bash
+./scripts/restore-db.sh
+```
+
 Check the Postgres container:
 
 ```bash
@@ -67,20 +90,15 @@ Stop the local Postgres container:
 docker compose down
 ```
 
-## Postgres setup
+## Local setup details
 
-The local database is intentionally containerized and defined in [compose.yaml](/Users/michaelsullivan/Code/ChartProject/compose.yaml). This is the portable development setup for the repo because it makes the database runtime reproducible across machines.
+The local database is intentionally containerized and defined in [compose.yaml](/Users/michaelsullivan/Code/ChartProject/compose.yaml).
 
-### Why this setup exists
+### Current backend env file
 
-- same Postgres version on different machines
-- less machine-specific configuration drift
-- easier to recreate the environment from the repo itself
-- easier to move the project to another machine later
+The backend reads [backend/.env.example](/Users/michaelsullivan/Code/ChartProject/backend/.env.example) and expects values in `backend/.env`.
 
-### Current local connection details
-
-The backend expects:
+The default local connection is:
 
 ```env
 CHART_DATABASE_URL=postgresql+psycopg://chartproject:chartproject@localhost:5433/chartproject
@@ -88,22 +106,32 @@ CHART_DATABASE_URL=postgresql+psycopg://chartproject:chartproject@localhost:5433
 
 The host port is `5433`, not `5432`.
 
-This project uses `5433` deliberately so it does not collide with other local Postgres instances that may already be using the default `5432`.
+For X/Twitter ingest, also set:
+
+```env
+CHART_TWITTERAPI_API_KEY=
+```
 
 ### What `./scripts/setup-db.sh` does
 
 - creates `.venv/` if needed
-- installs backend dependencies if needed
+- installs backend dependencies with `pip install -e backend`
 - creates `backend/.env` from [backend/.env.example](/Users/michaelsullivan/Code/ChartProject/backend/.env.example) if missing
 - starts the `postgres:16` container from [compose.yaml](/Users/michaelsullivan/Code/ChartProject/compose.yaml)
 - waits for Postgres to become ready
 - runs `alembic upgrade head`
 
-This applies the current Alembic chain through [0003_add_market_price_points.py](/Users/michaelsullivan/Code/ChartProject/backend/migrations/versions/0003_add_market_price_points.py).
+### What `./scripts/dev.sh` does
+
+- syncs backend dependencies
+- installs frontend dependencies if `frontend/node_modules` is missing
+- starts Postgres automatically when Docker is available and running
+- starts Uvicorn on `127.0.0.1:8000`
+- starts Vite on `127.0.0.1:5173`
 
 ## Verification
 
-After `./scripts/setup-db.sh` and `./scripts/dev.sh`, the expected backend health response is:
+With the stack healthy, `GET /api/health` returns:
 
 ```json
 {
@@ -118,45 +146,7 @@ After `./scripts/setup-db.sh` and `./scripts/dev.sh`, the expected backend healt
 }
 ```
 
-If the frontend is working, that same state should appear visibly in the UI.
-
-## Move to another machine
-
-To recreate the same local environment elsewhere:
-
-1. Clone the repo.
-2. Install a Docker-compatible runtime.
-3. Run `./scripts/setup-db.sh`.
-4. Run `./scripts/dev.sh`.
-
-That is the intended portable workflow for local development.
-
-## Manual backend/frontend commands
-
-If you need to run pieces separately instead of using the scripts:
-
-### Backend
-
-```bash
-cd /Users/michaelsullivan/Code/ChartProject
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e backend
-
-cd backend
-cp .env.example .env
-uvicorn app.main:app --reload
-```
-
-### Frontend
-
-```bash
-cd /Users/michaelsullivan/Code/ChartProject/frontend
-npm install
-npm run dev
-```
-
-Open [http://127.0.0.1:5173](http://127.0.0.1:5173).
+That same payload is rendered on the Foundation page.
 
 ## Project layout
 
@@ -170,43 +160,15 @@ ProjectPlan.md
 compose.yaml
 ```
 
-## Current foundation choices
+The main runtime data directories currently kept in the repo are:
 
-- Raw API payloads are archived in Postgres first via `raw_ingestion_artifacts`
-- Historical tweet backfills currently use `twitterapi.io` `advanced_search`
-- Historical backfills are sliced into UTC time windows and paginated with `cursor` plus `max_id`
-- BTC/USD daily history is archived locally from the FRED `CBBTCUSD` series
-- Canonical relational tables now include `users`, `tweets`, `tweet_references`, and `market_price_points`
-- Validation scripts exist for normalized tweet data and normalized BTC price data
-- The first view endpoint is intentionally specific and request-time only: `/api/views/michael-saylor-vs-btc`
-- Frontend work remains intentionally minimal until the data and first view layers are in place
+- `data/raw/twitterapi/`
+- `data/exports/`
+- `data/backups/`
 
-## Next implementation steps
+## Current implementation details
 
-1. Wire the frontend to the first backend view endpoint and evaluate the chart visually.
-2. Decide whether tweet granularity should remain weekly or switch to daily for this first chart.
-3. Decide whether BTC should remain daily in the payload or also be aggregated for presentation.
-4. Add backup and restore scripts for moving the database between machines.
-
-## Raw ingest safety
-
-The current raw ingest path is designed for cautious full-history backfills before normalization:
-
-- resolves a username through the user info endpoint
-- archives raw user info responses into `raw_ingestion_artifacts`
-- fetches tweets with `twitterapi.io` `advanced_search`
-- builds bounded queries in the shape `from:<username> since:<UTC> until:<UTC>`
-- archives every raw search response page into `raw_ingestion_artifacts`
-- retries transient request failures
-- deduplicates tweets by tweet ID within each window
-- uses `cursor` pagination first, then falls back to `max_id:<oldest_seen_tweet_id>` when pages stop advancing
-- waits briefly between page requests
-- stores run progress on `ingestion_runs`
-- supports resume from a failed single-window run with `--resume-run-id`
-
-## Canonical data and local market data
-
-The current normalized/local tables are:
+### Core tables currently in use
 
 - `users`
 - `tweets`
@@ -215,20 +177,58 @@ The current normalized/local tables are:
 - `ingestion_runs`
 - `raw_ingestion_artifacts`
 
-The working local data flow is now:
+### Current data flow
 
-1. Archive raw tweet and BTC source payloads into `raw_ingestion_artifacts`.
-2. Normalize those archived payloads into canonical relational tables.
-3. Run local validation against raw vs normalized data.
-4. Build dedicated backend view payloads from canonical tables only.
+1. Archive raw user info, tweet search pages, and BTC market data into `raw_ingestion_artifacts`.
+2. Normalize archived payloads into canonical relational tables.
+3. Run validation against raw versus normalized data.
+4. Build request-time backend view payloads from canonical tables.
+5. Render the current frontend chart from those backend view payloads.
 
-No live provider calls are required for normalization, validation, or the `author-vs-btc` view.
+No live provider calls are required for normalization, validation, the Michael Saylor vs BTC page, or the top-liked-tweet drilldown.
+
+## Raw ingest behavior
+
+The current X/Twitter ingest path is designed for cautious historical backfills:
+
+- resolves a username through `twitterapi.io`
+- archives raw user info responses into `raw_ingestion_artifacts`
+- fetches tweets with `advanced_search`
+- builds bounded queries in the shape `from:<username> since:<UTC> until:<UTC>`
+- archives every raw search response page into `raw_ingestion_artifacts`
+- retries transient request failures
+- deduplicates tweets by tweet ID within each window
+- uses `cursor` pagination first, then falls back to `max_id:<oldest_seen_tweet_id>` when pages stop advancing
+- stores run progress on `ingestion_runs`
+- supports resume from a failed single-window run with `--resume-run-id`
+
+## Backend view endpoints
+
+The current chart flow uses two dedicated endpoints:
+
+```text
+/api/views/michael-saylor-vs-btc?granularity=week
+/api/views/michael-saylor-vs-btc/top-liked-tweet?week_start=2024-01-01T00:00:00Z
+```
+
+Current behavior:
+
+- the subject is fixed to Michael Saylor for this first chart page
+- the chart endpoint supports `granularity=day` or `granularity=week`
+- the current frontend page requests `granularity=week`
+- tweet counts include all authored tweets, including replies and quote tweets
+- tweet series are zero-filled for a continuous UTC timeline
+- BTC series come from local `market_price_points`
+- BTC stays daily in the payload and in the current chart UI
+- the click drilldown ranks tweets within the selected week by `like_count`
+
+Current local BTC coverage begins on `2014-12-01T00:00:00Z` because that is where the FRED `CBBTCUSD` series starts.
 
 ## Ingest scripts
 
-The current raw-ingest scripts live under [backend/scripts/ingest](/Users/michaelsullivan/Code/ChartProject/backend/scripts/ingest).
+The raw ingest scripts live under [backend/scripts/ingest](/Users/michaelsullivan/Code/ChartProject/backend/scripts/ingest).
 
-### 1. Fetch raw user info
+### Fetch raw user info
 
 ```bash
 cd /Users/michaelsullivan/Code/ChartProject
@@ -237,13 +237,12 @@ cd backend
 python scripts/ingest/fetch_user_info.py --username someuser --debug
 ```
 
-### 2. Fetch one UTC tweet window
+### Fetch one UTC tweet window
 
-Use ISO 8601 UTC timestamps with a trailing `Z`:
+Use ISO 8601 UTC timestamps with a trailing `Z`, for example:
+
 - `2024-01-01T00:00:00Z`
 - `2024-02-01T00:00:00Z`
-
-Example:
 
 ```bash
 cd /Users/michaelsullivan/Code/ChartProject
@@ -257,11 +256,7 @@ python scripts/ingest/fetch_user_tweets.py \
   --debug
 ```
 
-### 3. Fetch a larger history range in monthly windows
-
-This wrapper runs raw user info once, then iterates month-by-month across a larger UTC range.
-
-Example:
+### Fetch a larger history range in monthly windows
 
 ```bash
 cd /Users/michaelsullivan/Code/ChartProject
@@ -276,16 +271,7 @@ python scripts/ingest/fetch_user_tweets_history.py \
   --debug
 ```
 
-### Why monthly windows
-
-In practice, the provider's pagination is much more stable when historical backfills are broken into smaller UTC windows. The current recommended default is:
-
-- larger overall history ranges
-- `--window-months 1`
-- `queryType=Latest`
-- `cursor` plus `max_id` continuation inside each month
-
-### Useful options
+Useful options:
 
 - `--page-delay-seconds 0.5`
 - `--max-retries 3`
@@ -294,9 +280,7 @@ In practice, the provider's pagination is much more stable when historical backf
 - `--query-fragment "<extra advanced search terms>"`
 - `--window-months 1`
 
-### 4. Fetch raw BTC/USD daily history
-
-BTC/USD daily data is currently archived from the FRED `CBBTCUSD` series.
+### Fetch raw BTC/USD daily history
 
 ```bash
 cd /Users/michaelsullivan/Code/ChartProject
@@ -345,21 +329,42 @@ cd backend
 python scripts/validate/validate_market_price_points.py --asset-symbol BTC --quote-currency USD --interval day
 ```
 
-## First backend view
+## Backups
 
-The first dedicated backend view endpoint is:
+The current backup helper is [scripts/backup-db.sh](/Users/michaelsullivan/Code/ChartProject/scripts/backup-db.sh).
 
-```text
-/api/views/michael-saylor-vs-btc?granularity=week
+It writes a custom-format Postgres dump into `data/backups/` by default:
+
+```bash
+./scripts/backup-db.sh
 ```
 
-Current behavior:
+You can also provide an explicit output path:
 
-- the subject is fixed to Michael Saylor for this page
-- `granularity` supports `day` or `week` and currently defaults to `week`
-- tweet counts include all authored tweets, including replies and quote tweets
-- tweet series are zero-filled for a continuous UTC timeline
-- BTC series come from local `market_price_points`
-- the endpoint returns one payload containing both tweet activity and BTC price data
+```bash
+./scripts/backup-db.sh /absolute/path/to/chartproject.dump
+```
 
-Current local BTC coverage begins on `2014-12-01T00:00:00Z` because that is where the FRED `CBBTCUSD` series starts.
+The restore companion is [scripts/restore-db.sh](/Users/michaelsullivan/Code/ChartProject/scripts/restore-db.sh).
+
+If you run it with no arguments, it restores the newest `chartproject_*.dump` file from `data/backups/`:
+
+```bash
+./scripts/restore-db.sh
+```
+
+You can also restore from an explicit dump path:
+
+```bash
+./scripts/restore-db.sh /absolute/path/to/chartproject.dump
+```
+
+The restore script replaces the local `chartproject` database, so stop the app first if you want to avoid active reconnects during restore.
+
+## Current follow-ups
+
+The original first-chart milestone is effectively complete. The main open product questions now are:
+
+1. Whether the default tweet series should stay weekly or switch to daily.
+2. Whether BTC should remain daily in the chart presentation or be resampled for comparison views.
+3. Whether the next step after this first chart should be more drilldown depth or a second chart page.

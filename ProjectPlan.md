@@ -941,7 +941,7 @@ TypeScript representations of backend payloads.
 
 ## Suggested Development Phases
 
-## Phase 1: foundation
+## Completed: foundation
 - initialize backend
 - initialize frontend
 - wire up FastAPI and React locally
@@ -951,7 +951,7 @@ TypeScript representations of backend payloads.
 - implement basic health endpoint
 - implement basic page shell in frontend
 
-## Phase 2: ingestion
+## Completed: first-pass ingestion
 - add manual ingestion script
 - fetch raw data from `twitterapi.io`
 - archive raw artifacts
@@ -959,7 +959,7 @@ TypeScript representations of backend payloads.
 - upsert normalized rows
 - add validation summary output
 
-## Phase 3: inspection
+## Completed: first-pass inspection
 - build basic data inspection scripts
 - confirm counts and date ranges
 - manually inspect raw vs normalized output
@@ -972,14 +972,15 @@ TypeScript representations of backend payloads.
 - version scoring runs where appropriate
 
 ## Phase 5: views
-- define first few chart pages
-- create view payload builders
-- add `view_cache`
-- expose view endpoints in FastAPI
+- extend beyond the first dedicated chart page
+- add additional view payload builders
+- expand explanatory drilldowns
+- decide whether and when to add `view_cache`
 
 ## Phase 6: frontend presentation
-- build first high-polish chart
-- improve page shell and navigation
+- refine the current Michael Saylor vs BTC page
+- decide the default chart granularity and BTC presentation strategy
+- improve page shell and navigation as more pages land
 - refine typography, spacing, loading states, and animation
 - prepare for video demos
 
@@ -989,6 +990,7 @@ TypeScript representations of backend payloads.
 - improve comparative analyses
 - refine ingestion refresh flows
 - improve backup and validation procedures
+- verify restores regularly and keep off-machine backups
 
 ---
 
@@ -1089,39 +1091,42 @@ If starting implementation immediately, use:
 - Vite
 - D3 selectively
 
-### Core early tables
+### Core current tables
 - `users`
 - `tweets`
 - `tweet_references`
 - `ingestion_runs`
 - `raw_ingestion_artifacts`
+- `market_price_points`
+
+### Likely next tables
 - `tweet_sentiment_scores`
 - `view_cache`
 
-### Early workflow
+### Completed early workflow
 - manually ingest one target user
 - validate imported data
-- build one derived analysis
+- build one derived comparison view
 - expose one view endpoint
 - render one polished chart page
-- iterate from there
+- add a first drilldown path
+
+### Current workflow
+- iterate on the first chart with real data
+- decide week versus day as the default tweet view
+- decide whether BTC should stay daily in presentation
+- choose between a second chart page and deeper drilldown work
+- add derived enrichment only when it clearly supports the next screen
 
 ---
 
-## Immediate Next Steps
+## Current Near-Term Steps
 
-1. Initialize the repo structure.
-2. Set up Postgres and migration tooling.
-3. Scaffold FastAPI.
-4. Scaffold React + Vite frontend.
-5. Define first-pass database schema.
-6. Implement first ingestion script against `twitterapi.io`.
-7. Store one raw ingestion artifact.
-8. Parse and upsert one user's tweets.
-9. Build one validation summary tool.
-10. Create one backend view endpoint.
-11. Create one polished frontend page using that endpoint.
-12. Iterate based on real data.
+1. Decide whether the default tweet series for the first chart should stay weekly or switch to daily.
+2. Decide whether BTC should remain daily in presentation or be resampled for comparison views.
+3. Expand the current drilldown if it materially improves explanation of spikes or interesting weeks.
+4. Build the second chart page or second author comparison, whichever best validates reuse.
+5. Keep backup discipline operational with regular restores and off-machine copies.
 
 ---
 

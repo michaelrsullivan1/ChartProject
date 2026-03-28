@@ -4,7 +4,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 COMPOSE_FILE="$ROOT_DIR/compose.yaml"
-BACKUP_DIR="$ROOT_DIR/backups"
+BACKUP_DIR="$ROOT_DIR/data/backups"
 TIMESTAMP="$(date -u +"%Y%m%dT%H%M%SZ")"
 DEFAULT_OUTPUT="$BACKUP_DIR/chartproject_${TIMESTAMP}.dump"
 OUTPUT_PATH="${1:-$DEFAULT_OUTPUT}"
