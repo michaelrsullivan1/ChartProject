@@ -163,6 +163,7 @@ export function MichaelSaylorVsBtcTradingViewChart({
   const [priceMode, setPriceMode] = useState<PriceMode>("btc");
   const [activityMode, setActivityMode] = useState<ActivityMode>("tweets");
   const [sentimentMode, setSentimentMode] = useState<SentimentMode>("weighted-8w");
+  const [showWatermark, setShowWatermark] = useState(true);
   const btcSeriesData = useMemo(() => buildBtcSeries(payload), [payload]);
   const mstrSeriesData = useMemo(() => buildMstrSeries(payload), [payload]);
   const activitySeriesData = useMemo(() => buildActivitySeries(payload, activityMode), [payload, activityMode]);
@@ -545,9 +546,6 @@ export function MichaelSaylorVsBtcTradingViewChart({
               </button>
             ))}
           </div>
-          <p className="chart-control-note">
-            Switch the top pane between BTC price, MSTR price, or both at once with separate price scales.
-          </p>
         </div>
 
         <div className="chart-control-card">
@@ -571,10 +569,6 @@ export function MichaelSaylorVsBtcTradingViewChart({
               </button>
             ))}
           </div>
-          <p className="chart-control-note">
-            Switch the middle pane between authored tweet volume and weekly engagement totals for
-            tweets created in each week.
-          </p>
         </div>
 
         <div className="chart-control-card">
@@ -603,9 +597,35 @@ export function MichaelSaylorVsBtcTradingViewChart({
             low-volume weeks carry less influence.
           </p>
         </div>
+
+        <div className="chart-control-card">
+          <p className="chart-control-eyebrow">Watermark</p>
+          <div className="chart-toggle-group chart-toggle-group-compact" role="group" aria-label="Chart watermark visibility">
+            <button
+              className={`chart-toggle-button${showWatermark ? " is-active" : ""}`}
+              onClick={() => setShowWatermark(true)}
+              type="button"
+            >
+              On
+            </button>
+            <button
+              className={`chart-toggle-button${showWatermark ? "" : " is-active"}`}
+              onClick={() => setShowWatermark(false)}
+              type="button"
+            >
+              Off
+            </button>
+          </div>
+        </div>
       </aside>
 
       <div className="chart-stage">
+        {showWatermark ? (
+          <div aria-hidden="true" className="chart-watermark">
+            <span className="chart-watermark-name">Michael Sullivan</span>
+            <span className="chart-watermark-handle">@SullyMichaelvan</span>
+          </div>
+        ) : null}
         <div className="tradingview-chart" ref={containerRef} />
       </div>
 
