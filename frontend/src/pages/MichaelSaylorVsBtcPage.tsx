@@ -25,6 +25,13 @@ const fullDateFormatter = new Intl.DateTimeFormat("en-US", {
   timeZone: "UTC",
 });
 
+const compactDateFormatter = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+  timeZone: "UTC",
+});
+
 export function MichaelSaylorVsBtcPage() {
   const [payload, setPayload] = useState<MichaelSaylorVsBtcResponse | null>(null);
   const [sentimentPayload, setSentimentPayload] = useState<MichaelSaylorSentimentResponse | null>(
@@ -104,6 +111,11 @@ function MichaelSaylorChartSection({
   const latestBtcPoint = payload.btc_series[payload.btc_series.length - 1];
   const latestBtc = latestBtcPoint?.price_usd ?? 0;
   const btcLastIso = latestBtcPoint?.timestamp ?? payload.range.end;
+  const latestMstrPoint = payload.mstr_series[payload.mstr_series.length - 1];
+  const latestMstr = latestMstrPoint?.price_usd ?? 0;
+  const mstrLastIso = latestMstrPoint?.timestamp ?? payload.range.end;
+  const currentSentimentDeviation = getCurrentSentimentDeviation(sentimentPayload);
+  const sentimentExtremes = getSentimentExtremes(sentimentPayload);
 
   return (
     <>
@@ -122,6 +134,29 @@ function MichaelSaylorChartSection({
           <p className="metric-label">Latest BTC</p>
           <p className="metric-value">{chartCurrencyFormatter.format(latestBtc)}</p>
           <p className="metric-note">Daily close from {formatFullDate(btcLastIso)}</p>
+        </article>
+        <article className="metric-card">
+          <p className="metric-label">Latest MSTR</p>
+          <p className="metric-value">{chartCurrencyFormatter.format(latestMstr)}</p>
+          <p className="metric-note">Daily close from {formatFullDate(mstrLastIso)}</p>
+        </article>
+        <article className="metric-card">
+          <p className="metric-label">Current Sentiment Deviation</p>
+          <p className="metric-value">{formatSignedPercent(currentSentimentDeviation.value)}</p>
+          <p className="metric-note">
+            Most recent scored week from {formatCompactDate(currentSentimentDeviation.periodStart)}
+          </p>
+        </article>
+        <article className="metric-card">
+          <p className="metric-label">Best / Worst Sentiment Weeks</p>
+          <p className="metric-value">
+            {formatSignedPercent(sentimentExtremes.best.value)} /{" "}
+            {formatSignedPercent(sentimentExtremes.worst.value)}
+          </p>
+          <p className="metric-note">
+            Best {formatCompactDate(sentimentExtremes.best.periodStart)} · Worst{" "}
+            {formatCompactDate(sentimentExtremes.worst.periodStart)}
+          </p>
         </article>
       </div>
 
@@ -158,6 +193,85 @@ function MichaelSaylorChartSection({
 
 function formatFullDate(value: string | number): string {
   return fullDateFormatter.format(normalizeDateValue(value));
+}
+
+function formatCompactDate(value: string): string {
+  return compactDateFormatter.format(new Date(value));
+}
+
+function formatSignedPercent(value: number): string {
+  const percentage = value * 100;
+  const formatted = percentage.toFixed(1);
+  return percentage > 0 ? `+${formatted}%` : `${formatted}%`;
+}
+
+function getCurrentSentimentDeviation(sentimentPayload: MichaelSaylorSentimentResponse): {
+  periodStart: string;
+  value: number;
+} {
+  const baseline = sentimentPayload.summary.average_sentiment_index;
+  const latestPoint =
+    sentimentPayload.sentiment_series[sentimentPayload.sentiment_series.length - 1] ?? null;
+  const latestScoredPoint =
+    [...sentimentPayload.sentiment_series]
+      .reverse()
+      .find((point) => point.scored_tweet_count > 0) ?? latestPoint;
+
+  if (!latestScoredPoint) {
+    return {
+      periodStart: sentimentPayload.range.end,
+      value: 0,
+    };
+  }
+
+  return {
+    periodStart: latestScoredPoint.period_start,
+    value: latestScoredPoint.average_sentiment_index - baseline,
+  };
+}
+
+function getSentimentExtremes(sentimentPayload: MichaelSaylorSentimentResponse): {
+  best: { periodStart: string; value: number };
+  worst: { periodStart: string; value: number };
+} {
+  const baseline = sentimentPayload.summary.average_sentiment_index;
+  const scoredPoints = sentimentPayload.sentiment_series.filter((point) => point.scored_tweet_count > 0);
+
+  if (scoredPoints.length === 0) {
+    const fallback = {
+      periodStart: sentimentPayload.range.end,
+      value: 0,
+    };
+
+    return {
+      best: fallback,
+      worst: fallback,
+    };
+  }
+
+  let bestPoint = scoredPoints[0];
+  let worstPoint = scoredPoints[0];
+
+  for (const point of scoredPoints) {
+    if (point.average_sentiment_index > bestPoint.average_sentiment_index) {
+      bestPoint = point;
+    }
+
+    if (point.average_sentiment_index < worstPoint.average_sentiment_index) {
+      worstPoint = point;
+    }
+  }
+
+  return {
+    best: {
+      periodStart: bestPoint.period_start,
+      value: bestPoint.average_sentiment_index - baseline,
+    },
+    worst: {
+      periodStart: worstPoint.period_start,
+      value: worstPoint.average_sentiment_index - baseline,
+    },
+  };
 }
 
 function normalizeDateValue(value: string | number): Date | number {
