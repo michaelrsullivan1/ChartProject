@@ -46,6 +46,7 @@ type SelectedWeek = {
   weekStart: string;
 };
 
+type SentimentMode = "raw" | "weighted-4w";
 type SentimentSeriesPoint = BaselineData<Time> | WhitespaceData<Time>;
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
@@ -145,11 +146,12 @@ export function MichaelSaylorVsBtcTradingViewChart({
 }: MichaelSaylorVsBtcTradingViewChartProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const topTweetCacheRef = useRef(new Map<string, MichaelSaylorTopLikedTweetResponse>());
+  const [sentimentMode, setSentimentMode] = useState<SentimentMode>("weighted-4w");
   const btcSeriesData = useMemo(() => buildBtcSeries(payload), [payload]);
   const tweetSeriesData = useMemo(() => buildTweetSeries(payload), [payload]);
   const sentimentSeriesData = useMemo<SentimentSeriesPoint[]>(
-    () => buildSentimentSeries(sentimentPayload),
-    [sentimentPayload],
+    () => buildSentimentSeries(sentimentPayload, sentimentMode),
+    [sentimentPayload, sentimentMode],
   );
   const [hoverSnapshot, setHoverSnapshot] = useState<HoverSnapshot>(() =>
     buildLatestHoverSnapshot(btcSeriesData, tweetSeriesData, sentimentSeriesData),
@@ -287,7 +289,7 @@ export function MichaelSaylorVsBtcTradingViewChart({
     const sentimentSeries = chart.addSeries(
       BaselineSeries,
       {
-        title: "Sentiment vs baseline",
+        title: sentimentModeLabel(sentimentMode),
         baseValue: {
           type: "price",
           price: 0,
@@ -426,6 +428,31 @@ export function MichaelSaylorVsBtcTradingViewChart({
       </div>
 
       <aside className="chart-sidebar">
+        <div className="chart-control-card">
+          <p className="chart-control-eyebrow">Sentiment Mode</p>
+          <div className="chart-toggle-group" role="group" aria-label="Sentiment smoothing mode">
+            {(
+              [
+                ["weighted-4w", "4W weighted"],
+                ["raw", "Raw"],
+              ] as const
+            ).map(([mode, label]) => (
+              <button
+                key={mode}
+                className={`chart-toggle-button${sentimentMode === mode ? " is-active" : ""}`}
+                onClick={() => setSentimentMode(mode)}
+                type="button"
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <p className="chart-control-note">
+            Smoothed modes use trailing weekly averages weighted by scored tweet count, so
+            low-volume weeks carry less influence.
+          </p>
+        </div>
+
         <div className="chart-hover-strip" aria-live="polite">
           <div className="chart-hover-item">
             <span className="chart-hover-label">Date</span>
@@ -641,18 +668,43 @@ function buildTweetSeries(payload: MichaelSaylorVsBtcResponse): AreaData<Time>[]
 
 function buildSentimentSeries(
   sentimentPayload: MichaelSaylorSentimentResponse,
+  sentimentMode: SentimentMode,
 ): SentimentSeriesPoint[] {
   const baseline = sentimentPayload.summary.average_sentiment_index;
+  const weeklyPoints = sentimentPayload.sentiment_series;
 
-  return sentimentPayload.sentiment_series.map((point) => {
+  if (sentimentMode === "raw") {
+    return weeklyPoints.map((point) => {
+      const time = toBusinessDay(point.period_start);
+      if (point.scored_tweet_count === 0) {
+        return { time };
+      }
+
+      return {
+        time,
+        value: point.average_sentiment_index - baseline,
+      };
+    });
+  }
+
+  const windowSize = 4;
+
+  return weeklyPoints.map((point, index) => {
     const time = toBusinessDay(point.period_start);
     if (point.scored_tweet_count === 0) {
       return { time };
     }
 
+    const smoothedValue = computeWeightedSentimentDeviation(
+      weeklyPoints,
+      index,
+      windowSize,
+      baseline,
+    );
+
     return {
       time,
-      value: point.average_sentiment_index - baseline,
+      value: smoothedValue,
     };
   });
 }
@@ -733,6 +785,42 @@ function formatCompactCount(value: number): string {
 function formatSignedSentiment(value: number): string {
   const formatted = value.toFixed(3);
   return value > 0 ? `+${formatted}` : formatted;
+}
+
+function sentimentModeLabel(mode: SentimentMode): string {
+  switch (mode) {
+    case "weighted-4w":
+      return "Sentiment vs baseline (4W weighted)";
+    case "raw":
+      return "Sentiment vs baseline (raw)";
+  }
+}
+
+function computeWeightedSentimentDeviation(
+  points: MichaelSaylorSentimentResponse["sentiment_series"],
+  endIndex: number,
+  windowSize: number,
+  baseline: number,
+): number {
+  const startIndex = Math.max(0, endIndex - windowSize + 1);
+  let weightedSum = 0;
+  let totalWeight = 0;
+
+  for (let index = startIndex; index <= endIndex; index += 1) {
+    const point = points[index];
+    if (!point || point.scored_tweet_count === 0) {
+      continue;
+    }
+
+    weightedSum += point.average_sentiment_index * point.scored_tweet_count;
+    totalWeight += point.scored_tweet_count;
+  }
+
+  if (totalWeight === 0) {
+    return 0;
+  }
+
+  return weightedSum / totalWeight - baseline;
 }
 
 function normalizeTime(time: Time): Date {
