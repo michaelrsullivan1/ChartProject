@@ -50,7 +50,7 @@ type SelectedWeek = {
 
 type PriceMode = "btc" | "mstr" | "both";
 type ActivityMode = "tweets" | "likes";
-type SentimentMode = "raw" | "weighted-4w";
+type SentimentMode = "raw" | "weighted-4w" | "weighted-8w" | "weighted-12w";
 type SentimentSeriesPoint = BaselineData<Time> | WhitespaceData<Time>;
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
@@ -572,6 +572,8 @@ export function MichaelSaylorVsBtcTradingViewChart({
             {(
               [
                 ["weighted-4w", "4W weighted"],
+                ["weighted-8w", "8W weighted"],
+                ["weighted-12w", "12W weighted"],
                 ["raw", "Raw"],
               ] as const
             ).map(([mode, label]) => (
@@ -849,7 +851,8 @@ function buildSentimentSeries(
     });
   }
 
-  const windowSize = 4;
+  const windowSize =
+    sentimentMode === "weighted-12w" ? 12 : sentimentMode === "weighted-8w" ? 8 : 4;
 
   return weeklyPoints.map((point, index) => {
     const time = toBusinessDay(point.period_start);
@@ -960,6 +963,10 @@ function sentimentModeLabel(mode: SentimentMode): string {
   switch (mode) {
     case "weighted-4w":
       return "Sentiment vs baseline (4W weighted)";
+    case "weighted-8w":
+      return "Sentiment vs baseline (8W weighted)";
+    case "weighted-12w":
+      return "Sentiment vs baseline (12W weighted)";
     case "raw":
       return "Sentiment vs baseline (raw)";
   }
