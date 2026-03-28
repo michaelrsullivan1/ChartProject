@@ -423,11 +423,7 @@ export function MichaelSaylorVsBtcTradingViewChart({
 
   return (
     <div className="tradingview-chart-shell">
-      <div className="chart-stage">
-        <div className="tradingview-chart" ref={containerRef} />
-      </div>
-
-      <aside className="chart-sidebar">
+      <aside className="chart-sidebar chart-sidebar-left">
         <div className="chart-control-card">
           <p className="chart-control-eyebrow">Sentiment Mode</p>
           <div className="chart-toggle-group" role="group" aria-label="Sentiment smoothing mode">
@@ -452,7 +448,13 @@ export function MichaelSaylorVsBtcTradingViewChart({
             low-volume weeks carry less influence.
           </p>
         </div>
+      </aside>
 
+      <div className="chart-stage">
+        <div className="tradingview-chart" ref={containerRef} />
+      </div>
+
+      <aside className="chart-sidebar">
         <div className="chart-hover-strip" aria-live="polite">
           <div className="chart-hover-item">
             <span className="chart-hover-label">Date</span>

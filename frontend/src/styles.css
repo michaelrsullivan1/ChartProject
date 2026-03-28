@@ -249,8 +249,9 @@ body {
 
 .tradingview-chart-shell {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 360px;
+  grid-template-columns: 280px minmax(0, 1fr) 360px;
   gap: 16px;
+  align-items: start;
 }
 
 .chart-stage {
@@ -261,6 +262,10 @@ body {
   display: grid;
   align-content: start;
   gap: 12px;
+}
+
+.chart-sidebar-left {
+  grid-auto-rows: min-content;
 }
 
 .chart-control-card {
@@ -641,5 +646,17 @@ body {
   .tradingview-chart-shell {
     display: grid;
     grid-template-columns: 1fr;
+  }
+
+  .chart-sidebar-left {
+    order: 1;
+  }
+
+  .chart-stage {
+    order: 2;
+  }
+
+  .chart-sidebar:not(.chart-sidebar-left) {
+    order: 3;
   }
 }
