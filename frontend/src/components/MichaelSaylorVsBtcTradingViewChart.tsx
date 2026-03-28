@@ -299,6 +299,7 @@ export function MichaelSaylorVsBtcTradingViewChart({
         bottomFillColor1: "rgba(255, 108, 108, 0.24)",
         bottomFillColor2: "rgba(255, 108, 108, 0.04)",
         lineWidth: 3,
+        lineType: LineType.Curved,
         lastValueVisible: true,
         priceLineVisible: false,
         crosshairMarkerVisible: true,
