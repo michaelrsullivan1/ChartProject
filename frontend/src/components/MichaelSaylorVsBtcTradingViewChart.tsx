@@ -90,6 +90,8 @@ const compactCountFormatter = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 1,
 });
 
+const sentimentRangeFocusStart = new Date("2020-08-01T00:00:00Z").getTime();
+
 const chartOptions = {
   layout: {
     background: {
@@ -170,6 +172,10 @@ export function MichaelSaylorVsBtcTradingViewChart({
   const sentimentSeriesData = useMemo<SentimentSeriesPoint[]>(
     () => buildSentimentSeries(sentimentPayload, sentimentMode),
     [sentimentPayload, sentimentMode],
+  );
+  const sentimentRange = useMemo(
+    () => buildSymmetricSentimentRange(sentimentSeriesData),
+    [sentimentSeriesData],
   );
   const [hoverSnapshot, setHoverSnapshot] = useState<HoverSnapshot>(() =>
     buildLatestHoverSnapshot(
@@ -379,6 +385,9 @@ export function MichaelSaylorVsBtcTradingViewChart({
           precision: 3,
           minMove: 0.001,
         },
+        autoscaleInfoProvider: () => ({
+          priceRange: sentimentRange,
+        }),
       },
       2,
     );
@@ -411,8 +420,8 @@ export function MichaelSaylorVsBtcTradingViewChart({
 
     chart.priceScale("right", 2).applyOptions({
       scaleMargins: {
-        top: 0.18,
-        bottom: 0.06,
+        top: 0.12,
+        bottom: 0.12,
       },
     });
 
@@ -511,7 +520,15 @@ export function MichaelSaylorVsBtcTradingViewChart({
       resizeObserver.disconnect();
       chart.remove();
     };
-  }, [btcSeriesData, mstrSeriesData, activitySeriesData, sentimentSeriesData, activityMode, priceMode]);
+  }, [
+    btcSeriesData,
+    mstrSeriesData,
+    activitySeriesData,
+    sentimentSeriesData,
+    sentimentRange,
+    activityMode,
+    priceMode,
+  ]);
 
   return (
     <div className="tradingview-chart-shell">
@@ -1011,6 +1028,35 @@ function computeWeightedSentimentDeviation(
   }
 
   return weightedSum / totalWeight - baseline;
+}
+
+function buildSymmetricSentimentRange(
+  points: SentimentSeriesPoint[],
+): { minValue: number; maxValue: number } {
+  let focusedMaxAbsoluteValue = 0;
+  let fullMaxAbsoluteValue = 0;
+
+  for (const point of points) {
+    if (!hasSeriesValue(point)) {
+      continue;
+    }
+
+    const absoluteValue = Math.abs(point.value);
+    fullMaxAbsoluteValue = Math.max(fullMaxAbsoluteValue, absoluteValue);
+
+    if (normalizeTime(point.time).getTime() >= sentimentRangeFocusStart) {
+      focusedMaxAbsoluteValue = Math.max(focusedMaxAbsoluteValue, absoluteValue);
+    }
+  }
+
+  const effectiveMaxAbsoluteValue =
+    focusedMaxAbsoluteValue > 0 ? focusedMaxAbsoluteValue : fullMaxAbsoluteValue;
+  const paddedMax = Math.max(effectiveMaxAbsoluteValue * 1.12, 0.05);
+
+  return {
+    minValue: -paddedMax,
+    maxValue: paddedMax,
+  };
 }
 
 function normalizeTime(time: Time): Date {
