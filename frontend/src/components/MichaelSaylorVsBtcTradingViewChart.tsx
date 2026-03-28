@@ -21,10 +21,16 @@ import {
   fetchMichaelSaylorTopLikedTweet,
   type MichaelSaylorTopLikedTweetResponse,
 } from "../api/michaelSaylorTopLikedTweet";
+import {
+  buildSentimentDeviationSeries,
+  type SentimentMode,
+} from "../lib/sentiment";
 
 type MichaelSaylorVsBtcTradingViewChartProps = {
   payload: MichaelSaylorVsBtcResponse;
   sentimentPayload: MichaelSaylorSentimentResponse;
+  sentimentMode: SentimentMode;
+  onSentimentModeChange: (mode: SentimentMode) => void;
 };
 
 type HoverSnapshot = {
@@ -50,7 +56,6 @@ type SelectedWeek = {
 
 type PriceMode = "btc" | "mstr" | "both";
 type ActivityMode = "tweets" | "likes" | "bookmarks" | "impressions";
-type SentimentMode = "raw" | "weighted-4w" | "weighted-8w" | "weighted-12w";
 type SentimentSeriesPoint = BaselineData<Time> | WhitespaceData<Time>;
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
@@ -157,12 +162,13 @@ const chartOptions = {
 export function MichaelSaylorVsBtcTradingViewChart({
   payload,
   sentimentPayload,
+  sentimentMode,
+  onSentimentModeChange,
 }: MichaelSaylorVsBtcTradingViewChartProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const topTweetCacheRef = useRef(new Map<string, MichaelSaylorTopLikedTweetResponse>());
   const [priceMode, setPriceMode] = useState<PriceMode>("btc");
   const [activityMode, setActivityMode] = useState<ActivityMode>("tweets");
-  const [sentimentMode, setSentimentMode] = useState<SentimentMode>("weighted-8w");
   const [showWatermark, setShowWatermark] = useState(true);
   const btcSeriesData = useMemo(() => buildBtcSeries(payload), [payload]);
   const mstrSeriesData = useMemo(() => buildMstrSeries(payload), [payload]);
@@ -172,7 +178,18 @@ export function MichaelSaylorVsBtcTradingViewChart({
     [activitySeriesData, activityMode],
   );
   const sentimentSeriesData = useMemo<SentimentSeriesPoint[]>(
-    () => buildSentimentSeries(sentimentPayload, sentimentMode),
+    () =>
+      buildSentimentDeviationSeries(sentimentPayload, sentimentMode).map((point) => {
+        const time = toBusinessDay(point.periodStart);
+        if (point.value === null) {
+          return { time };
+        }
+
+        return {
+          time,
+          value: point.value,
+        };
+      }),
     [sentimentPayload, sentimentMode],
   );
   const sentimentRange = useMemo(
@@ -585,7 +602,7 @@ export function MichaelSaylorVsBtcTradingViewChart({
               <button
                 key={mode}
                 className={`chart-toggle-button${sentimentMode === mode ? " is-active" : ""}`}
-                onClick={() => setSentimentMode(mode)}
+                onClick={() => onSentimentModeChange(mode)}
                 type="button"
               >
                 {label}
@@ -861,50 +878,6 @@ function buildActivitySeries(
   }));
 }
 
-function buildSentimentSeries(
-  sentimentPayload: MichaelSaylorSentimentResponse,
-  sentimentMode: SentimentMode,
-): SentimentSeriesPoint[] {
-  const baseline = sentimentPayload.summary.average_sentiment_index;
-  const weeklyPoints = sentimentPayload.sentiment_series;
-
-  if (sentimentMode === "raw") {
-    return weeklyPoints.map((point) => {
-      const time = toBusinessDay(point.period_start);
-      if (point.scored_tweet_count === 0) {
-        return { time };
-      }
-
-      return {
-        time,
-        value: point.average_sentiment_index - baseline,
-      };
-    });
-  }
-
-  const windowSize =
-    sentimentMode === "weighted-12w" ? 12 : sentimentMode === "weighted-8w" ? 8 : 4;
-
-  return weeklyPoints.map((point, index) => {
-    const time = toBusinessDay(point.period_start);
-    if (point.scored_tweet_count === 0) {
-      return { time };
-    }
-
-    const smoothedValue = computeWeightedSentimentDeviation(
-      weeklyPoints,
-      index,
-      windowSize,
-      baseline,
-    );
-
-    return {
-      time,
-      value: smoothedValue,
-    };
-  });
-}
-
 function buildLatestHoverSnapshot(
   btcSeriesData: LineData<Time>[],
   mstrSeriesData: LineData<Time>[],
@@ -993,19 +966,6 @@ function formatSignedSentimentPercent(value: number): string {
   const percentage = value * 100;
   const formatted = percentage.toFixed(1);
   return percentage > 0 ? `+${formatted}%` : `${formatted}%`;
-}
-
-function sentimentModeLabel(mode: SentimentMode): string {
-  switch (mode) {
-    case "weighted-4w":
-      return "Sentiment deviation (4W weighted)";
-    case "weighted-8w":
-      return "Sentiment deviation (8W weighted)";
-    case "weighted-12w":
-      return "Sentiment deviation (12W weighted)";
-    case "raw":
-      return "Sentiment deviation (raw)";
-  }
 }
 
 function activityModeLabel(mode: ActivityMode): string {
@@ -1147,33 +1107,6 @@ function buildActivityRange(
     minValue: 0,
     maxValue,
   };
-}
-
-function computeWeightedSentimentDeviation(
-  points: MichaelSaylorSentimentResponse["sentiment_series"],
-  endIndex: number,
-  windowSize: number,
-  baseline: number,
-): number {
-  const startIndex = Math.max(0, endIndex - windowSize + 1);
-  let weightedSum = 0;
-  let totalWeight = 0;
-
-  for (let index = startIndex; index <= endIndex; index += 1) {
-    const point = points[index];
-    if (!point || point.scored_tweet_count === 0) {
-      continue;
-    }
-
-    weightedSum += point.average_sentiment_index * point.scored_tweet_count;
-    totalWeight += point.scored_tweet_count;
-  }
-
-  if (totalWeight === 0) {
-    return 0;
-  }
-
-  return weightedSum / totalWeight - baseline;
 }
 
 function buildSymmetricSentimentRange(

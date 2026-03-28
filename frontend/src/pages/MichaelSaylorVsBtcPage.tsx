@@ -9,6 +9,10 @@ import {
   type MichaelSaylorSentimentResponse,
 } from "../api/michaelSaylorSentiment";
 import { MichaelSaylorVsBtcTradingViewChart } from "../components/MichaelSaylorVsBtcTradingViewChart";
+import {
+  buildSentimentDeviationSeries,
+  type SentimentMode,
+} from "../lib/sentiment";
 
 const chartCurrencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -40,6 +44,7 @@ export function MichaelSaylorVsBtcPage() {
   const [sentimentPayload, setSentimentPayload] = useState<MichaelSaylorSentimentResponse | null>(
     null,
   );
+  const [sentimentMode, setSentimentMode] = useState<SentimentMode>("weighted-8w");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -94,6 +99,8 @@ export function MichaelSaylorVsBtcPage() {
           <MichaelSaylorChartSection
             payload={payload}
             sentimentPayload={sentimentPayload}
+            sentimentMode={sentimentMode}
+            onSentimentModeChange={setSentimentMode}
           />
         ) : null}
       </article>
@@ -104,9 +111,13 @@ export function MichaelSaylorVsBtcPage() {
 function MichaelSaylorChartSection({
   payload,
   sentimentPayload,
+  sentimentMode,
+  onSentimentModeChange,
 }: {
   payload: MichaelSaylorVsBtcResponse;
   sentimentPayload: MichaelSaylorSentimentResponse;
+  sentimentMode: SentimentMode;
+  onSentimentModeChange: (mode: SentimentMode) => void;
 }) {
   const filteredPayload = filterAuthorViewPayload(payload);
   const filteredSentimentPayload = filterSentimentViewPayload(sentimentPayload);
@@ -119,8 +130,18 @@ function MichaelSaylorChartSection({
   const latestMstrPoint = filteredPayload.mstr_series[filteredPayload.mstr_series.length - 1];
   const latestMstr = latestMstrPoint?.price_usd ?? 0;
   const mstrLastIso = latestMstrPoint?.timestamp ?? filteredPayload.range.end;
-  const currentSentimentDeviation = getCurrentSentimentDeviation(filteredSentimentPayload);
-  const sentimentExtremes = getSentimentExtremes(filteredSentimentPayload);
+  const sentimentDeviationSeries = buildSentimentDeviationSeries(
+    filteredSentimentPayload,
+    sentimentMode,
+  );
+  const currentSentimentDeviation = getCurrentSentimentDeviation(
+    sentimentDeviationSeries,
+    filteredSentimentPayload.range.end,
+  );
+  const sentimentExtremes = getSentimentExtremes(
+    sentimentDeviationSeries,
+    filteredSentimentPayload.range.end,
+  );
 
   return (
     <>
@@ -169,6 +190,8 @@ function MichaelSaylorChartSection({
         <MichaelSaylorVsBtcTradingViewChart
           payload={filteredPayload}
           sentimentPayload={filteredSentimentPayload}
+          sentimentMode={sentimentMode}
+          onSentimentModeChange={onSentimentModeChange}
         />
       </div>
 
@@ -286,41 +309,45 @@ function buildFilteredSentimentSummary(
   };
 }
 
-function getCurrentSentimentDeviation(sentimentPayload: MichaelSaylorSentimentResponse): {
+function getCurrentSentimentDeviation(
+  sentimentSeries: ReturnType<typeof buildSentimentDeviationSeries>,
+  fallbackPeriodStart: string,
+): {
   periodStart: string;
   value: number;
 } {
-  const baseline = sentimentPayload.summary.average_sentiment_index;
-  const latestPoint =
-    sentimentPayload.sentiment_series[sentimentPayload.sentiment_series.length - 1] ?? null;
   const latestScoredPoint =
-    [...sentimentPayload.sentiment_series]
+    [...sentimentSeries]
       .reverse()
-      .find((point) => point.scored_tweet_count > 0) ?? latestPoint;
+      .find((point) => point.value !== null) ?? null;
 
   if (!latestScoredPoint) {
     return {
-      periodStart: sentimentPayload.range.end,
+      periodStart: fallbackPeriodStart,
       value: 0,
     };
   }
 
   return {
-    periodStart: latestScoredPoint.period_start,
-    value: latestScoredPoint.average_sentiment_index - baseline,
+    periodStart: latestScoredPoint.periodStart,
+    value: latestScoredPoint.value ?? 0,
   };
 }
 
-function getSentimentExtremes(sentimentPayload: MichaelSaylorSentimentResponse): {
+function getSentimentExtremes(
+  sentimentSeries: ReturnType<typeof buildSentimentDeviationSeries>,
+  fallbackPeriodStart: string,
+): {
   best: { periodStart: string; value: number };
   worst: { periodStart: string; value: number };
 } {
-  const baseline = sentimentPayload.summary.average_sentiment_index;
-  const scoredPoints = sentimentPayload.sentiment_series.filter((point) => point.scored_tweet_count > 0);
+  const scoredPoints = sentimentSeries.filter(
+    (point): point is { periodStart: string; value: number } => point.value !== null,
+  );
 
   if (scoredPoints.length === 0) {
     const fallback = {
-      periodStart: sentimentPayload.range.end,
+      periodStart: fallbackPeriodStart,
       value: 0,
     };
 
@@ -334,23 +361,23 @@ function getSentimentExtremes(sentimentPayload: MichaelSaylorSentimentResponse):
   let worstPoint = scoredPoints[0];
 
   for (const point of scoredPoints) {
-    if (point.average_sentiment_index > bestPoint.average_sentiment_index) {
+    if (point.value > bestPoint.value) {
       bestPoint = point;
     }
 
-    if (point.average_sentiment_index < worstPoint.average_sentiment_index) {
+    if (point.value < worstPoint.value) {
       worstPoint = point;
     }
   }
 
   return {
     best: {
-      periodStart: bestPoint.period_start,
-      value: bestPoint.average_sentiment_index - baseline,
+      periodStart: bestPoint.periodStart,
+      value: bestPoint.value,
     },
     worst: {
-      periodStart: worstPoint.period_start,
-      value: worstPoint.average_sentiment_index - baseline,
+      periodStart: worstPoint.periodStart,
+      value: worstPoint.value,
     },
   };
 }
