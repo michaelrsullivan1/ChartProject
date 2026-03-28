@@ -14,7 +14,10 @@ export type MichaelSaylorTopLikedTweetResponse = {
     url: string | null;
     text: string;
     created_at_platform: string;
+    reply_count: number | null;
+    repost_count: number | null;
     like_count: number | null;
+    bookmark_count: number | null;
   };
 };
 

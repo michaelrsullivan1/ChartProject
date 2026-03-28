@@ -63,6 +63,21 @@ const shortDateFormatter = new Intl.DateTimeFormat("en-US", {
   timeZone: "UTC",
 });
 
+const tweetTimestampFormatter = new Intl.DateTimeFormat("en-US", {
+  hour: "numeric",
+  minute: "2-digit",
+  hour12: true,
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+  timeZone: "UTC",
+});
+
+const compactCountFormatter = new Intl.NumberFormat("en-US", {
+  notation: "compact",
+  maximumFractionDigits: 1,
+});
+
 const chartOptions = {
   layout: {
     background: {
@@ -396,9 +411,46 @@ function TopLikedTweetCard({
 }) {
   const topTweet = topTweetPanel.response?.top_tweet ?? null;
   const weekStart = topTweetPanel.weekStart ?? selectedWeek?.weekStart ?? null;
+  const tweetUrl = topTweet !== null ? topTweet.url ?? buildTweetUrl(topTweetPanel.response) : null;
+
+  if (topTweet !== null && tweetUrl !== null) {
+    return (
+      <a
+        className="top-tweet-card top-tweet-card-link"
+        href={tweetUrl}
+        rel="noreferrer"
+        target="_blank"
+      >
+        <TopLikedTweetCardBody
+          selectedWeek={selectedWeek}
+          topTweetPanel={topTweetPanel}
+        />
+      </a>
+    );
+  }
 
   return (
     <article className="top-tweet-card">
+      <TopLikedTweetCardBody
+        selectedWeek={selectedWeek}
+        topTweetPanel={topTweetPanel}
+      />
+    </article>
+  );
+}
+
+function TopLikedTweetCardBody({
+  selectedWeek,
+  topTweetPanel,
+}: {
+  selectedWeek: SelectedWeek | null;
+  topTweetPanel: TopTweetPanelState;
+}) {
+  const topTweet = topTweetPanel.response?.top_tweet ?? null;
+  const weekStart = topTweetPanel.weekStart ?? selectedWeek?.weekStart ?? null;
+
+  return (
+    <>
       <p className="top-tweet-eyebrow">Top Liked Tweet For Selected Week</p>
       <p className="top-tweet-week">
         {weekStart ? `Week of ${formatWeekLabel(weekStart)}` : "Click a week to inspect it"}
@@ -432,22 +484,78 @@ function TopLikedTweetCard({
 
       {topTweet !== null ? (
         <>
-          <div className="top-tweet-meta">
-            <span>{integerFormatter.format(topTweet.like_count ?? 0)} likes</span>
-            <span>{fullDateFormatter.format(new Date(topTweet.created_at_platform))}</span>
+          <div className="tweet-preview-card">
+            <div className="tweet-preview-header">
+              <div>
+                <p className="tweet-preview-name">
+                  {topTweetPanel.response?.subject.display_name ??
+                    topTweetPanel.response?.subject.username ??
+                    "Michael Saylor"}
+                </p>
+                <p className="tweet-preview-handle">
+                  @{topTweetPanel.response?.subject.username ?? "saylor"}
+                </p>
+              </div>
+            </div>
+
+            <p className="top-tweet-text">{topTweet.text}</p>
+
+            <p className="tweet-preview-timestamp">
+              {formatTweetTimestamp(topTweet.created_at_platform)}
+            </p>
+
+            <div className="tweet-preview-actions" aria-label="Tweet engagement">
+              <TweetActionStat
+                icon="reply"
+                label="Replies"
+                value={topTweet.reply_count}
+              />
+              <TweetActionStat
+                icon="repost"
+                label="Reposts"
+                value={topTweet.repost_count}
+              />
+              <TweetActionStat
+                icon="like"
+                label="Likes"
+                value={topTweet.like_count}
+                tone="accent"
+              />
+              <TweetActionStat
+                icon="bookmark"
+                label="Bookmarks"
+                value={topTweet.bookmark_count}
+              />
+            </div>
           </div>
-          <p className="top-tweet-text">{topTweet.text}</p>
-          <a
-            className="top-tweet-link"
-            href={topTweet.url ?? buildTweetUrl(topTweetPanel.response)}
-            rel="noreferrer"
-            target="_blank"
-          >
-            Open tweet
-          </a>
         </>
       ) : null}
-    </article>
+    </>
+  );
+}
+
+function TweetActionStat({
+  icon,
+  label,
+  value,
+  tone = "default",
+}: {
+  icon: "reply" | "repost" | "like" | "bookmark";
+  label: string;
+  value: number | null;
+  tone?: "default" | "accent";
+}) {
+  return (
+    <span
+      aria-label={`${label}: ${value ?? 0}`}
+      className={`tweet-action-stat${tone === "accent" ? " is-accent" : ""}`}
+      title={label}
+    >
+      <span className="tweet-action-icon" aria-hidden="true">
+        {renderActionIcon(icon)}
+      </span>
+      <span>{formatCompactCount(value ?? 0)}</span>
+    </span>
   );
 }
 
@@ -512,6 +620,26 @@ function formatWeekLabel(value: string): string {
   return shortDateFormatter.format(new Date(`${value}T00:00:00Z`));
 }
 
+function formatTweetTimestamp(value: string): string {
+  const parts = tweetTimestampFormatter.formatToParts(new Date(value));
+  const hour = parts.find((part) => part.type === "hour")?.value ?? "";
+  const minute = parts.find((part) => part.type === "minute")?.value ?? "";
+  const dayPeriod = parts.find((part) => part.type === "dayPeriod")?.value?.toUpperCase() ?? "";
+  const month = parts.find((part) => part.type === "month")?.value ?? "";
+  const day = parts.find((part) => part.type === "day")?.value ?? "";
+  const year = parts.find((part) => part.type === "year")?.value ?? "";
+
+  return `${hour}:${minute} ${dayPeriod} · ${month} ${day}, ${year}`;
+}
+
+function formatCompactCount(value: number): string {
+  if (value < 10_000) {
+    return integerFormatter.format(value);
+  }
+
+  return compactCountFormatter.format(value).toUpperCase();
+}
+
 function normalizeTime(time: Time): Date {
   if (typeof time === "string") {
     return new Date(`${time}T00:00:00Z`);
@@ -534,4 +662,33 @@ function buildTweetUrl(response: MichaelSaylorTopLikedTweetResponse | null): str
   }
 
   return `https://x.com/${response.subject.username}/status/${response.top_tweet.platform_tweet_id}`;
+}
+
+function renderActionIcon(icon: "reply" | "repost" | "like" | "bookmark") {
+  switch (icon) {
+    case "reply":
+      return (
+        <svg viewBox="0 0 24 24">
+          <path d="M20 11.5c0 4.7-4.4 8.5-9.8 8.5-1.2 0-2.4-.2-3.5-.6L2 21l1.7-4C2.7 15.5 2 13.6 2 11.5 2 6.8 6.4 3 11.8 3S20 6.8 20 11.5Z" />
+        </svg>
+      );
+    case "repost":
+      return (
+        <svg viewBox="0 0 24 24">
+          <path d="m6 7 3-3 3 3M9 4v11a2 2 0 0 0 2 2h7m-1 0-3 3-3-3m3 3V9a2 2 0 0 0-2-2H5" />
+        </svg>
+      );
+    case "like":
+      return (
+        <svg viewBox="0 0 24 24">
+          <path d="M12 21s-6.7-4.4-9.2-8.2C.7 9.6 2.1 5.5 6.1 4.6c2-.4 4 .3 5.2 1.9 1.2-1.6 3.2-2.3 5.2-1.9 4 .9 5.4 5 3.3 8.2C18.7 16.6 12 21 12 21Z" />
+        </svg>
+      );
+    case "bookmark":
+      return (
+        <svg viewBox="0 0 24 24">
+          <path d="M6 4.5A1.5 1.5 0 0 1 7.5 3h9A1.5 1.5 0 0 1 18 4.5V21l-6-4-6 4V4.5Z" />
+        </svg>
+      );
+  }
 }

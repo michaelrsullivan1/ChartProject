@@ -144,7 +144,10 @@ def build_author_top_tweet_for_week(
                 "created_at_platform": top_tweet.created_at_platform.astimezone(UTC)
                 .isoformat()
                 .replace("+00:00", "Z"),
+                "reply_count": top_tweet.reply_count,
+                "repost_count": top_tweet.repost_count,
                 "like_count": top_tweet.like_count,
+                "bookmark_count": top_tweet.bookmark_count,
             },
         }
     finally:
