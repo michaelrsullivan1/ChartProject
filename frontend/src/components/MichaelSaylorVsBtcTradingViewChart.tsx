@@ -486,15 +486,29 @@ function TopLikedTweetCardBody({
         <>
           <div className="tweet-preview-card">
             <div className="tweet-preview-header">
-              <div>
-                <p className="tweet-preview-name">
-                  {topTweetPanel.response?.subject.display_name ??
-                    topTweetPanel.response?.subject.username ??
-                    "Michael Saylor"}
-                </p>
-                <p className="tweet-preview-handle">
-                  @{topTweetPanel.response?.subject.username ?? "saylor"}
-                </p>
+              <div className="tweet-preview-identity">
+                {topTweetPanel.response?.subject.profile_image_url ? (
+                  <img
+                    alt={topTweetPanel.response.subject.display_name ?? topTweetPanel.response.subject.username}
+                    className="tweet-preview-avatar"
+                    src={topTweetPanel.response.subject.profile_image_url}
+                  />
+                ) : (
+                  <div className="tweet-preview-avatar tweet-preview-avatar-fallback" aria-hidden="true">
+                    MS
+                  </div>
+                )}
+
+                <div className="tweet-preview-author-block">
+                  <p className="tweet-preview-name">
+                    {topTweetPanel.response?.subject.display_name ??
+                      topTweetPanel.response?.subject.username ??
+                      "Michael Saylor"}
+                  </p>
+                  <p className="tweet-preview-handle">
+                    @{topTweetPanel.response?.subject.username ?? "saylor"}
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -548,7 +562,7 @@ function TweetActionStat({
   return (
     <span
       aria-label={`${label}: ${value ?? 0}`}
-      className={`tweet-action-stat${tone === "accent" ? " is-accent" : ""}`}
+      className={`tweet-action-stat tweet-action-stat-${icon}${tone === "accent" ? " is-accent" : ""}`}
       title={label}
     >
       <span className="tweet-action-icon" aria-hidden="true">
@@ -669,25 +683,28 @@ function renderActionIcon(icon: "reply" | "repost" | "like" | "bookmark") {
     case "reply":
       return (
         <svg viewBox="0 0 24 24">
-          <path d="M20 11.5c0 4.7-4.4 8.5-9.8 8.5-1.2 0-2.4-.2-3.5-.6L2 21l1.7-4C2.7 15.5 2 13.6 2 11.5 2 6.8 6.4 3 11.8 3S20 6.8 20 11.5Z" />
+          <path d="M21 12c0 4.4-4 8-9 8-1 0-2-.1-2.9-.4L4 21l1.5-4A7.5 7.5 0 0 1 3 12c0-4.4 4-8 9-8s9 3.6 9 8Z" />
         </svg>
       );
     case "repost":
       return (
         <svg viewBox="0 0 24 24">
-          <path d="m6 7 3-3 3 3M9 4v11a2 2 0 0 0 2 2h7m-1 0-3 3-3-3m3 3V9a2 2 0 0 0-2-2H5" />
+          <path d="M17 4 21 8l-4 4" />
+          <path d="M3 11V9a1 1 0 0 1 1-1h17" />
+          <path d="M7 20 3 16l4-4" />
+          <path d="M21 13v2a1 1 0 0 1-1 1H3" />
         </svg>
       );
     case "like":
       return (
         <svg viewBox="0 0 24 24">
-          <path d="M12 21s-6.7-4.4-9.2-8.2C.7 9.6 2.1 5.5 6.1 4.6c2-.4 4 .3 5.2 1.9 1.2-1.6 3.2-2.3 5.2-1.9 4 .9 5.4 5 3.3 8.2C18.7 16.6 12 21 12 21Z" />
+          <path d="M12 20.3s-7-4.4-9.3-8.3C.9 8.9 2.2 5.5 5.7 4.7c2-.4 4 .4 5.3 2 1.3-1.6 3.3-2.4 5.3-2 3.5.8 4.8 4.2 3 7.3-2.3 3.9-9.3 8.3-9.3 8.3Z" />
         </svg>
       );
     case "bookmark":
       return (
         <svg viewBox="0 0 24 24">
-          <path d="M6 4.5A1.5 1.5 0 0 1 7.5 3h9A1.5 1.5 0 0 1 18 4.5V21l-6-4-6 4V4.5Z" />
+          <path d="M6 3.5h12a1 1 0 0 1 1 1V21l-7-4-7 4V4.5a1 1 0 0 1 1-1Z" />
         </svg>
       );
   }

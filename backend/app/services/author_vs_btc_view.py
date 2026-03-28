@@ -130,6 +130,7 @@ def build_author_top_tweet_for_week(
                 "platform_user_id": user.platform_user_id,
                 "username": user.username,
                 "display_name": user.display_name,
+                "profile_image_url": user.profile_image_url,
             },
             "week": {
                 "start": week_start.isoformat().replace("+00:00", "Z"),

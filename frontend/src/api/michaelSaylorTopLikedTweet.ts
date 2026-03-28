@@ -4,6 +4,7 @@ export type MichaelSaylorTopLikedTweetResponse = {
     platform_user_id: string;
     username: string;
     display_name: string | null;
+    profile_image_url: string | null;
   };
   week: {
     start: string;
