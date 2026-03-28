@@ -109,10 +109,10 @@ export function MichaelSaylorVsBtcPage() {
                 </dd>
               </div>
               <div>
-                <dt>Tweet Series</dt>
+                <dt>Activity Series</dt>
                 <dd>
-                  {payload.tweet_series.length} weekly points, zero-filled, replies and quote
-                  tweets included
+                  {payload.tweet_series.length} weekly points with both authored tweet counts and
+                  weekly like totals
                 </dd>
               </div>
               <div>
@@ -146,8 +146,8 @@ export function MichaelSaylorVsBtcPage() {
                 only starts in {formatMonthYear(payload.btc_series[0]?.timestamp ?? payload.range.start)}.
               </li>
               <li>
-                Weekly tweet activity is sparse for long stretches because the series is explicitly
-                zero-filled.
+                The middle pane can now switch between authored tweet volume and total weekly likes,
+                which helps separate posting cadence from audience response.
               </li>
               <li>
                 Daily BTC next to weekly tweet buckets is readable in separate panes, but the
@@ -229,7 +229,7 @@ function MichaelSaylorChartSection({
           </span>
           <span className="chart-legend-item">
             <span className="chart-swatch chart-swatch-tweet" />
-            Weekly tweet trend
+            Weekly activity pane
           </span>
           <span className="chart-legend-item">
             <span className="chart-swatch chart-swatch-sentiment" />

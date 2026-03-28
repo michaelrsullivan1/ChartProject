@@ -46,6 +46,7 @@ type SelectedWeek = {
   weekStart: string;
 };
 
+type ActivityMode = "tweets" | "likes";
 type SentimentMode = "raw" | "weighted-4w";
 type SentimentSeriesPoint = BaselineData<Time> | WhitespaceData<Time>;
 
@@ -146,15 +147,19 @@ export function MichaelSaylorVsBtcTradingViewChart({
 }: MichaelSaylorVsBtcTradingViewChartProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const topTweetCacheRef = useRef(new Map<string, MichaelSaylorTopLikedTweetResponse>());
+  const [activityMode, setActivityMode] = useState<ActivityMode>("tweets");
   const [sentimentMode, setSentimentMode] = useState<SentimentMode>("weighted-4w");
   const btcSeriesData = useMemo(() => buildBtcSeries(payload), [payload]);
-  const tweetSeriesData = useMemo(() => buildTweetSeries(payload), [payload]);
+  const activitySeriesData = useMemo(
+    () => buildActivitySeries(payload, activityMode),
+    [payload, activityMode],
+  );
   const sentimentSeriesData = useMemo<SentimentSeriesPoint[]>(
     () => buildSentimentSeries(sentimentPayload, sentimentMode),
     [sentimentPayload, sentimentMode],
   );
   const [hoverSnapshot, setHoverSnapshot] = useState<HoverSnapshot>(() =>
-    buildLatestHoverSnapshot(btcSeriesData, tweetSeriesData, sentimentSeriesData),
+    buildLatestHoverSnapshot(btcSeriesData, activitySeriesData, sentimentSeriesData, activityMode),
   );
   const [selectedWeek, setSelectedWeek] = useState<SelectedWeek | null>(null);
   const [topTweetPanel, setTopTweetPanel] = useState<TopTweetPanelState>({
@@ -165,8 +170,10 @@ export function MichaelSaylorVsBtcTradingViewChart({
   });
 
   useEffect(() => {
-    setHoverSnapshot(buildLatestHoverSnapshot(btcSeriesData, tweetSeriesData, sentimentSeriesData));
-  }, [btcSeriesData, tweetSeriesData, sentimentSeriesData]);
+    setHoverSnapshot(
+      buildLatestHoverSnapshot(btcSeriesData, activitySeriesData, sentimentSeriesData, activityMode),
+    );
+  }, [btcSeriesData, activitySeriesData, sentimentSeriesData, activityMode]);
 
   useEffect(() => {
     if (selectedWeek === null) {
@@ -263,13 +270,19 @@ export function MichaelSaylorVsBtcTradingViewChart({
       },
     });
 
-    const tweetSeries = chart.addSeries(
+    const activitySeries = chart.addSeries(
       AreaSeries,
       {
-        title: "Tweets / week",
-        lineColor: "#76c7ff",
-        topColor: "rgba(118, 199, 255, 0.22)",
-        bottomColor: "rgba(118, 199, 255, 0.02)",
+        title: activityModeLabel(activityMode),
+        lineColor: activityMode === "tweets" ? "#76c7ff" : "#ff6c8b",
+        topColor:
+          activityMode === "tweets"
+            ? "rgba(118, 199, 255, 0.22)"
+            : "rgba(255, 108, 139, 0.22)",
+        bottomColor:
+          activityMode === "tweets"
+            ? "rgba(118, 199, 255, 0.02)"
+            : "rgba(255, 108, 139, 0.03)",
         lineWidth: 3,
         lineType: LineType.Curved,
         lastValueVisible: true,
@@ -277,7 +290,7 @@ export function MichaelSaylorVsBtcTradingViewChart({
         crosshairMarkerVisible: true,
         crosshairMarkerRadius: 5,
         crosshairMarkerBorderWidth: 2,
-        crosshairMarkerBorderColor: "#76c7ff",
+        crosshairMarkerBorderColor: activityMode === "tweets" ? "#76c7ff" : "#ff6c8b",
         crosshairMarkerBackgroundColor: "#17130f",
         priceFormat: {
           type: "volume",
@@ -325,7 +338,7 @@ export function MichaelSaylorVsBtcTradingViewChart({
       },
     });
 
-    tweetSeries.priceScale().applyOptions({
+    activitySeries.priceScale().applyOptions({
       scaleMargins: {
         top: 0.16,
         bottom: 0,
@@ -340,7 +353,7 @@ export function MichaelSaylorVsBtcTradingViewChart({
     });
 
     btcSeries.setData(btcSeriesData);
-    tweetSeries.setData(tweetSeriesData);
+    activitySeries.setData(activitySeriesData);
     sentimentSeries.setData(sentimentSeriesData);
 
     const panes = chart.panes();
@@ -352,12 +365,19 @@ export function MichaelSaylorVsBtcTradingViewChart({
 
     const handleCrosshairMove = (param: MouseEventParams<Time>) => {
       if (!param.point || !param.time) {
-        setHoverSnapshot(buildLatestHoverSnapshot(btcSeriesData, tweetSeriesData, sentimentSeriesData));
+        setHoverSnapshot(
+          buildLatestHoverSnapshot(
+            btcSeriesData,
+            activitySeriesData,
+            sentimentSeriesData,
+            activityMode,
+          ),
+        );
         return;
       }
 
       const btcPoint = param.seriesData.get(btcSeries) as LineData<Time> | undefined;
-      const tweetPoint = findWeeklyPointForTime(param.time, tweetSeriesData);
+      const activityPoint = findWeeklyPointForTime(param.time, activitySeriesData);
       const sentimentPoint = findWeeklyPointForTime(param.time, sentimentSeriesData);
 
       setHoverSnapshot({
@@ -365,9 +385,9 @@ export function MichaelSaylorVsBtcTradingViewChart({
         btcPriceLabel:
           btcPoint?.value !== undefined ? currencyFormatter.format(btcPoint.value) : "No BTC data",
         tweetCountLabel:
-          tweetPoint?.value !== undefined
-            ? `${integerFormatter.format(tweetPoint.value)} tweets`
-            : "No tweet bucket",
+          activityPoint?.value !== undefined
+            ? formatActivityHoverValue(activityMode, activityPoint.value)
+            : `No ${activityMode} bucket`,
         sentimentLabel: hasSeriesValue(sentimentPoint)
           ? `${formatSignedSentiment(sentimentPoint.value)} vs baseline`
           : "No sentiment bucket",
@@ -380,12 +400,12 @@ export function MichaelSaylorVsBtcTradingViewChart({
         return;
       }
 
-      const tweetPoint = findWeeklyPointForTime(param.time, tweetSeriesData);
-      if (!tweetPoint || typeof tweetPoint.time !== "string") {
+      const activityPoint = findWeeklyPointForTime(param.time, activitySeriesData);
+      if (!activityPoint || typeof activityPoint.time !== "string") {
         return;
       }
 
-      const weekStart = tweetPoint.time;
+      const weekStart = activityPoint.time;
 
       setSelectedWeek({
         weekStart,
@@ -419,11 +439,36 @@ export function MichaelSaylorVsBtcTradingViewChart({
       resizeObserver.disconnect();
       chart.remove();
     };
-  }, [btcSeriesData, tweetSeriesData, sentimentSeriesData]);
+  }, [btcSeriesData, activitySeriesData, sentimentSeriesData, activityMode]);
 
   return (
     <div className="tradingview-chart-shell">
       <aside className="chart-sidebar chart-sidebar-left">
+        <div className="chart-control-card">
+          <p className="chart-control-eyebrow">Middle Pane</p>
+          <div className="chart-toggle-group" role="group" aria-label="Middle pane metric">
+            {(
+              [
+                ["tweets", "Tweets / week"],
+                ["likes", "Likes / week"],
+              ] as const
+            ).map(([mode, label]) => (
+              <button
+                key={mode}
+                className={`chart-toggle-button${activityMode === mode ? " is-active" : ""}`}
+                onClick={() => setActivityMode(mode)}
+                type="button"
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <p className="chart-control-note">
+            Switch the middle pane between authored tweet volume and the total likes earned by
+            tweets created in each week.
+          </p>
+        </div>
+
         <div className="chart-control-card">
           <p className="chart-control-eyebrow">Sentiment Mode</p>
           <div className="chart-toggle-group" role="group" aria-label="Sentiment smoothing mode">
@@ -469,7 +514,7 @@ export function MichaelSaylorVsBtcTradingViewChart({
             </span>
           </div>
           <div className="chart-hover-item">
-            <span className="chart-hover-label">Tweets That Week</span>
+            <span className="chart-hover-label">{activityHoverLabel(activityMode)}</span>
             <span className="chart-hover-value">{hoverSnapshot.tweetCountLabel}</span>
           </div>
           <div className="chart-hover-item">
@@ -661,10 +706,13 @@ function buildBtcSeries(payload: MichaelSaylorVsBtcResponse): LineData<Time>[] {
   }));
 }
 
-function buildTweetSeries(payload: MichaelSaylorVsBtcResponse): AreaData<Time>[] {
+function buildActivitySeries(
+  payload: MichaelSaylorVsBtcResponse,
+  activityMode: ActivityMode,
+): AreaData<Time>[] {
   return payload.tweet_series.map((point) => ({
     time: toBusinessDay(point.period_start),
-    value: point.tweet_count,
+    value: activityMode === "tweets" ? point.tweet_count : point.like_count,
   }));
 }
 
@@ -713,22 +761,23 @@ function buildSentimentSeries(
 
 function buildLatestHoverSnapshot(
   btcSeriesData: LineData<Time>[],
-  tweetSeriesData: AreaData<Time>[],
+  activitySeriesData: AreaData<Time>[],
   sentimentSeriesData: SentimentSeriesPoint[],
+  activityMode: ActivityMode,
 ): HoverSnapshot {
   const latestBtc = btcSeriesData[btcSeriesData.length - 1];
-  const latestTweets = tweetSeriesData[tweetSeriesData.length - 1];
+  const latestActivity = activitySeriesData[activitySeriesData.length - 1];
   const latestSentiment = sentimentSeriesData[sentimentSeriesData.length - 1];
-  const time = latestBtc?.time ?? latestTweets?.time ?? latestSentiment?.time ?? "1970-01-01";
+  const time = latestBtc?.time ?? latestActivity?.time ?? latestSentiment?.time ?? "1970-01-01";
 
   return {
     dateLabel: formatTimeLabel(time),
     btcPriceLabel:
       latestBtc?.value !== undefined ? currencyFormatter.format(latestBtc.value) : "No BTC data",
     tweetCountLabel:
-      latestTweets?.value !== undefined
-        ? `${integerFormatter.format(latestTweets.value)} tweets`
-        : "No tweet bucket",
+      latestActivity?.value !== undefined
+        ? formatActivityHoverValue(activityMode, latestActivity.value)
+        : `No ${activityMode} bucket`,
     sentimentLabel:
       hasSeriesValue(latestSentiment)
         ? `${formatSignedSentiment(latestSentiment.value)} vs baseline`
@@ -796,6 +845,20 @@ function sentimentModeLabel(mode: SentimentMode): string {
     case "raw":
       return "Sentiment vs baseline (raw)";
   }
+}
+
+function activityModeLabel(mode: ActivityMode): string {
+  return mode === "tweets" ? "Tweets / week" : "Likes / week";
+}
+
+function activityHoverLabel(mode: ActivityMode): string {
+  return mode === "tweets" ? "Tweets That Week" : "Likes That Week";
+}
+
+function formatActivityHoverValue(mode: ActivityMode, value: number): string {
+  return mode === "tweets"
+    ? `${integerFormatter.format(value)} tweets`
+    : `${integerFormatter.format(value)} likes`;
 }
 
 function computeWeightedSentimentDeviation(

@@ -14,6 +14,7 @@ export type MichaelSaylorVsBtcResponse = {
   tweet_series: Array<{
     period_start: string;
     tweet_count: number;
+    like_count: number;
   }>;
   btc_series: Array<{
     timestamp: string;

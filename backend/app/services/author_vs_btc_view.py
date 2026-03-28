@@ -45,16 +45,15 @@ def build_author_vs_btc_view(
             raise RuntimeError(f"No canonical user found for username={request.username!r}.")
 
         tweet_rows = session.execute(
-            select(Tweet.created_at_platform)
+            select(Tweet.created_at_platform, Tweet.like_count)
             .where(Tweet.author_user_id == user.id)
             .order_by(Tweet.created_at_platform)
         ).all()
         if not tweet_rows:
             raise RuntimeError(f"No normalized tweets found for username={request.username!r}.")
 
-        tweet_times = [row[0].astimezone(UTC) for row in tweet_rows]
         bucket_fn = floor_to_week if granularity == "week" else floor_to_day
-        tweet_series = _build_tweet_series(tweet_times, bucket_fn=bucket_fn, granularity=granularity)
+        tweet_series = _build_tweet_series(tweet_rows, bucket_fn=bucket_fn, granularity=granularity)
 
         range_start = tweet_series[0]["period_start"]
         range_end = tweet_series[-1]["period_start"]
@@ -156,15 +155,17 @@ def build_author_top_tweet_for_week(
 
 
 def _build_tweet_series(
-    tweet_times: list[datetime],
+    tweet_rows: list[tuple[datetime, int | None]],
     *,
     bucket_fn,
     granularity: str,
 ) -> list[dict[str, object]]:
-    counts: dict[datetime, int] = {}
-    for tweet_time in tweet_times:
+    counts: dict[datetime, dict[str, int]] = {}
+    for tweet_time, like_count in tweet_rows:
         bucket_start = bucket_fn(tweet_time)
-        counts[bucket_start] = counts.get(bucket_start, 0) + 1
+        bucket = counts.setdefault(bucket_start, {"tweet_count": 0, "like_count": 0})
+        bucket["tweet_count"] += 1
+        bucket["like_count"] += like_count or 0
 
     sorted_buckets = sorted(counts.keys())
     current = sorted_buckets[0]
@@ -175,7 +176,8 @@ def _build_tweet_series(
         series.append(
             {
                 "period_start": current.isoformat().replace("+00:00", "Z"),
-                "tweet_count": counts.get(current, 0),
+                "tweet_count": counts.get(current, {}).get("tweet_count", 0),
+                "like_count": counts.get(current, {}).get("like_count", 0),
             }
         )
         current += step
