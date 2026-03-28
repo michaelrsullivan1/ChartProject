@@ -83,12 +83,6 @@ export function MichaelSaylorVsBtcPage() {
     <section className="dashboard-page">
       <article className="panel panel-accent dashboard-workspace">
         <div className="dashboard-workspace-header">
-          <div>
-            <p className="eyebrow dashboard-eyebrow">Michael Saylor vs BTC</p>
-            <p className="dashboard-subtitle">
-              Synced price, activity, and sentiment panes with a shared research timeline.
-            </p>
-          </div>
           {isLoading ? <p className="status-copy">Loading Michael Saylor view...</p> : null}
           {error ? <p className="status-copy">{error}</p> : null}
         </div>
@@ -178,12 +172,6 @@ function MichaelSaylorChartSection({
             Sentiment deviation from baseline
           </span>
         </div>
-        <p className="chart-caption">
-          Shared x-axis from {formatMonthYear(payload.range.start)} to {formatMonthYear(btcLastIso)}.
-          BTC coverage begins in {formatMonthYear(btcFirstIso)}, so the early tweet-only stretch is
-          preserved rather than cropped away. The sentiment pane is centered at zero and tracks
-          weekly deviation from Saylor&apos;s overall average sentiment score.
-        </p>
       </div>
     </>
   );
