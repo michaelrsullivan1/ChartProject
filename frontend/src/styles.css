@@ -202,7 +202,7 @@ body {
 
 .metric-strip {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 16px;
   margin-top: 24px;
 }
@@ -470,7 +470,7 @@ body {
 
 .tradingview-chart {
   width: 100%;
-  height: 560px;
+  height: 640px;
 }
 
 .chart-caption-row {
@@ -505,6 +505,10 @@ body {
 
 .chart-swatch-btc {
   background: #ffb240;
+}
+
+.chart-swatch-sentiment {
+  background: linear-gradient(180deg, #7af0b6 0%, #f0d38a 50%, #ff6c6c 100%);
 }
 
 .chart-caption {
@@ -565,7 +569,7 @@ body {
   }
 
   .tradingview-chart {
-    height: 440px;
+    height: 520px;
   }
 }
 

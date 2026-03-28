@@ -4,7 +4,10 @@ import {
   fetchMichaelSaylorVsBtc,
   type MichaelSaylorVsBtcResponse,
 } from "../api/michaelSaylorVsBtc";
-import { fetchMichaelSaylorSentiment } from "../api/michaelSaylorSentiment";
+import {
+  fetchMichaelSaylorSentiment,
+  type MichaelSaylorSentimentResponse,
+} from "../api/michaelSaylorSentiment";
 import { MichaelSaylorVsBtcTradingViewChart } from "../components/MichaelSaylorVsBtcTradingViewChart";
 
 const chartCurrencyFormatter = new Intl.NumberFormat("en-US", {
@@ -30,6 +33,9 @@ const monthYearFormatter = new Intl.DateTimeFormat("en-US", {
 
 export function MichaelSaylorVsBtcPage() {
   const [payload, setPayload] = useState<MichaelSaylorVsBtcResponse | null>(null);
+  const [sentimentPayload, setSentimentPayload] = useState<MichaelSaylorSentimentResponse | null>(
+    null,
+  );
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -38,15 +44,21 @@ export function MichaelSaylorVsBtcPage() {
 
     async function loadView() {
       try {
-        const response = await fetchMichaelSaylorVsBtc("week");
+        const [response, sentimentResponse] = await Promise.all([
+          fetchMichaelSaylorVsBtc("week"),
+          fetchMichaelSaylorSentiment("week"),
+        ]);
         if (!cancelled) {
           setPayload(response);
+          setSentimentPayload(sentimentResponse);
           setError(null);
         }
+        console.log("ChartProject michael-saylor sentiment payload", sentimentResponse);
       } catch (loadError) {
         console.error("ChartProject michael-saylor-vs-btc request failed", loadError);
         if (!cancelled) {
           setPayload(null);
+          setSentimentPayload(null);
           setError(
             loadError instanceof Error
               ? loadError.message
@@ -67,28 +79,6 @@ export function MichaelSaylorVsBtcPage() {
     };
   }, []);
 
-  useEffect(() => {
-    const abortController = new AbortController();
-
-    async function loadSentiment() {
-      try {
-        const sentimentPayload = await fetchMichaelSaylorSentiment("week", abortController.signal);
-        console.log("ChartProject michael-saylor sentiment payload", sentimentPayload);
-      } catch (loadError) {
-        if (abortController.signal.aborted) {
-          return;
-        }
-        console.error("ChartProject michael-saylor sentiment request failed", loadError);
-      }
-    }
-
-    void loadSentiment();
-
-    return () => {
-      abortController.abort();
-    };
-  }, []);
-
   return (
     <section className="content-stack">
       <article className="panel panel-accent">
@@ -99,10 +89,15 @@ export function MichaelSaylorVsBtcPage() {
         </p>
         {isLoading ? <p className="status-copy">Loading Michael Saylor view...</p> : null}
         {error ? <p className="status-copy">{error}</p> : null}
-        {payload ? <MichaelSaylorChartSection payload={payload} /> : null}
+        {payload && sentimentPayload ? (
+          <MichaelSaylorChartSection
+            payload={payload}
+            sentimentPayload={sentimentPayload}
+          />
+        ) : null}
       </article>
 
-      {payload ? (
+      {payload && sentimentPayload ? (
         <div className="content-grid">
           <article className="panel">
             <h2>Rendered from</h2>
@@ -123,6 +118,13 @@ export function MichaelSaylorVsBtcPage() {
               <div>
                 <dt>BTC Series</dt>
                 <dd>{payload.btc_series.length} daily points from local FRED archive</dd>
+              </div>
+              <div>
+                <dt>Sentiment Series</dt>
+                <dd>
+                  {sentimentPayload.sentiment_series.length} weekly points centered on the user
+                  baseline
+                </dd>
               </div>
               <div>
                 <dt>Timeline</dt>
@@ -151,6 +153,10 @@ export function MichaelSaylorVsBtcPage() {
                 Daily BTC next to weekly tweet buckets is readable in separate panes, but the
                 cadence mismatch is now much easier to inspect.
               </li>
+              <li>
+                The new sentiment pane is centered at zero, so weeks above the baseline read as
+                more positive than Saylor&apos;s own average and weeks below it read as more negative.
+              </li>
             </ul>
           </article>
         </div>
@@ -159,11 +165,18 @@ export function MichaelSaylorVsBtcPage() {
   );
 }
 
-function MichaelSaylorChartSection({ payload }: { payload: MichaelSaylorVsBtcResponse }) {
+function MichaelSaylorChartSection({
+  payload,
+  sentimentPayload,
+}: {
+  payload: MichaelSaylorVsBtcResponse;
+  sentimentPayload: MichaelSaylorSentimentResponse;
+}) {
   const tweetCounts = payload.tweet_series.map((point) => point.tweet_count);
   const totalTweets = tweetCounts.reduce((sum, value) => sum + value, 0);
   const zeroTweetWeeks = tweetCounts.filter((value) => value === 0).length;
   const maxTweetWeek = tweetCounts.reduce((max, value) => Math.max(max, value), 0);
+  const averageSentimentIndex = sentimentPayload.summary.average_sentiment_index;
   const latestBtcPoint = payload.btc_series[payload.btc_series.length - 1];
   const latestBtc = latestBtcPoint?.price_usd ?? 0;
   const btcFirstIso = payload.btc_series[0]?.timestamp ?? payload.range.start;
@@ -194,10 +207,18 @@ function MichaelSaylorChartSection({ payload }: { payload: MichaelSaylorVsBtcRes
           <p className="metric-value">{Math.round(zeroWeekShare)}%</p>
           <p className="metric-note">{integerFormatter.format(zeroTweetWeeks)} weeks at zero</p>
         </article>
+        <article className="metric-card">
+          <p className="metric-label">Baseline Sentiment</p>
+          <p className="metric-value">{formatSignedDecimal(averageSentimentIndex, 3)}</p>
+          <p className="metric-note">Average sentiment index across scored tweets</p>
+        </article>
       </div>
 
       <div className="chart-shell">
-        <MichaelSaylorVsBtcTradingViewChart payload={payload} />
+        <MichaelSaylorVsBtcTradingViewChart
+          payload={payload}
+          sentimentPayload={sentimentPayload}
+        />
       </div>
 
       <div className="chart-caption-row">
@@ -210,11 +231,16 @@ function MichaelSaylorChartSection({ payload }: { payload: MichaelSaylorVsBtcRes
             <span className="chart-swatch chart-swatch-tweet" />
             Weekly tweet trend
           </span>
+          <span className="chart-legend-item">
+            <span className="chart-swatch chart-swatch-sentiment" />
+            Sentiment deviation from baseline
+          </span>
         </div>
         <p className="chart-caption">
           Shared x-axis from {formatMonthYear(payload.range.start)} to {formatMonthYear(btcLastIso)}.
           BTC coverage begins in {formatMonthYear(btcFirstIso)}, so the early tweet-only stretch is
-          preserved rather than cropped away.
+          preserved rather than cropped away. The sentiment pane is centered at zero and tracks
+          weekly deviation from Saylor&apos;s overall average sentiment score.
         </p>
       </div>
     </>
@@ -227,6 +253,11 @@ function formatMonthYear(value: string | number): string {
 
 function formatFullDate(value: string | number): string {
   return fullDateFormatter.format(normalizeDateValue(value));
+}
+
+function formatSignedDecimal(value: number, fractionDigits: number): string {
+  const formatted = value.toFixed(fractionDigits);
+  return value > 0 ? `+${formatted}` : formatted;
 }
 
 function normalizeDateValue(value: string | number): Date | number {
