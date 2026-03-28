@@ -16,7 +16,7 @@ const navItems: Array<{
 
 export function AppShell({ activePage, onNavigate, children }: AppShellProps) {
   return (
-    <div className="app-shell">
+    <div className={`app-shell${activePage === "michael-saylor-vs-btc" ? " app-shell-wide" : ""}`}>
       <header className="hero">
         <p className="eyebrow">ChartProject</p>
         <h1>Local-first X research foundation</h1>

@@ -38,6 +38,10 @@ body {
   padding: 48px 0 72px;
 }
 
+.app-shell.app-shell-wide {
+  width: min(1560px, calc(100vw - 24px));
+}
+
 .hero {
   padding: 32px;
   border: 1px solid var(--panel-border);
@@ -229,16 +233,23 @@ body {
 
 .tradingview-chart-shell {
   display: grid;
-  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 16px;
 }
 
 .chart-stage {
-  position: relative;
+  min-width: 0;
+}
+
+.chart-sidebar {
+  display: grid;
+  align-content: start;
+  gap: 12px;
 }
 
 .chart-hover-strip {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: 1fr;
   gap: 12px;
 }
 
@@ -272,11 +283,6 @@ body {
 }
 
 .top-tweet-card {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  z-index: 2;
-  width: min(380px, calc(100% - 32px));
   padding: 16px 18px;
   border: 1px solid rgba(255, 245, 220, 0.1);
   border-radius: 18px;
@@ -431,14 +437,8 @@ body {
 }
 
 @media (max-width: 900px) {
-  .top-tweet-card {
-    position: static;
-    width: auto;
-    margin-bottom: 10px;
-  }
-
-  .chart-stage {
+  .tradingview-chart-shell {
     display: grid;
-    gap: 10px;
+    grid-template-columns: 1fr;
   }
 }

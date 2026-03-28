@@ -354,32 +354,35 @@ export function MichaelSaylorVsBtcTradingViewChart({
 
   return (
     <div className="tradingview-chart-shell">
-      <div className="chart-hover-strip" aria-live="polite">
-        <div className="chart-hover-item">
-          <span className="chart-hover-label">Date</span>
-          <span className="chart-hover-value">{hoverSnapshot.dateLabel}</span>
-        </div>
-        <div className="chart-hover-item">
-          <span className="chart-hover-label">BTC</span>
-          <span
-            className={`chart-hover-value${hoverSnapshot.hasBtcValue ? "" : " is-muted"}`}
-          >
-            {hoverSnapshot.btcPriceLabel}
-          </span>
-        </div>
-        <div className="chart-hover-item">
-          <span className="chart-hover-label">Tweets That Week</span>
-          <span className="chart-hover-value">{hoverSnapshot.tweetCountLabel}</span>
-        </div>
-      </div>
-
       <div className="chart-stage">
         <div className="tradingview-chart" ref={containerRef} />
-      <TopLikedTweetCard
-        selectedWeek={selectedWeek}
-        topTweetPanel={topTweetPanel}
-      />
       </div>
+
+      <aside className="chart-sidebar">
+        <div className="chart-hover-strip" aria-live="polite">
+          <div className="chart-hover-item">
+            <span className="chart-hover-label">Date</span>
+            <span className="chart-hover-value">{hoverSnapshot.dateLabel}</span>
+          </div>
+          <div className="chart-hover-item">
+            <span className="chart-hover-label">BTC</span>
+            <span
+              className={`chart-hover-value${hoverSnapshot.hasBtcValue ? "" : " is-muted"}`}
+            >
+              {hoverSnapshot.btcPriceLabel}
+            </span>
+          </div>
+          <div className="chart-hover-item">
+            <span className="chart-hover-label">Tweets That Week</span>
+            <span className="chart-hover-value">{hoverSnapshot.tweetCountLabel}</span>
+          </div>
+        </div>
+
+        <TopLikedTweetCard
+          selectedWeek={selectedWeek}
+          topTweetPanel={topTweetPanel}
+        />
+      </aside>
     </div>
   );
 }
@@ -412,7 +415,7 @@ function TopLikedTweetCard({
       ) : null}
 
       {topTweetPanel.status === "loading" ? (
-        <p className="top-tweet-status">Loading top liked tweet from the hovered week...</p>
+        <p className="top-tweet-status">Loading top liked tweet from the selected week...</p>
       ) : null}
 
       {topTweetPanel.status === "error" ? (
