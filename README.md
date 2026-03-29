@@ -269,6 +269,69 @@ cd /Users/michaelsullivan/Code/ChartProject
 source .venv/bin/activate
 ```
 
+### Onboard a new user
+
+Use this order for a new X username:
+
+1. Start the local database and ensure the Python env is ready:
+
+```bash
+cd /Users/michaelsullivan/Code/ChartProject
+./scripts/setup-db.sh
+source .venv/bin/activate
+```
+
+2. Run a small first-window ingest to confirm the provider query works:
+
+```bash
+python3 backend/scripts/ingest/fetch_user_tweets_history.py \
+  --username someuser \
+  --since 2024-01-01T00:00:00Z \
+  --until 2024-02-01T00:00:00Z \
+  --window-months 1
+```
+
+3. Run the larger backfill once the first window succeeds:
+
+```bash
+python3 backend/scripts/ingest/fetch_user_tweets_history.py \
+  --username someuser \
+  --since 2024-01-01T00:00:00Z \
+  --until 2025-01-01T00:00:00Z \
+  --window-months 1
+```
+
+4. Normalize the archived raw payloads:
+
+```bash
+python3 backend/scripts/normalize/normalize_archived_user.py --username someuser
+```
+
+5. Validate canonical rows against the raw corpus:
+
+```bash
+python3 backend/scripts/validate/validate_normalized_user.py --username someuser
+```
+
+6. Score sentiment on the normalized tweets:
+
+```bash
+python3 backend/scripts/enrich/score_tweet_sentiment.py --username someuser
+```
+
+7. Confirm the dedicated overview endpoints and frontend page render correctly.
+
+### Preflight checklist
+
+Before starting a new-user run, verify:
+
+- `./scripts/setup-db.sh` completed successfully at least once
+- the project Postgres is reachable on `localhost:5433`
+- [backend/.env](/Users/michaelsullivan/Code/ChartProject/backend/.env) contains a valid `CHART_DATABASE_URL`
+- [backend/.env](/Users/michaelsullivan/Code/ChartProject/backend/.env) contains `CHART_TWITTERAPI_API_KEY`
+- the project virtualenv is active via `source .venv/bin/activate`
+- commands are being run from the repo root or with paths rooted from the repo root
+
 ### Fetch raw user info
 
 ```bash
@@ -320,6 +383,14 @@ Useful options:
 - `--resume-run-id <id>`
 - `--query-fragment "<extra advanced search terms>"`
 - `--window-months 1`
+
+Expected normal outcomes:
+
+- some monthly windows may legitimately return `0` tweets
+- an account join date on X does not guarantee the provider search corpus begins on that same date
+- the total ingested tweets can differ from the X profile's public `posts` count
+- replies and quote tweets are included in the current overview flow
+- reposts/retweets may not align with the way X displays profile-level counts
 
 ### Fetch raw BTC/USD daily history
 
@@ -449,6 +520,40 @@ Useful options:
 - `--overwrite-existing`
 - `--model-key some-custom-key`
 - `--batch-size 64`
+
+Expected normal outcomes:
+
+- Hugging Face may warn about unauthenticated downloads if `HF_TOKEN` is unset
+- the RoBERTa load report may show `UNEXPECTED` keys for this checkpoint; that is acceptable in the current setup
+- some tweets may be skipped because they are unsupported for scoring after language or preprocessing checks
+
+## Troubleshooting
+
+Common issues during local data work:
+
+- `ModuleNotFoundError: No module named 'sqlalchemy'`
+  Use the project virtualenv and sync backend deps:
+
+```bash
+cd /Users/michaelsullivan/Code/ChartProject
+source .venv/bin/activate
+pip install -e backend
+```
+
+- Database connection errors referencing `localhost:5432`
+  The project database lives on `localhost:5433`. This usually means Postgres is not running or the backend env file was not loaded as expected. Start with:
+
+```bash
+cd /Users/michaelsullivan/Code/ChartProject
+./scripts/setup-db.sh
+source .venv/bin/activate
+```
+
+- A first ingest window succeeds for user info but returns `0` tweets
+  This can be normal for that time range. Try a slightly later or larger window before assuming the ingest flow is broken.
+
+- The X profile `posts` count does not match the ingested tweet count
+  This can happen when platform-visible counts and provider-searchable corpora are not defined the same way.
 
 ## Backups
 
