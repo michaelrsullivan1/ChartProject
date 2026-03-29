@@ -254,6 +254,21 @@ Current local BTC coverage begins on `2014-12-01T00:00:00Z` because that is wher
 
 The raw ingest scripts live under [backend/scripts/ingest](/Users/michaelsullivan/Code/ChartProject/backend/scripts/ingest).
 
+Before running any ingest, normalization, validation, or enrichment command:
+
+- run `./scripts/setup-db.sh` at least once for the current machine/session
+- ensure Docker/Postgres is running and reachable on `localhost:5433`
+- ensure [backend/.env](/Users/michaelsullivan/Code/ChartProject/backend/.env) exists and points at the project database
+- activate the project virtualenv with `source .venv/bin/activate`
+
+These data scripts do not start Postgres for you. If you see connection errors on `localhost:5432` or `localhost:5433`, first run:
+
+```bash
+cd /Users/michaelsullivan/Code/ChartProject
+./scripts/setup-db.sh
+source .venv/bin/activate
+```
+
 ### Fetch raw user info
 
 ```bash
@@ -354,6 +369,8 @@ Notes:
 
 ## Normalization scripts
 
+These commands also require the local project Postgres to already be running.
+
 ### Normalize archived tweets for one user
 
 ```bash
@@ -383,6 +400,8 @@ python scripts/normalize/normalize_market_price_points.py --asset-symbol MSTR --
 
 ## Validation scripts
 
+These commands also require the local project Postgres to already be running.
+
 ### Validate normalized tweets for one user
 
 ```bash
@@ -411,6 +430,8 @@ python scripts/validate/validate_market_price_points.py --asset-symbol MSTR --qu
 ```
 
 ## Enrichment scripts
+
+These commands also require the local project Postgres to already be running.
 
 ### Score tweet sentiment for one or more normalized users
 
