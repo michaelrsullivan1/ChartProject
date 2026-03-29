@@ -442,10 +442,11 @@ def archive_tweet_search_window_raw(
                     time.sleep(request.page_delay_seconds)
                 continue
 
-            if request.debug and (duplicate_page or not new_tweet_ids):
-                _print_debug_message(
-                    "stopping advanced_search window after a non-advancing page and no new max_id anchor"
-                )
+            if duplicate_page or not new_tweet_ids:
+                if request.debug:
+                    _print_debug_message(
+                        "stopping advanced_search window after a non-advancing page and no new max_id anchor"
+                    )
                 break
 
         completed_at = datetime.now(UTC)
