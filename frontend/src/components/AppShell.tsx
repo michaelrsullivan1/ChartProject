@@ -1,41 +1,101 @@
-import type { ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+
+import {
+  type OverviewDefinition,
+  getOverviewLabel,
+} from "../config/overviews";
 
 type AppShellProps = {
-  activePage: "home" | "michael-saylor-vs-btc";
-  onNavigate: (page: "home" | "michael-saylor-vs-btc") => void;
+  mode: "home" | "dashboard";
+  dashboardTitle?: string;
+  activeOverviewSlug: string | null;
+  overviews: OverviewDefinition[];
+  onNavigateHome: () => void;
+  onNavigateOverview: (slug: string) => void;
   children: ReactNode;
 };
 
-const navItems: Array<{
-  key: "home" | "michael-saylor-vs-btc";
-  label: string;
-}> = [
-  { key: "home", label: "Foundation" },
-  { key: "michael-saylor-vs-btc", label: "Michael Saylor Overview" },
-];
+export function AppShell({
+  mode,
+  dashboardTitle,
+  activeOverviewSlug,
+  overviews,
+  onNavigateHome,
+  onNavigateOverview,
+  children,
+}: AppShellProps) {
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
 
-export function AppShell({ activePage, onNavigate, children }: AppShellProps) {
-  const isDashboardPage = activePage === "michael-saylor-vs-btc";
+  useEffect(() => {
+    setIsDropdownOpen(false);
+  }, [activeOverviewSlug, mode]);
 
-  if (isDashboardPage) {
+  useEffect(() => {
+    function handlePointerDown(event: PointerEvent) {
+      if (!dropdownRef.current?.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    }
+
+    window.addEventListener("pointerdown", handlePointerDown);
+    return () => {
+      window.removeEventListener("pointerdown", handlePointerDown);
+    };
+  }, []);
+
+  function renderNavigation(isDashboardNav: boolean) {
+    return (
+      <>
+        <button
+          className={`page-nav-link${activeOverviewSlug === null && mode === "home" ? " is-active" : ""}`}
+          onClick={onNavigateHome}
+          type="button"
+        >
+          Foundation
+        </button>
+        <div className="overview-dropdown" ref={dropdownRef}>
+          <button
+            aria-expanded={isDropdownOpen}
+            className={`page-nav-link${activeOverviewSlug !== null ? " is-active" : ""}`}
+            onClick={() => setIsDropdownOpen((current) => !current)}
+            type="button"
+          >
+            Overviews
+          </button>
+          {isDropdownOpen ? (
+            <div
+              className={`overview-dropdown-menu${isDashboardNav ? " overview-dropdown-menu-dashboard" : ""}`}
+              role="menu"
+            >
+              {overviews.map((overview) => (
+                <button
+                  key={overview.slug}
+                  className={`overview-dropdown-item${activeOverviewSlug === overview.slug ? " is-active" : ""}`}
+                  onClick={() => onNavigateOverview(overview.slug)}
+                  role="menuitem"
+                  type="button"
+                >
+                  {getOverviewLabel(overview)}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      </>
+    );
+  }
+
+  if (mode === "dashboard") {
     return (
       <div className="app-dashboard-shell">
         <header className="dashboard-topbar">
           <div className="dashboard-topbar-brand">
             <span className="dashboard-topbar-kicker">Sentiment Analysis</span>
-            <span className="dashboard-topbar-title">Michael Saylor Overview</span>
+            <span className="dashboard-topbar-title">{dashboardTitle ?? "Overview"}</span>
           </div>
           <nav className="dashboard-nav" aria-label="Primary">
-            {navItems.map((item) => (
-              <button
-                key={item.key}
-                className={`page-nav-link${activePage === item.key ? " is-active" : ""}`}
-                onClick={() => onNavigate(item.key)}
-                type="button"
-              >
-                {item.label}
-              </button>
-            ))}
+            {renderNavigation(true)}
           </nav>
         </header>
         <main className="dashboard-main">{children}</main>
@@ -53,16 +113,7 @@ export function AppShell({ activePage, onNavigate, children }: AppShellProps) {
           until the data layer is trustworthy.
         </p>
         <nav className="page-nav" aria-label="Primary">
-          {navItems.map((item) => (
-            <button
-              key={item.key}
-              className={`page-nav-link${activePage === item.key ? " is-active" : ""}`}
-              onClick={() => onNavigate(item.key)}
-              type="button"
-            >
-              {item.label}
-            </button>
-          ))}
+          {renderNavigation(false)}
         </nav>
       </header>
       <main>{children}</main>

@@ -15,20 +15,22 @@ import {
   type WhitespaceData,
 } from "lightweight-charts";
 
-import type { MichaelSaylorVsBtcResponse } from "../api/michaelSaylorVsBtc";
-import type { MichaelSaylorSentimentResponse } from "../api/michaelSaylorSentiment";
 import {
-  fetchMichaelSaylorTopLikedTweet,
-  type MichaelSaylorTopLikedTweetResponse,
-} from "../api/michaelSaylorTopLikedTweet";
+  fetchAuthorTopLikedTweet,
+  type AuthorOverviewResponse,
+  type AuthorSentimentResponse,
+  type AuthorTopLikedTweetResponse,
+} from "../api/authorOverview";
+import type { OverviewDefinition } from "../config/overviews";
 import {
   buildSentimentDeviationSeries,
   type SentimentMode,
 } from "../lib/sentiment";
 
 type MichaelSaylorVsBtcTradingViewChartProps = {
-  payload: MichaelSaylorVsBtcResponse;
-  sentimentPayload: MichaelSaylorSentimentResponse;
+  overview: OverviewDefinition;
+  payload: AuthorOverviewResponse;
+  sentimentPayload: AuthorSentimentResponse;
   sentimentMode: SentimentMode;
   onSentimentModeChange: (mode: SentimentMode) => void;
 };
@@ -46,7 +48,7 @@ type HoverSnapshot = {
 type TopTweetPanelState = {
   status: "idle" | "waiting" | "loading" | "loaded" | "error";
   weekStart: string | null;
-  response: MichaelSaylorTopLikedTweetResponse | null;
+  response: AuthorTopLikedTweetResponse | null;
   error: string | null;
 };
 
@@ -160,13 +162,14 @@ const chartOptions = {
 };
 
 export function MichaelSaylorVsBtcTradingViewChart({
+  overview,
   payload,
   sentimentPayload,
   sentimentMode,
   onSentimentModeChange,
 }: MichaelSaylorVsBtcTradingViewChartProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const topTweetCacheRef = useRef(new Map<string, MichaelSaylorTopLikedTweetResponse>());
+  const topTweetCacheRef = useRef(new Map<string, AuthorTopLikedTweetResponse>());
   const [priceMode, setPriceMode] = useState<PriceMode>("btc");
   const [activityMode, setActivityMode] = useState<ActivityMode>("tweets");
   const [showWatermark, setShowWatermark] = useState(true);
@@ -255,7 +258,8 @@ export function MichaelSaylorVsBtcTradingViewChart({
       });
 
       try {
-        const response = await fetchMichaelSaylorTopLikedTweet(
+        const response = await fetchAuthorTopLikedTweet(
+          overview.apiBasePath,
           activeWeek.weekStart,
           controller.signal,
         );
@@ -288,7 +292,7 @@ export function MichaelSaylorVsBtcTradingViewChart({
     return () => {
       controller.abort();
     };
-  }, [selectedWeek]);
+  }, [overview.apiBasePath, selectedWeek]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -776,7 +780,7 @@ function TopLikedTweetCardBody({
                   />
                 ) : (
                   <div className="tweet-preview-avatar tweet-preview-avatar-fallback" aria-hidden="true">
-                    MS
+                    {buildAvatarInitials(topTweetPanel.response?.subject)}
                   </div>
                 )}
 
@@ -784,10 +788,10 @@ function TopLikedTweetCardBody({
                   <p className="tweet-preview-name">
                     {topTweetPanel.response?.subject.display_name ??
                       topTweetPanel.response?.subject.username ??
-                      "Michael Saylor"}
+                      "Unknown author"}
                   </p>
                   <p className="tweet-preview-handle">
-                    @{topTweetPanel.response?.subject.username ?? "saylor"}
+                    @{topTweetPanel.response?.subject.username ?? "unknown"}
                   </p>
                 </div>
               </div>
@@ -854,14 +858,14 @@ function TweetActionStat({
   );
 }
 
-function buildBtcSeries(payload: MichaelSaylorVsBtcResponse): LineData<Time>[] {
+function buildBtcSeries(payload: AuthorOverviewResponse): LineData<Time>[] {
   return payload.btc_series.map((point) => ({
     time: toBusinessDay(point.timestamp),
     value: point.price_usd,
   }));
 }
 
-function buildMstrSeries(payload: MichaelSaylorVsBtcResponse): LineData<Time>[] {
+function buildMstrSeries(payload: AuthorOverviewResponse): LineData<Time>[] {
   return payload.mstr_series.map((point) => ({
     time: toBusinessDay(point.timestamp),
     value: point.price_usd,
@@ -869,7 +873,7 @@ function buildMstrSeries(payload: MichaelSaylorVsBtcResponse): LineData<Time>[] 
 }
 
 function buildActivitySeries(
-  payload: MichaelSaylorVsBtcResponse,
+  payload: AuthorOverviewResponse,
   activityMode: ActivityMode,
 ): AreaData<Time>[] {
   return payload.tweet_series.map((point) => ({
@@ -1008,7 +1012,7 @@ function formatActivityHoverValue(mode: ActivityMode, value: number): string {
 }
 
 function activityValueForMode(
-  point: MichaelSaylorVsBtcResponse["tweet_series"][number],
+  point: AuthorOverviewResponse["tweet_series"][number],
   mode: ActivityMode,
 ): number {
   switch (mode) {
@@ -1199,12 +1203,32 @@ function hasSeriesValue(point: unknown): point is { value: number } {
   );
 }
 
-function buildTweetUrl(response: MichaelSaylorTopLikedTweetResponse | null): string {
+function buildTweetUrl(response: AuthorTopLikedTweetResponse | null): string {
   if (response?.top_tweet === null || response === null) {
     return "#";
   }
 
   return `https://x.com/${response.subject.username}/status/${response.top_tweet.platform_tweet_id}`;
+}
+
+function buildAvatarInitials(
+  subject: AuthorTopLikedTweetResponse["subject"] | undefined,
+): string {
+  const source = subject?.display_name ?? subject?.username ?? "";
+  const parts = source
+    .split(/\s+/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  if (parts.length === 0) {
+    return "?";
+  }
+
+  if (parts.length === 1) {
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+
+  return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase();
 }
 
 function renderActionIcon(icon: "reply" | "repost" | "like" | "bookmark") {

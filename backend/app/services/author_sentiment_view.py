@@ -20,6 +20,7 @@ class AuthorSentimentViewRequest:
     granularity: str = "week"
     model_key: str = DEFAULT_SENTIMENT_MODEL
     view_name: str = "author-sentiment"
+    analysis_start: str | None = None
 
 
 def build_author_sentiment_view(
@@ -30,6 +31,9 @@ def build_author_sentiment_view(
     granularity = request.granularity.strip().lower()
     if granularity not in {"day", "week"}:
         raise RuntimeError("author-sentiment view only supports granularity=day or granularity=week.")
+    analysis_start = (
+        _parse_utc_datetime(request.analysis_start) if request.analysis_start is not None else None
+    )
 
     session = session_factory()
     try:
@@ -37,7 +41,7 @@ def build_author_sentiment_view(
         if user is None:
             raise RuntimeError(f"No canonical user found for username={request.username!r}.")
 
-        rows = session.execute(
+        sentiment_query = (
             select(
                 Tweet.created_at_platform,
                 TweetSentimentScore.sentiment_label,
@@ -53,7 +57,11 @@ def build_author_sentiment_view(
                 TweetSentimentScore.status == "scored",
             )
             .order_by(Tweet.created_at_platform.asc(), Tweet.id.asc())
-        ).all()
+        )
+        if analysis_start is not None:
+            sentiment_query = sentiment_query.where(Tweet.created_at_platform >= analysis_start)
+
+        rows = session.execute(sentiment_query).all()
         if not rows:
             raise RuntimeError(
                 f"No scored tweet sentiment rows found for username={request.username!r} and "
@@ -175,3 +183,15 @@ def build_author_sentiment_view(
         }
     finally:
         session.close()
+
+
+def _parse_utc_datetime(value: str) -> datetime:
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise RuntimeError(f"Invalid analysis_start datetime {value!r}.") from exc
+
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+
+    return parsed.astimezone(UTC)

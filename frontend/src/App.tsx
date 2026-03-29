@@ -1,22 +1,43 @@
 import { useEffect, useState } from "react";
 
-import { MichaelSaylorVsBtcPage } from "./pages/MichaelSaylorVsBtcPage";
 import { fetchHealth } from "./api/health";
 import { AppShell } from "./components/AppShell";
+import {
+  findOverviewBySlug,
+  getOverviewHash,
+  getOverviewTitle,
+  overviewDefinitions,
+  type OverviewDefinition,
+} from "./config/overviews";
 import { HomePage } from "./pages/HomePage";
+import { AuthorOverviewPage } from "./pages/MichaelSaylorVsBtcPage";
+import { NotFoundPage } from "./pages/NotFoundPage";
 import type { HealthResponse } from "./types/health";
 
-type PageKey = "home" | "michael-saylor-vs-btc";
+type AppRoute =
+  | { kind: "home" }
+  | { kind: "overview"; overview: OverviewDefinition }
+  | { kind: "not-found" };
 
-function getPageFromHash(hash: string): PageKey {
-  return hash === "#/michael-saylor-vs-btc" ? "michael-saylor-vs-btc" : "home";
+function getRouteFromHash(hash: string): AppRoute {
+  if (hash === "" || hash === "#" || hash === "#/") {
+    return { kind: "home" };
+  }
+
+  if (hash.startsWith("#/overviews/")) {
+    const slug = decodeURIComponent(hash.slice("#/overviews/".length));
+    const overview = findOverviewBySlug(slug);
+    return overview ? { kind: "overview", overview } : { kind: "not-found" };
+  }
+
+  return { kind: "not-found" };
 }
 
 export default function App() {
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [activePage, setActivePage] = useState<PageKey>(() => getPageFromHash(window.location.hash));
+  const [route, setRoute] = useState<AppRoute>(() => getRouteFromHash(window.location.hash));
 
   useEffect(() => {
     let cancelled = false;
@@ -52,7 +73,7 @@ export default function App() {
 
   useEffect(() => {
     function handleHashChange() {
-      setActivePage(getPageFromHash(window.location.hash));
+      setRoute(getRouteFromHash(window.location.hash));
     }
 
     window.addEventListener("hashchange", handleHashChange);
@@ -61,18 +82,53 @@ export default function App() {
     };
   }, []);
 
-  function navigate(page: PageKey) {
-    const nextHash = page === "michael-saylor-vs-btc" ? "#/michael-saylor-vs-btc" : "#/";
-    window.location.hash = nextHash;
+  function navigateHome() {
+    window.location.hash = "#/";
+  }
+
+  function navigateOverview(slug: string) {
+    window.location.hash = getOverviewHash(slug);
+  }
+
+  if (route.kind === "home") {
+    return (
+      <AppShell
+        mode="home"
+        activeOverviewSlug={null}
+        onNavigateHome={navigateHome}
+        onNavigateOverview={navigateOverview}
+        overviews={overviewDefinitions}
+      >
+        <HomePage health={health} error={error} isLoading={isLoading} />
+      </AppShell>
+    );
+  }
+
+  if (route.kind === "overview") {
+    return (
+      <AppShell
+        mode="dashboard"
+        dashboardTitle={getOverviewTitle(route.overview)}
+        activeOverviewSlug={route.overview.slug}
+        onNavigateHome={navigateHome}
+        onNavigateOverview={navigateOverview}
+        overviews={overviewDefinitions}
+      >
+        <AuthorOverviewPage overview={route.overview} />
+      </AppShell>
+    );
   }
 
   return (
-    <AppShell activePage={activePage} onNavigate={navigate}>
-      {activePage === "michael-saylor-vs-btc" ? (
-        <MichaelSaylorVsBtcPage />
-      ) : (
-        <HomePage health={health} error={error} isLoading={isLoading} />
-      )}
+    <AppShell
+      mode="dashboard"
+      dashboardTitle="Overview Not Found"
+      activeOverviewSlug={null}
+      onNavigateHome={navigateHome}
+      onNavigateOverview={navigateOverview}
+      overviews={overviewDefinitions}
+    >
+      <NotFoundPage />
     </AppShell>
   );
 }

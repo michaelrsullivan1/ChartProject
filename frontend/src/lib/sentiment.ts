@@ -1,4 +1,4 @@
-import type { MichaelSaylorSentimentResponse } from "../api/michaelSaylorSentiment";
+import type { AuthorSentimentResponse } from "../api/authorOverview";
 
 export type SentimentMode = "raw" | "weighted-4w" | "weighted-8w" | "weighted-12w";
 
@@ -8,7 +8,7 @@ export type SentimentDeviationPoint = {
 };
 
 export function buildSentimentDeviationSeries(
-  sentimentPayload: MichaelSaylorSentimentResponse,
+  sentimentPayload: AuthorSentimentResponse,
   sentimentMode: SentimentMode,
 ): SentimentDeviationPoint[] {
   const baseline = sentimentPayload.summary.average_sentiment_index;
@@ -35,7 +35,7 @@ export function buildSentimentDeviationSeries(
 }
 
 function computeWeightedSentimentDeviation(
-  points: MichaelSaylorSentimentResponse["sentiment_series"],
+  points: AuthorSentimentResponse["sentiment_series"],
   endIndex: number,
   windowSize: number,
   baseline: number,

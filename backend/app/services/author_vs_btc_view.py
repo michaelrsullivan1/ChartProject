@@ -18,6 +18,7 @@ class AuthorVsBtcViewRequest:
     username: str
     granularity: str = "week"
     view_name: str = "author-vs-btc"
+    analysis_start: str | None = None
 
 
 @dataclass(slots=True)
@@ -35,6 +36,9 @@ def build_author_vs_btc_view(
     granularity = request.granularity.strip().lower()
     if granularity not in {"day", "week"}:
         raise RuntimeError("author-vs-btc view only supports granularity=day or granularity=week.")
+    analysis_start = (
+        _parse_utc_datetime(request.analysis_start) if request.analysis_start is not None else None
+    )
 
     session = session_factory()
     try:
@@ -44,7 +48,7 @@ def build_author_vs_btc_view(
         if user is None:
             raise RuntimeError(f"No canonical user found for username={request.username!r}.")
 
-        tweet_rows = session.execute(
+        tweet_query = (
             select(
                 Tweet.created_at_platform,
                 Tweet.like_count,
@@ -53,7 +57,11 @@ def build_author_vs_btc_view(
             )
             .where(Tweet.author_user_id == user.id)
             .order_by(Tweet.created_at_platform)
-        ).all()
+        )
+        if analysis_start is not None:
+            tweet_query = tweet_query.where(Tweet.created_at_platform >= analysis_start)
+
+        tweet_rows = session.execute(tweet_query).all()
         if not tweet_rows:
             raise RuntimeError(f"No normalized tweets found for username={request.username!r}.")
 
@@ -63,7 +71,9 @@ def build_author_vs_btc_view(
         range_start = tweet_series[0]["period_start"]
         range_end = tweet_series[-1]["period_start"]
         range_start_dt = datetime.fromisoformat(range_start.replace("Z", "+00:00"))
-        range_end_dt = datetime.fromisoformat(range_end.replace("Z", "+00:00")) + timedelta(days=7)
+        range_end_dt = datetime.fromisoformat(range_end.replace("Z", "+00:00")) + timedelta(
+            days=7 if granularity == "week" else 1
+        )
 
         btc_rows = session.execute(
             select(MarketPricePoint.observed_at, MarketPricePoint.price)

@@ -11,7 +11,7 @@ One full local flow is working end-to-end:
 - containerized Postgres on Docker Compose
 - Alembic migrations through `0003_add_market_price_points`
 - FastAPI backend with health and view routes
-- React frontend with a Foundation page and a dedicated Michael Saylor vs BTC chart page
+- React frontend with a Foundation page and shared overview pages for multiple people
 - raw-first X/Twitter ingest archived into Postgres via `raw_ingestion_artifacts`
 - canonical normalization and validation for archived `saylor` tweet history
 - raw BTC/USD FRED ingest plus canonical normalization and validation
@@ -25,13 +25,14 @@ One full local flow is working end-to-end:
 After the stack is running:
 
 - [http://127.0.0.1:5173](http://127.0.0.1:5173) shows the Foundation page
-- [http://127.0.0.1:5173/#/michael-saylor-vs-btc](http://127.0.0.1:5173/#/michael-saylor-vs-btc) shows the working chart page
+- [http://127.0.0.1:5173/#/overviews/michael-saylor](http://127.0.0.1:5173/#/overviews/michael-saylor) shows the Michael Saylor overview
+- [http://127.0.0.1:5173/#/overviews/michael-sullivan](http://127.0.0.1:5173/#/overviews/michael-sullivan) shows the Michael Sullivan overview
 
 The Foundation page still runs the backend health check and renders the full JSON response.
 
-The Michael Saylor page currently:
+The overview pages currently:
 
-- requests `/api/views/michael-saylor-vs-btc?granularity=week`
+- request a dedicated overview endpoint such as `/api/views/michael-saylor-overview?granularity=week`
 - renders BTC, MSTR, activity, and sentiment panes with a shared time axis
 - keeps BTC daily and tweet counts weekly in the current UI
 - shows hover state for the active date
@@ -225,16 +226,18 @@ The current X/Twitter ingest path is designed for cautious historical backfills:
 
 ## Backend view endpoints
 
-The current chart flow uses two dedicated endpoints:
+The current chart flow uses dedicated overview endpoints:
 
 ```text
-/api/views/michael-saylor-vs-btc?granularity=week
-/api/views/michael-saylor-vs-btc/top-liked-tweet?week_start=2024-01-01T00:00:00Z
+/api/views/michael-saylor-overview?granularity=week
+/api/views/michael-saylor-overview/top-liked-tweet?week_start=2024-01-01T00:00:00Z
+/api/views/michael-sullivan-overview?granularity=week
+/api/views/michael-sullivan-overview/top-liked-tweet?week_start=2024-01-01T00:00:00Z
 ```
 
 Current behavior:
 
-- the subject is fixed to Michael Saylor for this first chart page
+- each overview route is dedicated to a single manually configured subject
 - the chart endpoint supports `granularity=day` or `granularity=week`
 - the current frontend page requests `granularity=week`
 - tweet counts include all authored tweets, including replies and quote tweets
