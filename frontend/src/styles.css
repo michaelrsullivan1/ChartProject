@@ -64,6 +64,8 @@ textarea {
 }
 
 .dashboard-topbar {
+  position: relative;
+  z-index: 40;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -96,6 +98,8 @@ textarea {
 }
 
 .dashboard-nav {
+  position: relative;
+  z-index: 41;
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
