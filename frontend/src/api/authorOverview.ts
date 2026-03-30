@@ -91,6 +91,14 @@ export type AuthorTopLikedTweetResponse = {
   };
 };
 
+export type BtcSpotPriceResponse = {
+  asset_symbol: string;
+  quote_currency: string;
+  price_usd: number;
+  fetched_at: string;
+  source_name: string;
+};
+
 export async function fetchAuthorOverview(
   endpointPath: string,
   granularity: "day" | "week" = "week",
@@ -136,4 +144,17 @@ export async function fetchAuthorTopLikedTweet(
   }
 
   return (await response.json()) as AuthorTopLikedTweetResponse;
+}
+
+export async function fetchBtcSpotPrice(
+  endpointPath: string,
+  signal?: AbortSignal,
+): Promise<BtcSpotPriceResponse> {
+  const response = await fetch(`${endpointPath}/btc-spot`, { signal });
+
+  if (!response.ok) {
+    throw new Error(`BTC spot request failed with status ${response.status}`);
+  }
+
+  return (await response.json()) as BtcSpotPriceResponse;
 }

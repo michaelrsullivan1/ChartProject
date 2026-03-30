@@ -15,6 +15,7 @@ from app.db.session import SessionLocal
 from app.models.ingestion_run import IngestionRun
 from app.models.market_price_point import MarketPricePoint
 from app.models.raw_ingestion_artifact import RawIngestionArtifact
+from app.services.coinbase_client import CoinbaseClient
 from app.services.fred_client import FredClient
 from app.services.twelvedata_client import TwelveDataClient
 
@@ -116,6 +117,15 @@ class MarketPriceSnapshot:
     source_name: str = "fred"
 
 
+@dataclass(slots=True)
+class SpotPriceSummary:
+    asset_symbol: str
+    quote_currency: str
+    price: float
+    fetched_at: datetime
+    source_name: str
+
+
 def archive_fred_btc_daily_raw(
     request: RawFredSeriesRequest,
     *,
@@ -192,6 +202,40 @@ def archive_fred_btc_daily_raw(
     finally:
         if session is not None:
             session.close()
+        if own_client:
+            client.close()
+
+
+def fetch_coinbase_spot_price(
+    *,
+    product: str = "BTC-USD",
+    client: CoinbaseClient | None = None,
+) -> SpotPriceSummary:
+    own_client = client is None
+    client = client or CoinbaseClient()
+    fetched_at = datetime.now(UTC)
+    try:
+        payload = client.get_spot_price(product)
+        data = payload.get("data")
+        if not isinstance(data, dict):
+            raise RuntimeError("Coinbase spot price response did not include a data object.")
+
+        raw_asset_symbol = data.get("base")
+        raw_quote_currency = data.get("currency")
+        raw_amount = data.get("amount")
+        if not isinstance(raw_asset_symbol, str) or not isinstance(raw_quote_currency, str):
+            raise RuntimeError("Coinbase spot price response was missing product symbols.")
+        if not isinstance(raw_amount, str):
+            raise RuntimeError("Coinbase spot price response was missing an amount.")
+
+        return SpotPriceSummary(
+            asset_symbol=raw_asset_symbol.upper(),
+            quote_currency=raw_quote_currency.upper(),
+            price=float(raw_amount),
+            fetched_at=fetched_at,
+            source_name="coinbase",
+        )
+    finally:
         if own_client:
             client.close()
 

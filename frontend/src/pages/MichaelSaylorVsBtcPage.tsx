@@ -2,8 +2,10 @@ import { useEffect, useState } from "react";
 
 import {
   fetchAuthorOverview,
+  fetchBtcSpotPrice,
   fetchAuthorSentiment,
   type AuthorOverviewResponse,
+  type BtcSpotPriceResponse,
   type AuthorSentimentResponse,
 } from "../api/authorOverview";
 import { type OverviewDefinition, getOverviewLabel } from "../config/overviews";
@@ -35,6 +37,16 @@ const compactDateFormatter = new Intl.DateTimeFormat("en-US", {
   timeZone: "UTC",
 });
 
+const spotTimestampFormatter = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+  timeZone: "UTC",
+  timeZoneName: "short",
+});
+
 type AuthorOverviewPageProps = {
   overview: OverviewDefinition;
 };
@@ -44,6 +56,7 @@ export function AuthorOverviewPage({ overview }: AuthorOverviewPageProps) {
   const [sentimentPayload, setSentimentPayload] = useState<AuthorSentimentResponse | null>(
     null,
   );
+  const [btcSpotPayload, setBtcSpotPayload] = useState<BtcSpotPriceResponse | null>(null);
   const [sentimentMode, setSentimentMode] = useState<SentimentMode>("weighted-8w");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -54,23 +67,34 @@ export function AuthorOverviewPage({ overview }: AuthorOverviewPageProps) {
 
     async function loadView() {
       try {
-        const [response, sentimentResponse] = await Promise.all([
-          fetchAuthorOverview(overview.apiBasePath, "week"),
-          fetchAuthorSentiment(overview.apiBasePath, "week"),
+        const [requiredResponses, btcSpotResult] = await Promise.all([
+          Promise.all([
+            fetchAuthorOverview(overview.apiBasePath, "week"),
+            fetchAuthorSentiment(overview.apiBasePath, "week"),
+          ]),
+          fetchBtcSpotPrice(overview.apiBasePath)
+            .then((response) => ({ ok: true as const, response }))
+            .catch((spotError: unknown) => ({ ok: false as const, spotError })),
         ]);
+        const [response, sentimentResponse] = requiredResponses;
 
         if (!cancelled) {
           setPayload(response);
           setSentimentPayload(sentimentResponse);
+          setBtcSpotPayload(btcSpotResult.ok ? btcSpotResult.response : null);
           setError(null);
         }
 
         console.log("ChartProject overview sentiment payload", overview.slug, sentimentResponse);
+        if (!btcSpotResult.ok) {
+          console.warn("ChartProject BTC spot request failed", overview.slug, btcSpotResult.spotError);
+        }
       } catch (loadError) {
         console.error("ChartProject overview request failed", overview.slug, loadError);
         if (!cancelled) {
           setPayload(null);
           setSentimentPayload(null);
+          setBtcSpotPayload(null);
           setError(
             loadError instanceof Error ? loadError.message : "Unknown overview fetch failure",
           );
@@ -102,6 +126,7 @@ export function AuthorOverviewPage({ overview }: AuthorOverviewPageProps) {
             overview={overview}
             payload={payload}
             sentimentPayload={sentimentPayload}
+            btcSpotPayload={btcSpotPayload}
             sentimentMode={sentimentMode}
             onSentimentModeChange={setSentimentMode}
           />
@@ -115,12 +140,14 @@ function AuthorOverviewChartSection({
   overview,
   payload,
   sentimentPayload,
+  btcSpotPayload,
   sentimentMode,
   onSentimentModeChange,
 }: {
   overview: OverviewDefinition;
   payload: AuthorOverviewResponse;
   sentimentPayload: AuthorSentimentResponse;
+  btcSpotPayload: BtcSpotPriceResponse | null;
   sentimentMode: SentimentMode;
   onSentimentModeChange: (mode: SentimentMode) => void;
 }) {
@@ -128,8 +155,9 @@ function AuthorOverviewChartSection({
   const totalTweets = tweetCounts.reduce((sum, value) => sum + value, 0);
   const maxTweetWeek = tweetCounts.reduce((max, value) => Math.max(max, value), 0);
   const latestBtcPoint = payload.btc_series[payload.btc_series.length - 1];
-  const latestBtc = latestBtcPoint?.price_usd ?? 0;
+  const latestBtcDailyClose = latestBtcPoint?.price_usd ?? 0;
   const btcLastIso = latestBtcPoint?.timestamp ?? payload.range.end;
+  const latestBtc = btcSpotPayload?.price_usd ?? latestBtcDailyClose;
   const latestMstrPoint = payload.mstr_series[payload.mstr_series.length - 1];
   const latestMstr = latestMstrPoint?.price_usd ?? 0;
   const mstrLastIso = latestMstrPoint?.timestamp ?? payload.range.end;
@@ -159,7 +187,11 @@ function AuthorOverviewChartSection({
         <article className="metric-card">
           <p className="metric-label">Latest BTC</p>
           <p className="metric-value">{chartCurrencyFormatter.format(latestBtc)}</p>
-          <p className="metric-note">Daily close from {formatFullDate(btcLastIso)}</p>
+          <p className="metric-note">
+            {btcSpotPayload
+              ? `Coinbase spot from ${formatSpotTimestamp(btcSpotPayload.fetched_at)}`
+              : `Daily close from ${formatFullDate(btcLastIso)}`}
+          </p>
         </article>
         <article className="metric-card">
           <p className="metric-label">Latest MSTR</p>
@@ -229,6 +261,10 @@ function formatFullDate(value: string | number): string {
 
 function formatCompactDate(value: string): string {
   return compactDateFormatter.format(new Date(value));
+}
+
+function formatSpotTimestamp(value: string): string {
+  return spotTimestampFormatter.format(new Date(value));
 }
 
 function formatSignedPercent(value: number): string {

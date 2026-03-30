@@ -231,8 +231,10 @@ The current chart flow uses dedicated overview endpoints:
 ```text
 /api/views/michael-saylor-overview?granularity=week
 /api/views/michael-saylor-overview/top-liked-tweet?week_start=2024-01-01T00:00:00Z
+/api/views/michael-saylor-overview/btc-spot
 /api/views/michael-sullivan-overview?granularity=week
 /api/views/michael-sullivan-overview/top-liked-tweet?week_start=2024-01-01T00:00:00Z
+/api/views/michael-sullivan-overview/btc-spot
 ```
 
 Current behavior:
@@ -243,6 +245,7 @@ Current behavior:
 - tweet counts include all authored tweets, including replies and quote tweets
 - tweet series are zero-filled for a continuous UTC timeline
 - BTC series come from local `market_price_points`
+- latest BTC spot comes from Coinbase on request via `/btc-spot`
 - MSTR series come from local `market_price_points`
 - BTC stays daily in the payload and in the current chart UI
 - MSTR stays daily in the payload and in the current chart UI

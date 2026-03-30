@@ -10,6 +10,7 @@ from app.services.author_vs_btc_view import (
     build_author_top_tweet_for_week,
     build_author_vs_btc_view,
 )
+from app.services.market_data import fetch_coinbase_spot_price
 from app.services.sentiment import DEFAULT_SENTIMENT_MODEL
 
 
@@ -67,6 +68,17 @@ def _build_overview_sentiment(
     )
 
 
+def _build_btc_spot_price() -> dict[str, object]:
+    summary = fetch_coinbase_spot_price(product="BTC-USD")
+    return {
+        "asset_symbol": summary.asset_symbol,
+        "quote_currency": summary.quote_currency,
+        "price_usd": summary.price,
+        "fetched_at": summary.fetched_at.isoformat().replace("+00:00", "Z"),
+        "source_name": summary.source_name,
+    }
+
+
 @router.get("/michael-saylor-overview")
 def michael_saylor_overview(
     granularity: str = Query(default="week", pattern="^(day|week)$"),
@@ -104,6 +116,11 @@ def michael_saylor_overview_sentiment(
     )
 
 
+@router.get("/michael-saylor-overview/btc-spot")
+def michael_saylor_overview_btc_spot() -> dict[str, object]:
+    return _build_btc_spot_price()
+
+
 @router.get("/michael-sullivan-overview")
 def michael_sullivan_overview(
     granularity: str = Query(default="week", pattern="^(day|week)$"),
@@ -139,6 +156,11 @@ def michael_sullivan_overview_sentiment(
     )
 
 
+@router.get("/michael-sullivan-overview/btc-spot")
+def michael_sullivan_overview_btc_spot() -> dict[str, object]:
+    return _build_btc_spot_price()
+
+
 @router.get("/micheal-sullivan-overview")
 def micheal_sullivan_overview_alias(
     granularity: str = Query(default="week", pattern="^(day|week)$"),
@@ -162,3 +184,8 @@ def micheal_sullivan_overview_sentiment_alias(
         granularity=granularity,
         model_key=model_key,
     )
+
+
+@router.get("/micheal-sullivan-overview/btc-spot")
+def micheal_sullivan_overview_btc_spot_alias() -> dict[str, object]:
+    return michael_sullivan_overview_btc_spot()
