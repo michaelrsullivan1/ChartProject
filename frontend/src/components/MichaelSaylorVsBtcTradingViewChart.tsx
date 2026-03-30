@@ -143,7 +143,7 @@ const chartOptions = {
     secondsVisible: false,
     rightOffset: 4,
     barSpacing: 8.5,
-    minBarSpacing: 1.5,
+    minBarSpacing: 0.2,
   },
   handleScroll: {
     mouseWheel: true,
