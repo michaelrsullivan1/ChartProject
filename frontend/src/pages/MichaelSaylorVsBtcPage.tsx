@@ -47,6 +47,7 @@ export function AuthorOverviewPage({ overview }: AuthorOverviewPageProps) {
     null,
   );
   const [btcSpotPayload, setBtcSpotPayload] = useState<BtcSpotPriceResponse | null>(null);
+  const [isScreenshotMode, setIsScreenshotMode] = useState(false);
   const [sentimentMode, setSentimentMode] = useState<SentimentMode>("weighted-8w");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -117,6 +118,8 @@ export function AuthorOverviewPage({ overview }: AuthorOverviewPageProps) {
             payload={payload}
             sentimentPayload={sentimentPayload}
             btcSpotPayload={btcSpotPayload}
+            isScreenshotMode={isScreenshotMode}
+            onScreenshotModeChange={setIsScreenshotMode}
             sentimentMode={sentimentMode}
             onSentimentModeChange={setSentimentMode}
           />
@@ -131,6 +134,8 @@ function AuthorOverviewChartSection({
   payload,
   sentimentPayload,
   btcSpotPayload,
+  isScreenshotMode,
+  onScreenshotModeChange,
   sentimentMode,
   onSentimentModeChange,
 }: {
@@ -138,6 +143,8 @@ function AuthorOverviewChartSection({
   payload: AuthorOverviewResponse;
   sentimentPayload: AuthorSentimentResponse;
   btcSpotPayload: BtcSpotPriceResponse | null;
+  isScreenshotMode: boolean;
+  onScreenshotModeChange: (enabled: boolean) => void;
   sentimentMode: SentimentMode;
   onSentimentModeChange: (mode: SentimentMode) => void;
 }) {
@@ -163,7 +170,9 @@ function AuthorOverviewChartSection({
 
   return (
     <>
-      <div className="metric-strip metric-strip-dashboard">
+      <div
+        className={`metric-strip metric-strip-dashboard${isScreenshotMode ? " is-screenshot-mode" : ""}`}
+      >
         <article className="metric-card">
           <p className="metric-label">Analyzed posts</p>
           <p className="metric-value">{integerFormatter.format(totalPosts)}</p>
@@ -216,6 +225,8 @@ function AuthorOverviewChartSection({
           overview={overview}
           payload={payload}
           sentimentPayload={sentimentPayload}
+          isScreenshotMode={isScreenshotMode}
+          onScreenshotModeChange={onScreenshotModeChange}
           sentimentMode={sentimentMode}
           onSentimentModeChange={onSentimentModeChange}
         />

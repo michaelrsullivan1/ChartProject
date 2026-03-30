@@ -31,6 +31,8 @@ type MichaelSaylorVsBtcTradingViewChartProps = {
   overview: OverviewDefinition;
   payload: AuthorOverviewResponse;
   sentimentPayload: AuthorSentimentResponse;
+  isScreenshotMode: boolean;
+  onScreenshotModeChange: (enabled: boolean) => void;
   sentimentMode: SentimentMode;
   onSentimentModeChange: (mode: SentimentMode) => void;
 };
@@ -165,6 +167,8 @@ export function MichaelSaylorVsBtcTradingViewChart({
   overview,
   payload,
   sentimentPayload,
+  isScreenshotMode,
+  onScreenshotModeChange,
   sentimentMode,
   onSentimentModeChange,
 }: MichaelSaylorVsBtcTradingViewChartProps) {
@@ -637,6 +641,29 @@ export function MichaelSaylorVsBtcTradingViewChart({
               Off
             </button>
           </div>
+        </div>
+
+        <div className="chart-control-card">
+          <p className="chart-control-eyebrow">Screenshot Mode</p>
+          <div className="chart-toggle-group chart-toggle-group-compact" role="group" aria-label="Screenshot mode">
+            <button
+              className={`chart-toggle-button${isScreenshotMode ? "" : " is-active"}`}
+              onClick={() => onScreenshotModeChange(false)}
+              type="button"
+            >
+              Off
+            </button>
+            <button
+              className={`chart-toggle-button${isScreenshotMode ? " is-active" : ""}`}
+              onClick={() => onScreenshotModeChange(true)}
+              type="button"
+            >
+              On
+            </button>
+          </div>
+          <p className="chart-control-note">
+            Narrows the top metrics to the chart capture width so you can crop out the sidebars.
+          </p>
         </div>
       </aside>
 
