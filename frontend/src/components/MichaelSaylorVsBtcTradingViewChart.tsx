@@ -643,7 +643,6 @@ export function MichaelSaylorVsBtcTradingViewChart({
       <div className="chart-stage">
         {showWatermark ? (
           <div aria-hidden="true" className="chart-watermark">
-            <span className="chart-watermark-name">Michael Sullivan</span>
             <span className="chart-watermark-handle">@SullyMichaelvan</span>
           </div>
         ) : null}
