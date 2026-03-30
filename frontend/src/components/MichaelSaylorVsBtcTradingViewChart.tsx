@@ -282,7 +282,7 @@ export function MichaelSaylorVsBtcTradingViewChart({
           error:
             error instanceof Error
               ? error.message
-              : "Unknown top liked tweet fetch failure",
+              : "Unknown top liked post fetch failure",
         });
       }
     }
@@ -574,7 +574,7 @@ export function MichaelSaylorVsBtcTradingViewChart({
           <div className="chart-toggle-group" role="group" aria-label="Middle pane metric">
             {(
               [
-                ["tweets", "Tweets / week"],
+                ["tweets", "Posts / week"],
                 ["likes", "Likes / week"],
                 ["bookmarks", "Bookmarks / week"],
                 ["impressions", "Impressions / week"],
@@ -614,7 +614,7 @@ export function MichaelSaylorVsBtcTradingViewChart({
             ))}
           </div>
           <p className="chart-control-note">
-            Smoothed modes use trailing weekly averages weighted by scored tweet count, so
+            Smoothed modes use trailing weekly averages weighted by scored post count, so
             low-volume weeks carry less influence.
           </p>
         </div>
@@ -739,31 +739,31 @@ function TopLikedTweetCardBody({
 
   return (
     <>
-      <p className="top-tweet-eyebrow">Top Liked Tweet For Selected Week</p>
+      <p className="top-tweet-eyebrow">Top Liked Post For Selected Week</p>
       <p className="top-tweet-week">
         {weekStart ? `Week of ${formatWeekLabel(weekStart)}` : "Click a week to inspect it"}
       </p>
 
       {topTweetPanel.status === "idle" ? (
         <p className="top-tweet-status">
-          Click on the chart to lock a week and load the most liked tweet from that selected week.
+          Click on the chart to lock a week and load the most liked post from that selected week.
         </p>
       ) : null}
 
       {topTweetPanel.status === "waiting" ? (
-        <p className="top-tweet-status">Week selected. Loading top liked tweet for that week.</p>
+        <p className="top-tweet-status">Week selected. Loading top liked post for that week.</p>
       ) : null}
 
       {topTweetPanel.status === "loading" ? (
-        <p className="top-tweet-status">Loading top liked tweet from the selected week...</p>
+        <p className="top-tweet-status">Loading top liked post from the selected week...</p>
       ) : null}
 
       {topTweetPanel.status === "error" ? (
-        <p className="top-tweet-status">{topTweetPanel.error ?? "Top tweet request failed."}</p>
+        <p className="top-tweet-status">{topTweetPanel.error ?? "Top post request failed."}</p>
       ) : null}
 
       {topTweetPanel.status === "loaded" && topTweet === null ? (
-        <p className="top-tweet-status">No top liked tweet was found for this selected week.</p>
+        <p className="top-tweet-status">No top liked post was found for this selected week.</p>
       ) : null}
 
       {topTweet !== null ? (
@@ -802,7 +802,7 @@ function TopLikedTweetCardBody({
               {formatTweetTimestamp(topTweet.created_at_platform)}
             </p>
 
-            <div className="tweet-preview-actions" aria-label="Tweet engagement">
+            <div className="tweet-preview-actions" aria-label="Post engagement">
               <TweetActionStat
                 icon="reply"
                 label="Replies"
@@ -974,7 +974,7 @@ function formatSignedSentimentPercent(value: number): string {
 function activityModeLabel(mode: ActivityMode): string {
   switch (mode) {
     case "tweets":
-      return "Tweets / week";
+      return "Posts / week";
     case "likes":
       return "Likes / week";
     case "bookmarks":
@@ -987,7 +987,7 @@ function activityModeLabel(mode: ActivityMode): string {
 function activityHoverLabel(mode: ActivityMode): string {
   switch (mode) {
     case "tweets":
-      return "Tweets That Week";
+      return "Posts That Week";
     case "likes":
       return "Likes That Week";
     case "bookmarks":
@@ -1000,7 +1000,7 @@ function activityHoverLabel(mode: ActivityMode): string {
 function formatActivityHoverValue(mode: ActivityMode, value: number): string {
   switch (mode) {
     case "tweets":
-      return `${integerFormatter.format(value)} tweets`;
+      return `${integerFormatter.format(value)} posts`;
     case "likes":
       return `${integerFormatter.format(value)} likes`;
     case "bookmarks":

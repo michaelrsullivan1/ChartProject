@@ -37,16 +37,6 @@ const compactDateFormatter = new Intl.DateTimeFormat("en-US", {
   timeZone: "UTC",
 });
 
-const spotTimestampFormatter = new Intl.DateTimeFormat("en-US", {
-  month: "short",
-  day: "numeric",
-  year: "numeric",
-  hour: "numeric",
-  minute: "2-digit",
-  timeZone: "UTC",
-  timeZoneName: "short",
-});
-
 type AuthorOverviewPageProps = {
   overview: OverviewDefinition;
 };
@@ -151,9 +141,9 @@ function AuthorOverviewChartSection({
   sentimentMode: SentimentMode;
   onSentimentModeChange: (mode: SentimentMode) => void;
 }) {
-  const tweetCounts = payload.tweet_series.map((point) => point.tweet_count);
-  const totalTweets = tweetCounts.reduce((sum, value) => sum + value, 0);
-  const maxTweetWeek = tweetCounts.reduce((max, value) => Math.max(max, value), 0);
+  const postCounts = payload.tweet_series.map((point) => point.tweet_count);
+  const totalPosts = postCounts.reduce((sum, value) => sum + value, 0);
+  const maxPostWeek = postCounts.reduce((max, value) => Math.max(max, value), 0);
   const latestBtcPoint = payload.btc_series[payload.btc_series.length - 1];
   const latestBtcDailyClose = latestBtcPoint?.price_usd ?? 0;
   const btcLastIso = latestBtcPoint?.timestamp ?? payload.range.end;
@@ -175,45 +165,45 @@ function AuthorOverviewChartSection({
     <>
       <div className="metric-strip metric-strip-dashboard">
         <article className="metric-card">
-          <p className="metric-label">Authored tweets</p>
-          <p className="metric-value">{integerFormatter.format(totalTweets)}</p>
+          <p className="metric-label">Analyzed posts</p>
+          <p className="metric-value">{integerFormatter.format(totalPosts)}</p>
           <p className="metric-note">Across {payload.tweet_series.length} weekly buckets</p>
         </article>
         <article className="metric-card">
           <p className="metric-label">Peak week</p>
-          <p className="metric-value">{integerFormatter.format(maxTweetWeek)}</p>
-          <p className="metric-note">Tweets in the busiest week</p>
+          <p className="metric-value">{integerFormatter.format(maxPostWeek)}</p>
+          <p className="metric-note">Posts in the busiest week</p>
         </article>
         <article className="metric-card">
-          <p className="metric-label">Latest BTC</p>
+          <p className="metric-label">Latest BTC Price</p>
           <p className="metric-value">{chartCurrencyFormatter.format(latestBtc)}</p>
           <p className="metric-note">
             {btcSpotPayload
-              ? `Coinbase spot from ${formatSpotTimestamp(btcSpotPayload.fetched_at)}`
-              : `Daily close from ${formatFullDate(btcLastIso)}`}
+              ? `Coinbase spot on ${formatFullDate(btcSpotPayload.fetched_at)}`
+              : `Price on ${formatFullDate(btcLastIso)}`}
           </p>
         </article>
         <article className="metric-card">
-          <p className="metric-label">Latest MSTR</p>
+          <p className="metric-label">Latest MSTR Price</p>
           <p className="metric-value">{chartCurrencyFormatter.format(latestMstr)}</p>
-          <p className="metric-note">Daily close from {formatFullDate(mstrLastIso)}</p>
+          <p className="metric-note">Price on {formatFullDate(mstrLastIso)}</p>
         </article>
         <article className="metric-card">
           <p className="metric-label">Current Sentiment Deviation</p>
           <p className="metric-value">{formatSignedPercent(currentSentimentDeviation.value)}</p>
           <p className="metric-note">
-            Most recent scored week from {formatCompactDate(currentSentimentDeviation.periodStart)}
+            {describeSentimentMode(sentimentMode, currentSentimentDeviation.periodStart)}
           </p>
         </article>
         <article className="metric-card">
-          <p className="metric-label">Best Sentiment Week</p>
+          <p className="metric-label">Best Sentiment</p>
           <p className="metric-value">{formatSignedPercent(sentimentExtremes.best.value)}</p>
           <p className="metric-note">
             Week of {formatCompactDate(sentimentExtremes.best.periodStart)}
           </p>
         </article>
         <article className="metric-card">
-          <p className="metric-label">Worst Sentiment Week</p>
+          <p className="metric-label">Worst Sentiment</p>
           <p className="metric-value">{formatSignedPercent(sentimentExtremes.worst.value)}</p>
           <p className="metric-note">
             Week of {formatCompactDate(sentimentExtremes.worst.periodStart)}
@@ -263,14 +253,23 @@ function formatCompactDate(value: string): string {
   return compactDateFormatter.format(new Date(value));
 }
 
-function formatSpotTimestamp(value: string): string {
-  return spotTimestampFormatter.format(new Date(value));
-}
-
 function formatSignedPercent(value: number): string {
   const percentage = value * 100;
   const formatted = percentage.toFixed(1);
   return percentage > 0 ? `+${formatted}%` : `${formatted}%`;
+}
+
+function describeSentimentMode(mode: SentimentMode, _periodStart: string): string {
+  switch (mode) {
+    case "weighted-4w":
+      return "Smoothed using a 4-week WMA.";
+    case "weighted-8w":
+      return "Smoothed using an 8-week WMA.";
+    case "weighted-12w":
+      return "Smoothed using a 12-week WMA.";
+    case "raw":
+      return "Using the raw weekly score.";
+  }
 }
 
 function getCurrentSentimentDeviation(

@@ -8,8 +8,8 @@ type HomePageProps = {
 
 const foundationItems = [
   "FastAPI app shell with a health endpoint",
-  "Core SQLAlchemy models for users, tweets, runs, and raw artifacts",
-  "Working local-first normalization and validation flow for tweet archives",
+  "Core SQLAlchemy models for users, posts, runs, and raw artifacts",
+  "Working local-first normalization and validation flow for post archives",
   "Dedicated Michael Saylor vs BTC endpoint ready for frontend consumption",
 ];
 

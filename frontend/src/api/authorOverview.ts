@@ -140,7 +140,7 @@ export async function fetchAuthorTopLikedTweet(
   );
 
   if (!response.ok) {
-    throw new Error(`Top liked tweet request failed with status ${response.status}`);
+    throw new Error(`Top liked post request failed with status ${response.status}`);
   }
 
   return (await response.json()) as AuthorTopLikedTweetResponse;
