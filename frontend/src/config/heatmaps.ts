@@ -10,6 +10,11 @@ export const heatmapDefinitions: HeatmapDefinition[] = [
     username: "saylor",
     apiBasePath: "/api/views/michael-saylor-heatmap",
   },
+  {
+    slug: "michael-sullivan",
+    username: "SullyMichaelvan",
+    apiBasePath: "/api/views/michael-sullivan-heatmap",
+  },
 ];
 
 export function findHeatmapBySlug(slug: string): HeatmapDefinition | undefined {

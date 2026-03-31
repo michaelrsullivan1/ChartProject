@@ -30,6 +30,7 @@ After the stack is running:
 - [http://127.0.0.1:5173/#/overviews/michael-saylor](http://127.0.0.1:5173/#/overviews/michael-saylor) shows the Michael Saylor overview
 - [http://127.0.0.1:5173/#/overviews/michael-sullivan](http://127.0.0.1:5173/#/overviews/michael-sullivan) shows the Michael Sullivan overview
 - [http://127.0.0.1:5173/#/heatmaps/michael-saylor](http://127.0.0.1:5173/#/heatmaps/michael-saylor) shows the Michael Saylor phrase heatmap
+- [http://127.0.0.1:5173/#/heatmaps/michael-sullivan](http://127.0.0.1:5173/#/heatmaps/michael-sullivan) shows the Michael Sullivan phrase heatmap
 
 The Foundation page still runs the backend health check and renders the full JSON response.
 
@@ -252,6 +253,9 @@ The current chart flow uses dedicated overview endpoints:
 /api/views/michael-saylor-heatmap?mode=common&word_count=all&granularity=month&limit=48
 /api/views/michael-saylor-heatmap/phrase-trend?phrase=digital%20credit&granularity=month
 /api/views/michael-saylor-heatmap/top-liked-tweets?phrase=digital%20credit&month_start=2025-08-01T00:00:00Z&limit=3
+/api/views/michael-sullivan-heatmap?mode=common&word_count=all&granularity=month&limit=48
+/api/views/michael-sullivan-heatmap/phrase-trend?phrase=bitcoin&granularity=month
+/api/views/michael-sullivan-heatmap/top-liked-tweets?phrase=bitcoin&month_start=2026-03-01T00:00:00Z&limit=3
 ```
 
 Current behavior:

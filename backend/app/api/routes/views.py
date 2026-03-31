@@ -277,6 +277,53 @@ def michael_sullivan_overview_btc_spot() -> dict[str, object]:
     return _build_btc_spot_price()
 
 
+@router.get("/michael-sullivan-heatmap")
+def michael_sullivan_heatmap(
+    mode: str = Query(default="common", pattern="^(common|rising)$"),
+    word_count: str = Query(default="all", pattern="^(all|1|2|3)$"),
+    granularity: str = Query(default="month", pattern="^(month)$"),
+    limit: int = Query(default=48, ge=1, le=120),
+) -> dict[str, object]:
+    return _build_author_keyword_heatmap(
+        username="SullyMichaelvan",
+        view_name="michael-sullivan-heatmap",
+        mode=mode,
+        word_count=word_count,
+        granularity=granularity,
+        limit=limit,
+        analysis_start="2020-08-01T00:00:00Z",
+    )
+
+
+@router.get("/michael-sullivan-heatmap/phrase-trend")
+def michael_sullivan_heatmap_phrase_trend(
+    phrase: str = Query(...),
+    granularity: str = Query(default="month", pattern="^(month)$"),
+) -> dict[str, object]:
+    return _build_author_keyword_trend(
+        username="SullyMichaelvan",
+        view_name="michael-sullivan-heatmap-phrase-trend",
+        phrase=phrase,
+        granularity=granularity,
+        analysis_start="2020-08-01T00:00:00Z",
+    )
+
+
+@router.get("/michael-sullivan-heatmap/top-liked-tweets")
+def michael_sullivan_heatmap_top_liked_tweets(
+    phrase: str = Query(...),
+    month_start: str = Query(...),
+    limit: int = Query(default=3, ge=1, le=10),
+) -> dict[str, object]:
+    return _build_author_keyword_top_tweets(
+        username="SullyMichaelvan",
+        view_name="michael-sullivan-heatmap-top-liked-tweets",
+        phrase=phrase,
+        month_start=month_start,
+        limit=limit,
+    )
+
+
 @router.get("/micheal-sullivan-overview")
 def micheal_sullivan_overview_alias(
     granularity: str = Query(default="week", pattern="^(day|week)$"),
@@ -305,3 +352,42 @@ def micheal_sullivan_overview_sentiment_alias(
 @router.get("/micheal-sullivan-overview/btc-spot")
 def micheal_sullivan_overview_btc_spot_alias() -> dict[str, object]:
     return michael_sullivan_overview_btc_spot()
+
+
+@router.get("/micheal-sullivan-heatmap")
+def micheal_sullivan_heatmap_alias(
+    mode: str = Query(default="common", pattern="^(common|rising)$"),
+    word_count: str = Query(default="all", pattern="^(all|1|2|3)$"),
+    granularity: str = Query(default="month", pattern="^(month)$"),
+    limit: int = Query(default=48, ge=1, le=120),
+) -> dict[str, object]:
+    return michael_sullivan_heatmap(
+        mode=mode,
+        word_count=word_count,
+        granularity=granularity,
+        limit=limit,
+    )
+
+
+@router.get("/micheal-sullivan-heatmap/phrase-trend")
+def micheal_sullivan_heatmap_phrase_trend_alias(
+    phrase: str = Query(...),
+    granularity: str = Query(default="month", pattern="^(month)$"),
+) -> dict[str, object]:
+    return michael_sullivan_heatmap_phrase_trend(
+        phrase=phrase,
+        granularity=granularity,
+    )
+
+
+@router.get("/micheal-sullivan-heatmap/top-liked-tweets")
+def micheal_sullivan_heatmap_top_liked_tweets_alias(
+    phrase: str = Query(...),
+    month_start: str = Query(...),
+    limit: int = Query(default=3, ge=1, le=10),
+) -> dict[str, object]:
+    return michael_sullivan_heatmap_top_liked_tweets(
+        phrase=phrase,
+        month_start=month_start,
+        limit=limit,
+    )
