@@ -18,7 +18,7 @@ import {
   type AuthorKeywordTopTweetsResponse,
   type AuthorKeywordTrendResponse,
 } from "../api/authorHeatmap";
-import { type HeatmapDefinition, getHeatmapLabel } from "../config/heatmaps";
+import { type HeatmapDefinition } from "../config/heatmaps";
 
 type HeatmapMode = "common" | "rising";
 type WordCountFilter = "all" | "1" | "2" | "3";
@@ -103,7 +103,9 @@ export function AuthorHeatmapPage({ heatmap }: AuthorHeatmapPageProps) {
   const [limit] = useState(48);
   const [payload, setPayload] = useState<AuthorKeywordHeatmapResponse | null>(null);
   const [trendPayload, setTrendPayload] = useState<AuthorKeywordTrendResponse | null>(null);
-  const [topTweetsPayload, setTopTweetsPayload] = useState<AuthorKeywordTopTweetsResponse | null>(null);
+  const [topTweetsPayload, setTopTweetsPayload] = useState<AuthorKeywordTopTweetsResponse | null>(
+    null,
+  );
   const [selectedPhrase, setSelectedPhrase] = useState<string | null>(null);
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
   const [isLoadingHeatmap, setIsLoadingHeatmap] = useState(true);
@@ -112,8 +114,6 @@ export function AuthorHeatmapPage({ heatmap }: AuthorHeatmapPageProps) {
   const [error, setError] = useState<string | null>(null);
   const [trendError, setTrendError] = useState<string | null>(null);
   const [tweetError, setTweetError] = useState<string | null>(null);
-  const heatmapLabel = getHeatmapLabel(heatmap);
-
   useEffect(() => {
     let cancelled = false;
     const controller = new AbortController();
@@ -150,7 +150,9 @@ export function AuthorHeatmapPage({ heatmap }: AuthorHeatmapPageProps) {
         setTopTweetsPayload(null);
         setSelectedPhrase(null);
         setSelectedMonth(null);
-        setError(loadError instanceof Error ? loadError.message : "Unknown heat map fetch failure");
+        setError(
+          loadError instanceof Error ? loadError.message : "Unknown heat map fetch failure",
+        );
       } finally {
         if (!cancelled) {
           setIsLoadingHeatmap(false);
@@ -197,7 +199,9 @@ export function AuthorHeatmapPage({ heatmap }: AuthorHeatmapPageProps) {
           return;
         }
         setTrendPayload(null);
-        setTrendError(loadError instanceof Error ? loadError.message : "Unknown trend fetch failure");
+        setTrendError(
+          loadError instanceof Error ? loadError.message : "Unknown trend fetch failure",
+        );
       } finally {
         if (!cancelled) {
           setIsLoadingTrend(false);
@@ -244,7 +248,9 @@ export function AuthorHeatmapPage({ heatmap }: AuthorHeatmapPageProps) {
           return;
         }
         setTopTweetsPayload(null);
-        setTweetError(loadError instanceof Error ? loadError.message : "Unknown top posts fetch failure");
+        setTweetError(
+          loadError instanceof Error ? loadError.message : "Unknown top posts fetch failure",
+        );
       } finally {
         if (!cancelled) {
           setIsLoadingTweets(false);
@@ -261,88 +267,89 @@ export function AuthorHeatmapPage({ heatmap }: AuthorHeatmapPageProps) {
   }, [heatmap.apiBasePath, selectedMonth, selectedPhrase]);
 
   const totalVisiblePhraseTweets = useMemo(
-    () =>
-      payload?.rows.reduce((sum, row) => sum + row.total_matching_tweets, 0) ?? 0,
+    () => payload?.rows.reduce((sum, row) => sum + row.total_matching_tweets, 0) ?? 0,
     [payload],
   );
 
   return (
     <section className="dashboard-page">
       <article className="panel panel-accent dashboard-workspace heatmap-workspace">
-        <div className="dashboard-workspace-header heatmap-workspace-header">
-          <div>
-            <p className="chart-control-eyebrow dashboard-eyebrow">Phrase heat map</p>
-            <p className="dashboard-subtitle">
-              Monthly phrase usage for {heatmapLabel} since August 2020.
-            </p>
+        {isLoadingHeatmap || error ? (
+          <div className="dashboard-workspace-header heatmap-workspace-header">
+            {isLoadingHeatmap ? <p className="status-copy">Loading heat map...</p> : null}
+            {error ? <p className="status-copy">{error}</p> : null}
           </div>
-          {isLoadingHeatmap ? <p className="status-copy">Loading {heatmapLabel} heat map...</p> : null}
-          {error ? <p className="status-copy">{error}</p> : null}
-        </div>
-
-        <div className="metric-strip metric-strip-dashboard heatmap-metric-strip">
-          <article className="metric-card">
-            <p className="metric-label">Mode</p>
-            <p className="metric-value metric-value-compact">{mode === "common" ? "Common" : "Rising"}</p>
-            <p className="metric-note">Phrase ranking view</p>
-          </article>
-          <article className="metric-card">
-            <p className="metric-label">Visible phrases</p>
-            <p className="metric-value">{integerFormatter.format(payload?.rows.length ?? 0)}</p>
-            <p className="metric-note">Top rows in the heat map</p>
-          </article>
-          <article className="metric-card">
-            <p className="metric-label">Months</p>
-            <p className="metric-value">{integerFormatter.format(payload?.months.length ?? 0)}</p>
-            <p className="metric-note">Dense monthly buckets</p>
-          </article>
-          <article className="metric-card">
-            <p className="metric-label">Visible matches</p>
-            <p className="metric-value">{integerFormatter.format(totalVisiblePhraseTweets)}</p>
-            <p className="metric-note">Across the selected phrase rows</p>
-          </article>
-        </div>
+        ) : null}
 
         <div className="heatmap-layout">
           <section className="heatmap-panel">
-            <div className="heatmap-toolbar">
-              <div className="chart-control-card">
-                <p className="chart-control-eyebrow">Ranking</p>
-                <div className="chart-toggle-group">
-                  <button
-                    className={`chart-toggle-button${mode === "common" ? " is-active" : ""}`}
-                    onClick={() => setMode("common")}
-                    type="button"
-                  >
-                    Common
-                  </button>
-                  <button
-                    className={`chart-toggle-button${mode === "rising" ? " is-active" : ""}`}
-                    onClick={() => setMode("rising")}
-                    type="button"
-                  >
-                    Rising
-                  </button>
-                </div>
-              </div>
-              <div className="chart-control-card">
-                <p className="chart-control-eyebrow">Word Count</p>
-                <div className="chart-toggle-group chart-toggle-group-compact">
-                  {([
-                    ["all", "All"],
-                    ["1", "1 word"],
-                    ["2", "2 words"],
-                    ["3", "3 words"],
-                  ] as const).map(([value, label]) => (
+            <div className="heatmap-topbar">
+              <div className="heatmap-toolbar">
+                <div className="chart-control-card heatmap-control-card">
+                  <p className="chart-control-eyebrow">Ranking</p>
+                  <div className="chart-toggle-group">
                     <button
-                      key={value}
-                      className={`chart-toggle-button${wordCount === value ? " is-active" : ""}`}
-                      onClick={() => setWordCount(value)}
+                      className={`chart-toggle-button${mode === "common" ? " is-active" : ""}`}
+                      onClick={() => setMode("common")}
                       type="button"
                     >
-                      {label}
+                      Common
                     </button>
-                  ))}
+                    <button
+                      className={`chart-toggle-button${mode === "rising" ? " is-active" : ""}`}
+                      onClick={() => setMode("rising")}
+                      type="button"
+                    >
+                      Rising
+                    </button>
+                  </div>
+                </div>
+                <div className="chart-control-card heatmap-control-card">
+                  <p className="chart-control-eyebrow">Word Count</p>
+                  <div className="chart-toggle-group chart-toggle-group-compact">
+                    {([
+                      ["all", "All"],
+                      ["1", "1 word"],
+                      ["2", "2 words"],
+                      ["3", "3 words"],
+                    ] as const).map(([value, label]) => (
+                      <button
+                        key={value}
+                        className={`chart-toggle-button${wordCount === value ? " is-active" : ""}`}
+                        onClick={() => setWordCount(value)}
+                        type="button"
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="heatmap-stat-strip" aria-label="Heat map summary">
+                <div className="heatmap-stat-pill">
+                  <span className="heatmap-stat-label">Rows</span>
+                  <span className="heatmap-stat-value">
+                    {integerFormatter.format(payload?.rows.length ?? 0)}
+                  </span>
+                </div>
+                <div className="heatmap-stat-pill">
+                  <span className="heatmap-stat-label">Months</span>
+                  <span className="heatmap-stat-value">
+                    {integerFormatter.format(payload?.months.length ?? 0)}
+                  </span>
+                </div>
+                <div className="heatmap-stat-pill">
+                  <span className="heatmap-stat-label">Matches</span>
+                  <span className="heatmap-stat-value">
+                    {integerFormatter.format(totalVisiblePhraseTweets)}
+                  </span>
+                </div>
+                <div className="heatmap-stat-pill heatmap-stat-pill-accent">
+                  <span className="heatmap-stat-label">Selected phrase</span>
+                  <span className="heatmap-stat-value">
+                    {selectedPhrase ? formatPhraseLabel(selectedPhrase) : "None"}
+                  </span>
                 </div>
               </div>
             </div>
@@ -355,17 +362,7 @@ export function AuthorHeatmapPage({ heatmap }: AuthorHeatmapPageProps) {
             />
           </section>
 
-          <section className="heatmap-detail-stack">
-            <div className="chart-control-card heatmap-selection-card">
-              <p className="chart-control-eyebrow">Selected Phrase</p>
-              <p className="heatmap-selection-title">
-                {selectedPhrase ? formatPhraseLabel(selectedPhrase) : "Choose a phrase from the heat map"}
-              </p>
-              <p className="chart-control-note">
-                Click a row or a month cell above to load the full trend below.
-              </p>
-            </div>
-
+          <section className="heatmap-bottom-layout">
             <div className="chart-shell chart-shell-dashboard heatmap-trend-shell">
               <KeywordTrendChart
                 isLoading={isLoadingTrend}
@@ -408,7 +405,10 @@ function HeatmapGrid({
 
     return payload.rows.reduce(
       (rowMax, row) =>
-        Math.max(rowMax, row.monthly_counts.reduce((cellMax, count) => Math.max(cellMax, count), 0)),
+        Math.max(
+          rowMax,
+          row.monthly_counts.reduce((cellMax, count) => Math.max(cellMax, count), 0),
+        ),
       0,
     );
   }, [payload]);
@@ -436,7 +436,10 @@ function HeatmapGrid({
         </thead>
         <tbody>
           {payload.rows.map((row) => (
-            <tr key={row.normalized_phrase} className={selectedPhrase === row.normalized_phrase ? "is-selected" : ""}>
+            <tr
+              key={row.normalized_phrase}
+              className={selectedPhrase === row.normalized_phrase ? "is-selected" : ""}
+            >
               <th className="heatmap-grid-sticky">
                 <button
                   className="heatmap-phrase-button"
@@ -595,29 +598,31 @@ function KeywordTrendChart({
 
   return (
     <div className="heatmap-trend-layout">
-      <div className="heatmap-trend-sidebar">
-        <div className="chart-control-card">
-          <p className="chart-control-eyebrow">Trend</p>
+      <div className="heatmap-trend-header">
+        <div>
+          <p className="chart-control-eyebrow">Selected Phrase</p>
           <p className="heatmap-selection-title">
-            {payload ? formatPhraseLabel(payload.phrase) : "Phrase trend"}
+            {payload ? formatPhraseLabel(payload.phrase) : "Choose a phrase from the heat map"}
           </p>
           <p className="chart-control-note">
-            Full monthly history since August 2020. Click a month to load the top liked posts.
+            Full monthly history since August 2020. Click a month to load the drilldown.
           </p>
         </div>
-        <div className="chart-hover-item">
-          <span className="chart-hover-label">Hover month</span>
-          <span className="chart-hover-value">{hoverLabel}</span>
-        </div>
-        <div className="chart-hover-item">
-          <span className="chart-hover-label">Matching tweets</span>
-          <span className="chart-hover-value">{hoverValue}</span>
-        </div>
-        <div className="chart-hover-item">
-          <span className="chart-hover-label">Selected month</span>
-          <span className="chart-hover-value">
-            {selectedMonth ? formatMonthLabel(selectedMonth) : "Click a month"}
-          </span>
+        <div className="heatmap-trend-stats">
+          <div className="heatmap-mini-stat">
+            <span className="heatmap-stat-label">Hover</span>
+            <span className="heatmap-stat-value">{hoverLabel}</span>
+          </div>
+          <div className="heatmap-mini-stat">
+            <span className="heatmap-stat-label">Count</span>
+            <span className="heatmap-stat-value">{hoverValue}</span>
+          </div>
+          <div className="heatmap-mini-stat">
+            <span className="heatmap-stat-label">Selected month</span>
+            <span className="heatmap-stat-value">
+              {selectedMonth ? formatMonthLabel(selectedMonth) : "Click a month"}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -649,16 +654,20 @@ function PhraseTweetPanel({
     <section className="top-tweet-card phrase-tweet-panel">
       <p className="top-tweet-eyebrow">Phrase Drilldown</p>
       <p className="top-tweet-week">
-        {selectedPhrase ? formatPhraseLabel(selectedPhrase) : "Select a phrase"}{" "}
-        {selectedMonth ? `· ${formatMonthLabel(selectedMonth)}` : ""}
+        {selectedPhrase ? formatPhraseLabel(selectedPhrase) : "Select a phrase"}
+        {selectedMonth ? ` · ${formatMonthLabel(selectedMonth)}` : ""}
       </p>
 
       {!selectedPhrase ? (
-        <p className="top-tweet-status">Select a phrase in the heat map to inspect matching tweets.</p>
+        <p className="top-tweet-status">
+          Select a phrase in the heat map to inspect matching tweets.
+        </p>
       ) : null}
 
       {selectedPhrase && !selectedMonth ? (
-        <p className="top-tweet-status">Click a month on the trend chart to load the top liked tweets.</p>
+        <p className="top-tweet-status">
+          Click a month on the trend chart to load the top liked tweets.
+        </p>
       ) : null}
 
       {isLoading ? <p className="top-tweet-status">Loading matching tweets...</p> : null}
@@ -667,41 +676,70 @@ function PhraseTweetPanel({
         <p className="top-tweet-status">No matching tweets found for that month.</p>
       ) : null}
 
-      {payload?.tweets.map((tweet) => (
-        <div key={tweet.platform_tweet_id} className="tweet-preview-card phrase-tweet-card">
-          <div className="tweet-preview-header">
-            <div className="tweet-preview-identity">
-              {payload.subject.profile_image_url ? (
-                <img
-                  alt={payload.subject.display_name ?? payload.subject.username}
-                  className="tweet-preview-avatar"
-                  src={payload.subject.profile_image_url}
-                />
-              ) : (
-                <div className="tweet-preview-avatar tweet-preview-avatar-fallback" aria-hidden="true">
-                  {buildAvatarInitials(payload.subject)}
+      {payload?.tweets.map((tweet) => {
+        const tweetUrl = tweet.url ?? buildTweetUrl(payload.subject.username, tweet.platform_tweet_id);
+
+        return (
+          <a
+            key={tweet.platform_tweet_id}
+            className="phrase-tweet-link"
+            href={tweetUrl}
+            rel="noreferrer"
+            target="_blank"
+          >
+            <div className="tweet-preview-card phrase-tweet-card">
+              <div className="tweet-preview-header">
+                <div className="tweet-preview-identity">
+                  {payload.subject.profile_image_url ? (
+                    <img
+                      alt={payload.subject.display_name ?? payload.subject.username}
+                      className="tweet-preview-avatar"
+                      src={payload.subject.profile_image_url}
+                    />
+                  ) : (
+                    <div className="tweet-preview-avatar tweet-preview-avatar-fallback" aria-hidden="true">
+                      {buildAvatarInitials(payload.subject)}
+                    </div>
+                  )}
+                  <div className="tweet-preview-author-block">
+                    <p className="tweet-preview-name">
+                      {payload.subject.display_name ?? payload.subject.username}
+                    </p>
+                    <p className="tweet-preview-handle">@{payload.subject.username}</p>
+                  </div>
                 </div>
-              )}
-              <div className="tweet-preview-author-block">
-                <p className="tweet-preview-name">
-                  {payload.subject.display_name ?? payload.subject.username}
-                </p>
-                <p className="tweet-preview-handle">@{payload.subject.username}</p>
+              </div>
+              <p className="top-tweet-text">{tweet.text}</p>
+              <p className="tweet-preview-timestamp">
+                {formatTweetTimestamp(tweet.created_at_platform)}
+              </p>
+              <div className="tweet-preview-actions" aria-label="Post engagement">
+                <TweetActionStat
+                  icon="reply"
+                  label="Replies"
+                  value={tweet.reply_count}
+                />
+                <TweetActionStat
+                  icon="repost"
+                  label="Reposts"
+                  value={tweet.repost_count}
+                />
+                <TweetActionStat
+                  icon="like"
+                  label="Likes"
+                  value={tweet.like_count}
+                  tone="accent"
+                />
+                <TweetActionStat
+                  icon="bookmark"
+                  label="Bookmarks"
+                  value={tweet.bookmark_count}
+                />
               </div>
             </div>
-          </div>
-          <p className="tweet-preview-timestamp">
-            {tweetTimestampFormatter.format(new Date(tweet.created_at_platform))}
-          </p>
-          <p className="top-tweet-text">{tweet.text}</p>
-          <div className="tweet-preview-actions" aria-label="Post engagement">
-            <span className="tweet-action-stat is-accent">Likes {formatMetricValue(tweet.like_count)}</span>
-            <span className="tweet-action-stat">Replies {formatMetricValue(tweet.reply_count)}</span>
-            <span className="tweet-action-stat">Reposts {formatMetricValue(tweet.repost_count)}</span>
-            <span className="tweet-action-stat">Bookmarks {formatMetricValue(tweet.bookmark_count)}</span>
-          </div>
-        </div>
-      ))}
+          </a>
+        );
+      })}
     </section>
   );
 }
@@ -730,7 +768,17 @@ function buildAvatarInitials(subject: {
 }
 
 function formatPhraseLabel(value: string): string {
-  const uppercaseTokens = new Set(["btc", "mstr", "strc", "strd", "strf", "strk", "usd", "etf", "ai"]);
+  const uppercaseTokens = new Set([
+    "btc",
+    "mstr",
+    "strc",
+    "strd",
+    "strf",
+    "strk",
+    "usd",
+    "etf",
+    "ai",
+  ]);
   return value
     .split(" ")
     .map((token) => (uppercaseTokens.has(token) ? token.toUpperCase() : token))
@@ -744,10 +792,6 @@ function formatMonthLabel(value: string): string {
 function formatCompactMonthLabel(value: string): string {
   const formatted = formatMonthLabel(value);
   return formatted.replace(" 20", " ");
-}
-
-function formatMetricValue(value: number | null): string {
-  return integerFormatter.format(value ?? 0);
 }
 
 function toBusinessDay(value: string): Time {
@@ -768,4 +812,85 @@ function findTrendPointForTime(
     return null;
   }
   return series.find((point) => point.period_start.startsWith(businessDay)) ?? null;
+}
+
+function TweetActionStat({
+  icon,
+  label,
+  value,
+  tone = "default",
+}: {
+  icon: "reply" | "repost" | "like" | "bookmark";
+  label: string;
+  value: number | null;
+  tone?: "default" | "accent";
+}) {
+  return (
+    <span
+      aria-label={`${label}: ${value ?? 0}`}
+      className={`tweet-action-stat tweet-action-stat-${icon}${tone === "accent" ? " is-accent" : ""}`}
+      title={label}
+    >
+      <span className="tweet-action-icon" aria-hidden="true">
+        {renderActionIcon(icon)}
+      </span>
+      <span>{formatCompactCount(value ?? 0)}</span>
+    </span>
+  );
+}
+
+function formatTweetTimestamp(value: string): string {
+  const parts = tweetTimestampFormatter.formatToParts(new Date(value));
+  const hour = parts.find((part) => part.type === "hour")?.value ?? "";
+  const minute = parts.find((part) => part.type === "minute")?.value ?? "";
+  const dayPeriod = parts.find((part) => part.type === "dayPeriod")?.value?.toUpperCase() ?? "";
+  const month = parts.find((part) => part.type === "month")?.value ?? "";
+  const day = parts.find((part) => part.type === "day")?.value ?? "";
+  const year = parts.find((part) => part.type === "year")?.value ?? "";
+
+  return `${hour}:${minute} ${dayPeriod} · ${month} ${day}, ${year}`;
+}
+
+function formatCompactCount(value: number): string {
+  if (value < 10_000) {
+    return integerFormatter.format(value);
+  }
+
+  return `${(value / 1000).toFixed(value >= 100_000 ? 0 : 1)}K`.replace(".0K", "K");
+}
+
+function buildTweetUrl(username: string, platformTweetId: string): string {
+  return `https://x.com/${username}/status/${platformTweetId}`;
+}
+
+function renderActionIcon(icon: "reply" | "repost" | "like" | "bookmark") {
+  switch (icon) {
+    case "reply":
+      return (
+        <svg viewBox="0 0 24 24">
+          <path d="M21 12c0 4.4-4 8-9 8-1 0-2-.1-2.9-.4L4 21l1.5-4A7.5 7.5 0 0 1 3 12c0-4.4 4-8 9-8s9 3.6 9 8Z" />
+        </svg>
+      );
+    case "repost":
+      return (
+        <svg viewBox="0 0 24 24">
+          <path d="M17 4 21 8l-4 4" />
+          <path d="M3 11V9a1 1 0 0 1 1-1h17" />
+          <path d="M7 20 3 16l4-4" />
+          <path d="M21 13v2a1 1 0 0 1-1 1H3" />
+        </svg>
+      );
+    case "like":
+      return (
+        <svg viewBox="0 0 24 24">
+          <path d="M12 20.3s-7-4.4-9.3-8.3C.9 8.9 2.2 5.5 5.7 4.7c2-.4 4 .4 5.3 2 1.3-1.6 3.3-2.4 5.3-2 3.5.8 4.8 4.2 3 7.3-2.3 3.9-9.3 8.3-9.3 8.3Z" />
+        </svg>
+      );
+    case "bookmark":
+      return (
+        <svg viewBox="0 0 24 24">
+          <path d="M6 3.5h12a1 1 0 0 1 1 1V21l-7-4-7 4V4.5a1 1 0 0 1 1-1Z" />
+        </svg>
+      );
+  }
 }
