@@ -266,11 +266,6 @@ export function AuthorHeatmapPage({ heatmap }: AuthorHeatmapPageProps) {
     };
   }, [heatmap.apiBasePath, selectedMonth, selectedPhrase]);
 
-  const totalVisiblePhraseTweets = useMemo(
-    () => payload?.rows.reduce((sum, row) => sum + row.total_matching_tweets, 0) ?? 0,
-    [payload],
-  );
-
   return (
     <section className="dashboard-page">
       <article className="panel panel-accent dashboard-workspace heatmap-workspace">
@@ -323,33 +318,6 @@ export function AuthorHeatmapPage({ heatmap }: AuthorHeatmapPageProps) {
                       </button>
                     ))}
                   </div>
-                </div>
-              </div>
-
-              <div className="heatmap-stat-strip" aria-label="Heat map summary">
-                <div className="heatmap-stat-pill">
-                  <span className="heatmap-stat-label">Rows</span>
-                  <span className="heatmap-stat-value">
-                    {integerFormatter.format(payload?.rows.length ?? 0)}
-                  </span>
-                </div>
-                <div className="heatmap-stat-pill">
-                  <span className="heatmap-stat-label">Months</span>
-                  <span className="heatmap-stat-value">
-                    {integerFormatter.format(payload?.months.length ?? 0)}
-                  </span>
-                </div>
-                <div className="heatmap-stat-pill">
-                  <span className="heatmap-stat-label">Matches</span>
-                  <span className="heatmap-stat-value">
-                    {integerFormatter.format(totalVisiblePhraseTweets)}
-                  </span>
-                </div>
-                <div className="heatmap-stat-pill heatmap-stat-pill-accent">
-                  <span className="heatmap-stat-label">Selected phrase</span>
-                  <span className="heatmap-stat-value">
-                    {selectedPhrase ? formatPhraseLabel(selectedPhrase) : "None"}
-                  </span>
                 </div>
               </div>
             </div>
