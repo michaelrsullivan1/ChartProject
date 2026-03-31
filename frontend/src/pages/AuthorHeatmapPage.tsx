@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 
 import {
   AreaSeries,
@@ -421,58 +421,72 @@ function HeatmapGrid({
     return <div className="heatmap-grid-empty">No phrase rows available for this filter.</div>;
   }
 
+  const monthGridStyle: CSSProperties = {
+    gridTemplateColumns: `repeat(${payload.months.length}, minmax(0, 1fr))`,
+  };
+  const monthLabelStep = Math.max(1, Math.ceil(payload.months.length / 10));
+
   return (
-    <div className="heatmap-grid-shell">
-      <table className="heatmap-grid">
-        <thead>
-          <tr>
-            <th className="heatmap-grid-sticky">Phrase</th>
-            {payload.months.map((month, index) => (
-              <th key={month} title={formatMonthLabel(month)}>
-                {index % 3 === 0 ? formatCompactMonthLabel(month) : ""}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {payload.rows.map((row) => (
-            <tr
-              key={row.normalized_phrase}
-              className={selectedPhrase === row.normalized_phrase ? "is-selected" : ""}
+    <div className="heatmap-strip-shell">
+      <div className="heatmap-strip-axis">
+        <div className="heatmap-strip-label-header">Phrase</div>
+        <div className="heatmap-strip-months" style={monthGridStyle}>
+          {payload.months.map((month, index) => (
+            <div
+              key={month}
+              className="heatmap-strip-month-label"
+              title={formatMonthLabel(month)}
             >
-              <th className="heatmap-grid-sticky">
+              {index % monthLabelStep === 0 || index === payload.months.length - 1
+                ? formatCompactMonthLabel(month)
+                : ""}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="heatmap-strip-rows">
+        {payload.rows.map((row) => (
+          <div
+            key={row.normalized_phrase}
+            className={`heatmap-strip-row${selectedPhrase === row.normalized_phrase ? " is-selected" : ""}`}
+          >
+            <div className="heatmap-strip-label-wrap">
+              <button
+                className="heatmap-strip-label"
+                onClick={() => onSelectPhrase(row.normalized_phrase)}
+                type="button"
+              >
+                <span className="heatmap-strip-label-name">
+                  {formatPhraseLabel(row.phrase)}
+                </span>
+                <span className="heatmap-strip-label-total">
+                  {integerFormatter.format(row.total_matching_tweets)}
+                </span>
+              </button>
+            </div>
+
+            <div className="heatmap-strip-cells" style={monthGridStyle}>
+              {row.monthly_counts.map((count, index) => (
                 <button
-                  className="heatmap-phrase-button"
+                  key={`${row.normalized_phrase}-${payload.months[index]}`}
+                  className={`heatmap-strip-cell${selectedPhrase === row.normalized_phrase ? " is-row-active" : ""}`}
                   onClick={() => onSelectPhrase(row.normalized_phrase)}
+                  style={{
+                    backgroundColor: buildHeatmapCellColor(count, maxCellCount),
+                  }}
+                  title={`${formatPhraseLabel(row.phrase)} · ${formatMonthLabel(payload.months[index])} · ${integerFormatter.format(count)} tweets`}
                   type="button"
                 >
-                  <span>{formatPhraseLabel(row.phrase)}</span>
-                  <span className="heatmap-phrase-total">
-                    {integerFormatter.format(row.total_matching_tweets)}
+                  <span className="sr-only">
+                    {formatPhraseLabel(row.phrase)} {formatMonthLabel(payload.months[index])} {count}
                   </span>
                 </button>
-              </th>
-              {row.monthly_counts.map((count, index) => (
-                <td key={`${row.normalized_phrase}-${payload.months[index]}`}>
-                  <button
-                    className={`heatmap-cell${selectedPhrase === row.normalized_phrase ? " is-row-active" : ""}`}
-                    onClick={() => onSelectPhrase(row.normalized_phrase)}
-                    style={{
-                      backgroundColor: buildHeatmapCellColor(count, maxCellCount),
-                    }}
-                    title={`${formatPhraseLabel(row.phrase)} · ${formatMonthLabel(payload.months[index])} · ${integerFormatter.format(count)} tweets`}
-                    type="button"
-                  >
-                    <span className="sr-only">
-                      {formatPhraseLabel(row.phrase)} {formatMonthLabel(payload.months[index])} {count}
-                    </span>
-                  </button>
-                </td>
               ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
