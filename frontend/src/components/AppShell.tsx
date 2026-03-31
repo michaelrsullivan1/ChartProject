@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import {
+  type HeatmapDefinition,
+  getHeatmapLabel,
+} from "../config/heatmaps";
+import {
   type OverviewDefinition,
   getOverviewLabel,
 } from "../config/overviews";
@@ -9,9 +13,12 @@ type AppShellProps = {
   mode: "home" | "dashboard";
   dashboardTitle?: string;
   activeOverviewSlug: string | null;
+  activeHeatmapSlug: string | null;
   overviews: OverviewDefinition[];
+  heatmaps: HeatmapDefinition[];
   onNavigateHome: () => void;
   onNavigateOverview: (slug: string) => void;
+  onNavigateHeatmap: (slug: string) => void;
   children: ReactNode;
 };
 
@@ -19,22 +26,25 @@ export function AppShell({
   mode,
   dashboardTitle,
   activeOverviewSlug,
+  activeHeatmapSlug,
   overviews,
+  heatmaps,
   onNavigateHome,
   onNavigateOverview,
+  onNavigateHeatmap,
   children,
 }: AppShellProps) {
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement | null>(null);
+  const [openMenu, setOpenMenu] = useState<"overviews" | "heatmaps" | null>(null);
+  const navRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
-    setIsDropdownOpen(false);
-  }, [activeOverviewSlug, mode]);
+    setOpenMenu(null);
+  }, [activeOverviewSlug, activeHeatmapSlug, mode]);
 
   useEffect(() => {
     function handlePointerDown(event: PointerEvent) {
-      if (!dropdownRef.current?.contains(event.target as Node)) {
-        setIsDropdownOpen(false);
+      if (!navRef.current?.contains(event.target as Node)) {
+        setOpenMenu(null);
       }
     }
 
@@ -54,16 +64,18 @@ export function AppShell({
         >
           Foundation
         </button>
-        <div className="overview-dropdown" ref={dropdownRef}>
+        <div className="overview-dropdown">
           <button
-            aria-expanded={isDropdownOpen}
+            aria-expanded={openMenu === "overviews"}
             className={`page-nav-link${activeOverviewSlug !== null ? " is-active" : ""}`}
-            onClick={() => setIsDropdownOpen((current) => !current)}
+            onClick={() =>
+              setOpenMenu((current) => (current === "overviews" ? null : "overviews"))
+            }
             type="button"
           >
             Overviews
           </button>
-          {isDropdownOpen ? (
+          {openMenu === "overviews" ? (
             <div
               className={`overview-dropdown-menu${isDashboardNav ? " overview-dropdown-menu-dashboard" : ""}`}
               role="menu"
@@ -82,6 +94,36 @@ export function AppShell({
             </div>
           ) : null}
         </div>
+        <div className="overview-dropdown">
+          <button
+            aria-expanded={openMenu === "heatmaps"}
+            className={`page-nav-link${activeHeatmapSlug !== null ? " is-active" : ""}`}
+            onClick={() =>
+              setOpenMenu((current) => (current === "heatmaps" ? null : "heatmaps"))
+            }
+            type="button"
+          >
+            Heat Maps
+          </button>
+          {openMenu === "heatmaps" ? (
+            <div
+              className={`overview-dropdown-menu${isDashboardNav ? " overview-dropdown-menu-dashboard" : ""}`}
+              role="menu"
+            >
+              {heatmaps.map((heatmap) => (
+                <button
+                  key={heatmap.slug}
+                  className={`overview-dropdown-item${activeHeatmapSlug === heatmap.slug ? " is-active" : ""}`}
+                  onClick={() => onNavigateHeatmap(heatmap.slug)}
+                  role="menuitem"
+                  type="button"
+                >
+                  {getHeatmapLabel(heatmap)}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
       </>
     );
   }
@@ -91,10 +133,10 @@ export function AppShell({
       <div className="app-dashboard-shell">
         <header className="dashboard-topbar">
           <div className="dashboard-topbar-brand">
-            <span className="dashboard-topbar-kicker">Sentiment Analysis</span>
+            <span className="dashboard-topbar-kicker">ChartProject</span>
             <span className="dashboard-topbar-title">{dashboardTitle ?? "Overview"}</span>
           </div>
-          <nav className="dashboard-nav" aria-label="Primary">
+          <nav className="dashboard-nav" aria-label="Primary" ref={navRef}>
             {renderNavigation(true)}
           </nav>
         </header>
@@ -106,13 +148,13 @@ export function AppShell({
   return (
     <div className="app-shell">
       <header className="hero">
-        <p className="eyebrow">Sentiment Analysis</p>
+        <p className="eyebrow">ChartProject</p>
         <h1>Local-first X research foundation</h1>
         <p className="hero-copy">
           Backend ingestion and archival come first. The frontend stays lean
           until the data layer is trustworthy.
         </p>
-        <nav className="page-nav" aria-label="Primary">
+        <nav className="page-nav" aria-label="Primary" ref={navRef}>
           {renderNavigation(false)}
         </nav>
       </header>

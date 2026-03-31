@@ -1,5 +1,13 @@
 from fastapi import APIRouter, Query
 
+from app.services.author_keyword_heatmap_view import (
+    AuthorKeywordHeatmapViewRequest,
+    AuthorKeywordTopTweetsRequest,
+    AuthorKeywordTrendViewRequest,
+    build_author_keyword_heatmap_view,
+    build_author_keyword_top_tweets_for_month,
+    build_author_keyword_trend_view,
+)
 from app.services.author_sentiment_view import (
     AuthorSentimentViewRequest,
     build_author_sentiment_view,
@@ -79,6 +87,67 @@ def _build_btc_spot_price() -> dict[str, object]:
     }
 
 
+def _build_author_keyword_heatmap(
+    *,
+    username: str,
+    view_name: str,
+    mode: str,
+    word_count: str,
+    granularity: str,
+    limit: int,
+    analysis_start: str | None = None,
+) -> dict[str, object]:
+    return build_author_keyword_heatmap_view(
+        AuthorKeywordHeatmapViewRequest(
+            username=username,
+            mode=mode,
+            word_count=word_count,
+            granularity=granularity,
+            limit=limit,
+            analysis_start=analysis_start or "2020-08-01T00:00:00Z",
+            view_name=view_name,
+        )
+    )
+
+
+def _build_author_keyword_trend(
+    *,
+    username: str,
+    view_name: str,
+    phrase: str,
+    granularity: str,
+    analysis_start: str | None = None,
+) -> dict[str, object]:
+    return build_author_keyword_trend_view(
+        AuthorKeywordTrendViewRequest(
+            username=username,
+            phrase=phrase,
+            granularity=granularity,
+            analysis_start=analysis_start or "2020-08-01T00:00:00Z",
+            view_name=view_name,
+        )
+    )
+
+
+def _build_author_keyword_top_tweets(
+    *,
+    username: str,
+    view_name: str,
+    phrase: str,
+    month_start: str,
+    limit: int,
+) -> dict[str, object]:
+    return build_author_keyword_top_tweets_for_month(
+        AuthorKeywordTopTweetsRequest(
+            username=username,
+            phrase=phrase,
+            month_start=month_start,
+            limit=limit,
+            view_name=view_name,
+        )
+    )
+
+
 @router.get("/michael-saylor-overview")
 def michael_saylor_overview(
     granularity: str = Query(default="week", pattern="^(day|week)$"),
@@ -119,6 +188,53 @@ def michael_saylor_overview_sentiment(
 @router.get("/michael-saylor-overview/btc-spot")
 def michael_saylor_overview_btc_spot() -> dict[str, object]:
     return _build_btc_spot_price()
+
+
+@router.get("/michael-saylor-heatmap")
+def michael_saylor_heatmap(
+    mode: str = Query(default="common", pattern="^(common|rising)$"),
+    word_count: str = Query(default="all", pattern="^(all|1|2|3)$"),
+    granularity: str = Query(default="month", pattern="^(month)$"),
+    limit: int = Query(default=48, ge=1, le=120),
+) -> dict[str, object]:
+    return _build_author_keyword_heatmap(
+        username="saylor",
+        view_name="michael-saylor-heatmap",
+        mode=mode,
+        word_count=word_count,
+        granularity=granularity,
+        limit=limit,
+        analysis_start="2020-08-01T00:00:00Z",
+    )
+
+
+@router.get("/michael-saylor-heatmap/phrase-trend")
+def michael_saylor_heatmap_phrase_trend(
+    phrase: str = Query(...),
+    granularity: str = Query(default="month", pattern="^(month)$"),
+) -> dict[str, object]:
+    return _build_author_keyword_trend(
+        username="saylor",
+        view_name="michael-saylor-heatmap-phrase-trend",
+        phrase=phrase,
+        granularity=granularity,
+        analysis_start="2020-08-01T00:00:00Z",
+    )
+
+
+@router.get("/michael-saylor-heatmap/top-liked-tweets")
+def michael_saylor_heatmap_top_liked_tweets(
+    phrase: str = Query(...),
+    month_start: str = Query(...),
+    limit: int = Query(default=3, ge=1, le=10),
+) -> dict[str, object]:
+    return _build_author_keyword_top_tweets(
+        username="saylor",
+        view_name="michael-saylor-heatmap-top-liked-tweets",
+        phrase=phrase,
+        month_start=month_start,
+        limit=limit,
+    )
 
 
 @router.get("/michael-sullivan-overview")

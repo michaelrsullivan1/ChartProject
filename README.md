@@ -9,16 +9,18 @@ The architecture source of truth is [ProjectPlan.md](/Users/michaelsullivan/Code
 One full local flow is working end-to-end:
 
 - containerized Postgres on Docker Compose
-- Alembic migrations through `0003_add_market_price_points`
-- FastAPI backend with health and view routes
-- React frontend with a Foundation page and shared overview pages for multiple people
+- Alembic migrations through `0005_add_tweet_keywords`
+- FastAPI backend with health, overview, and heatmap view routes
+- React frontend with a Foundation page, shared overview pages, and shared heatmap pages
 - raw-first X/Twitter ingest archived into Postgres via `raw_ingestion_artifacts`
 - canonical normalization and validation for archived `saylor` tweet history
 - raw BTC/USD FRED ingest plus canonical normalization and validation
 - raw MSTR/USD Twelve Data ingest plus canonical normalization and validation
 - versioned RoBERTa tweet sentiment scoring stored in Postgres
+- versioned exact phrase extraction stored in Postgres via `tweet_keywords`
 - a working chart flow from canonical data to backend payloads to frontend rendering
 - click-through drilldown for the top liked tweet in a selected week
+- click-through drilldown for the top liked phrase-matching tweets in a selected month
 
 ## Current UI
 
@@ -27,6 +29,7 @@ After the stack is running:
 - [http://127.0.0.1:5173](http://127.0.0.1:5173) shows the Foundation page
 - [http://127.0.0.1:5173/#/overviews/michael-saylor](http://127.0.0.1:5173/#/overviews/michael-saylor) shows the Michael Saylor overview
 - [http://127.0.0.1:5173/#/overviews/michael-sullivan](http://127.0.0.1:5173/#/overviews/michael-sullivan) shows the Michael Sullivan overview
+- [http://127.0.0.1:5173/#/heatmaps/michael-saylor](http://127.0.0.1:5173/#/heatmaps/michael-saylor) shows the Michael Saylor phrase heatmap
 
 The Foundation page still runs the backend health check and renders the full JSON response.
 
@@ -37,6 +40,15 @@ The overview pages currently:
 - keeps BTC daily and tweet counts weekly in the current UI
 - shows hover state for the active date
 - loads the top liked tweet for the clicked week from a companion backend endpoint
+
+The heatmap pages currently:
+
+- request a dedicated heatmap endpoint such as `/api/views/michael-saylor-heatmap?mode=common&word_count=all&granularity=month&limit=48`
+- render a monthly phrase heatmap in the top pane
+- support `Common` and `Rising` ranking modes
+- support `All`, `1 word`, `2 words`, and `3 words` filters
+- load the selected phrase trend on demand in the bottom pane
+- load the top liked matching tweets for a clicked month from a companion backend endpoint
 
 ## Quick start
 
@@ -187,6 +199,7 @@ The main runtime data directories currently kept in the repo are:
 
 - `users`
 - `tweets`
+- `tweet_keywords`
 - `tweet_references`
 - `market_price_points`
 - `tweet_sentiment_scores`
@@ -199,10 +212,11 @@ The main runtime data directories currently kept in the repo are:
 2. Normalize archived payloads into canonical relational tables.
 3. Run validation against raw versus normalized data.
 4. Enrich canonical tweets with versioned sentiment scores.
-5. Build request-time backend view payloads from canonical tables.
-6. Render the current frontend chart from those backend view payloads.
+5. Enrich canonical tweets with versioned exact phrase rows in `tweet_keywords`.
+6. Build request-time backend view payloads from canonical tables.
+7. Render the current frontend chart pages from those backend view payloads.
 
-No live provider calls are required for normalization, validation, the Michael Saylor vs BTC page, or the top-liked-tweet drilldown.
+No live provider calls are required for normalization, validation, the overview pages, the heatmap pages, or their tweet drilldowns.
 
 Current local market sources:
 
@@ -235,6 +249,9 @@ The current chart flow uses dedicated overview endpoints:
 /api/views/michael-sullivan-overview?granularity=week
 /api/views/michael-sullivan-overview/top-liked-tweet?week_start=2024-01-01T00:00:00Z
 /api/views/michael-sullivan-overview/btc-spot
+/api/views/michael-saylor-heatmap?mode=common&word_count=all&granularity=month&limit=48
+/api/views/michael-saylor-heatmap/phrase-trend?phrase=digital%20credit&granularity=month
+/api/views/michael-saylor-heatmap/top-liked-tweets?phrase=digital%20credit&month_start=2025-08-01T00:00:00Z&limit=3
 ```
 
 Current behavior:
@@ -250,6 +267,11 @@ Current behavior:
 - BTC stays daily in the payload and in the current chart UI
 - MSTR stays daily in the payload and in the current chart UI
 - the click drilldown ranks tweets within the selected week by `like_count`
+- heatmap rows are phrase-level exact `1-3` word matches extracted from canonical tweet text
+- heatmap ranking supports `mode=common` and `mode=rising`
+- heatmap rows are zero-filled for a continuous UTC month timeline
+- phrase trends currently use raw monthly matching-tweet counts
+- the heatmap drilldown ranks matching tweets within the selected month by `like_count`
 
 Current local BTC coverage begins on `2014-12-01T00:00:00Z` because that is where the FRED `CBBTCUSD` series starts.
 
@@ -322,7 +344,15 @@ python3 backend/scripts/validate/validate_normalized_user.py --username someuser
 python3 backend/scripts/enrich/score_tweet_sentiment.py --username someuser
 ```
 
-7. Confirm the dedicated overview endpoints and frontend page render correctly.
+7. Extract phrase keywords on the normalized tweets:
+
+```bash
+python3 backend/scripts/enrich/extract_tweet_keywords.py \
+  --username someuser \
+  --analysis-start 2020-08-01T00:00:00Z
+```
+
+8. Confirm the dedicated overview endpoints, heatmap endpoints, and frontend pages render correctly.
 
 ### Preflight checklist
 
@@ -529,6 +559,67 @@ Expected normal outcomes:
 - Hugging Face may warn about unauthenticated downloads if `HF_TOKEN` is unset
 - the RoBERTa load report may show `UNEXPECTED` keys for this checkpoint; that is acceptable in the current setup
 - some tweets may be skipped because they are unsupported for scoring after language or preprocessing checks
+
+### Extract exact phrase keywords for one or more normalized users
+
+```bash
+cd /Users/michaelsullivan/Code/ChartProject
+source .venv/bin/activate
+cd backend
+python scripts/enrich/extract_tweet_keywords.py \
+  --username saylor \
+  --analysis-start 2020-08-01T00:00:00Z
+```
+
+Useful options:
+
+- `--username saylor otheruser`
+- `--analysis-start 2020-08-01T00:00:00Z`
+- `--dry-run`
+- `--overwrite-existing`
+- `--extractor-key exact-ngram`
+- `--extractor-version v1`
+
+Current extractor behavior:
+
+- strips URLs and `@mentions`
+- strips leading `$` from ticker-like tokens
+- normalizes phrase matching to lowercase exact phrases
+- extracts exact `1`, `2`, and `3` word phrases per tweet
+- aggressively filters stopword-heavy or generic English fragments
+- stores one row per `(tweet, phrase, extractor version)`
+- the current Michael Saylor heatmap is intended for the August 2020 onward analysis window
+
+## Add a new page subject
+
+To add a new author cleanly, treat the backend route wiring and frontend page config as two separate steps.
+
+### Add a new overview subject
+
+1. Ensure the user's tweets are ingested, normalized, validated, and sentiment-scored.
+2. Add a dedicated route entry in [backend/app/api/routes/views.py](/Users/michaelsullivan/Code/ChartProject/backend/app/api/routes/views.py).
+3. Add a frontend entry in [frontend/src/config/overviews.ts](/Users/michaelsullivan/Code/ChartProject/frontend/src/config/overviews.ts).
+4. Verify the route renders under `#/overviews/<slug>`.
+
+### Add a new heatmap subject
+
+1. Ensure the user's tweets are ingested, normalized, validated, and keyword-extracted.
+2. Add a dedicated route entry in [backend/app/api/routes/views.py](/Users/michaelsullivan/Code/ChartProject/backend/app/api/routes/views.py).
+3. Add a frontend entry in [frontend/src/config/heatmaps.ts](/Users/michaelsullivan/Code/ChartProject/frontend/src/config/heatmaps.ts).
+4. Verify the route renders under `#/heatmaps/<slug>`.
+
+### Recommended data prep order for a new heatmap author
+
+```bash
+cd /Users/michaelsullivan/Code/ChartProject
+source .venv/bin/activate
+python3 backend/scripts/normalize/normalize_archived_user.py --username someuser
+python3 backend/scripts/validate/validate_normalized_user.py --username someuser
+python3 backend/scripts/enrich/score_tweet_sentiment.py --username someuser
+python3 backend/scripts/enrich/extract_tweet_keywords.py \
+  --username someuser \
+  --analysis-start 2020-08-01T00:00:00Z
+```
 
 ## Troubleshooting
 
