@@ -66,7 +66,13 @@ def build_author_vs_btc_view(
             raise RuntimeError(f"No normalized tweets found for username={request.username!r}.")
 
         bucket_fn = floor_to_week if granularity == "week" else floor_to_day
-        tweet_series = _build_tweet_series(tweet_rows, bucket_fn=bucket_fn, granularity=granularity)
+        series_start = bucket_fn(analysis_start) if analysis_start is not None else None
+        tweet_series = _build_tweet_series(
+            tweet_rows,
+            bucket_fn=bucket_fn,
+            granularity=granularity,
+            range_start=series_start,
+        )
 
         range_start = tweet_series[0]["period_start"]
         range_end = tweet_series[-1]["period_start"]
@@ -197,6 +203,7 @@ def _build_tweet_series(
     *,
     bucket_fn,
     granularity: str,
+    range_start: datetime | None = None,
 ) -> list[dict[str, object]]:
     counts: dict[datetime, dict[str, int]] = {}
     for tweet_time, like_count, bookmark_count, impression_count in tweet_rows:
@@ -216,7 +223,7 @@ def _build_tweet_series(
         bucket["impression_count"] += impression_count or 0
 
     sorted_buckets = sorted(counts.keys())
-    current = sorted_buckets[0]
+    current = range_start if range_start is not None else sorted_buckets[0]
     end = sorted_buckets[-1]
     step = timedelta(days=7 if granularity == "week" else 1)
     series: list[dict[str, object]] = []

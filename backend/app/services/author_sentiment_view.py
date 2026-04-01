@@ -116,7 +116,7 @@ def build_author_sentiment_view(
             total_sentiment_index += sentiment_index
 
         sorted_buckets = sorted(bucket_map.keys())
-        current = sorted_buckets[0]
+        current = bucket_fn(analysis_start) if analysis_start is not None else sorted_buckets[0]
         end = sorted_buckets[-1]
         sentiment_series: list[dict[str, object]] = []
         while current <= end:

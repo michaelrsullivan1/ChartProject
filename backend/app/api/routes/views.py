@@ -245,6 +245,7 @@ def michael_sullivan_overview(
         username="SullyMichaelvan",
         view_name="michael-sullivan-overview",
         granularity=granularity,
+        analysis_start="2024-01-01T00:00:00Z",
     )
 
 
@@ -269,6 +270,7 @@ def michael_sullivan_overview_sentiment(
         view_name="michael-sullivan-overview-sentiment",
         granularity=granularity,
         model_key=model_key,
+        analysis_start="2024-01-01T00:00:00Z",
     )
 
 
@@ -291,7 +293,7 @@ def michael_sullivan_heatmap(
         word_count=word_count,
         granularity=granularity,
         limit=limit,
-        analysis_start="2020-08-01T00:00:00Z",
+        analysis_start="2024-01-01T00:00:00Z",
     )
 
 
@@ -305,7 +307,7 @@ def michael_sullivan_heatmap_phrase_trend(
         view_name="michael-sullivan-heatmap-phrase-trend",
         phrase=phrase,
         granularity=granularity,
-        analysis_start="2020-08-01T00:00:00Z",
+        analysis_start="2024-01-01T00:00:00Z",
     )
 
 
