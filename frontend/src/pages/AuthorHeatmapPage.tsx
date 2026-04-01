@@ -1,11 +1,11 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 
 import {
-  AreaSeries,
   ColorType,
+  LineSeries,
   LineType,
   createChart,
-  type AreaData,
+  type LineData,
   type MouseEventParams,
   type Time,
 } from "lightweight-charts";
@@ -13,7 +13,6 @@ import {
 import {
   fetchAuthorKeywordHeatmap,
   fetchAuthorKeywordTopTweets,
-  fetchAuthorKeywordTrend,
   type AuthorKeywordHeatmapResponse,
   type AuthorKeywordTopTweetsResponse,
   type AuthorKeywordTrendResponse,
@@ -22,6 +21,7 @@ import { type HeatmapDefinition } from "../config/heatmaps";
 
 type HeatmapMode = "all" | "common" | "rising";
 type WordCountFilter = "all" | "1" | "2" | "3";
+type TrendPayloadMap = Record<string, AuthorKeywordTrendResponse>;
 
 type AuthorHeatmapPageProps = {
   heatmap: HeatmapDefinition;
@@ -42,6 +42,17 @@ const tweetTimestampFormatter = new Intl.DateTimeFormat("en-US", {
   year: "numeric",
   timeZone: "UTC",
 });
+
+const pinPalette = [
+  "#ffb240",
+  "#76c7ff",
+  "#7af0b6",
+  "#ff7d9c",
+  "#d5a6ff",
+  "#ffd86b",
+  "#5fe0c8",
+  "#ff9d5c",
+];
 
 const chartOptions = {
   layout: {
@@ -103,17 +114,16 @@ export function AuthorHeatmapPage({ heatmap }: AuthorHeatmapPageProps) {
   const [phraseQuery, setPhraseQuery] = useState("");
   const [limit] = useState(48);
   const [payload, setPayload] = useState<AuthorKeywordHeatmapResponse | null>(null);
-  const [trendPayload, setTrendPayload] = useState<AuthorKeywordTrendResponse | null>(null);
+  const [pinnedPhrases, setPinnedPhrases] = useState<string[]>([]);
+  const [activePhrase, setActivePhrase] = useState<string | null>(null);
+  const [trendPayloads, setTrendPayloads] = useState<TrendPayloadMap>({});
   const [topTweetsPayload, setTopTweetsPayload] = useState<AuthorKeywordTopTweetsResponse | null>(
     null,
   );
-  const [selectedPhrase, setSelectedPhrase] = useState<string | null>(null);
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
   const [isLoadingHeatmap, setIsLoadingHeatmap] = useState(true);
-  const [isLoadingTrend, setIsLoadingTrend] = useState(false);
   const [isLoadingTweets, setIsLoadingTweets] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [trendError, setTrendError] = useState<string | null>(null);
   const [tweetError, setTweetError] = useState<string | null>(null);
   const deferredPhraseQuery = useDeferredValue(phraseQuery);
 
@@ -135,24 +145,12 @@ export function AuthorHeatmapPage({ heatmap }: AuthorHeatmapPageProps) {
 
         setPayload(response);
         setError(null);
-        setSelectedMonth(null);
-        setTopTweetsPayload(null);
-        setSelectedPhrase((current) => {
-          const phraseStillVisible =
-            current !== null &&
-            response.rows.some((row) => row.normalized_phrase === current);
-          return phraseStillVisible ? current : response.rows[0]?.normalized_phrase ?? null;
-        });
       } catch (loadError) {
         if (controller.signal.aborted || cancelled) {
           return;
         }
 
         setPayload(null);
-        setTrendPayload(null);
-        setTopTweetsPayload(null);
-        setSelectedPhrase(null);
-        setSelectedMonth(null);
         setError(
           loadError instanceof Error ? loadError.message : "Unknown heat map fetch failure",
         );
@@ -172,61 +170,57 @@ export function AuthorHeatmapPage({ heatmap }: AuthorHeatmapPageProps) {
   }, [deferredPhraseQuery, heatmap.apiBasePath, limit, mode, wordCount]);
 
   useEffect(() => {
-    if (selectedPhrase === null) {
-      setTrendPayload(null);
+    if (payload === null || pinnedPhrases.length === 0) {
       return;
     }
 
-    const activePhrase = selectedPhrase;
-    let cancelled = false;
-    const controller = new AbortController();
+    const visibleRowsByPhrase = new Map(
+      payload.rows.map((row) => [row.normalized_phrase, row] as const),
+    );
 
-    async function loadTrend() {
-      setIsLoadingTrend(true);
-      setTrendError(null);
-      setSelectedMonth(null);
-      setTopTweetsPayload(null);
-      try {
-        const response = await fetchAuthorKeywordTrend(
-          heatmap.apiBasePath,
-          activePhrase,
-          controller.signal,
-        );
-        if (cancelled) {
-          return;
-        }
+    setTrendPayloads((current) => {
+      let changed = false;
+      const next = { ...current };
 
-        setTrendPayload(response);
-      } catch (loadError) {
-        if (controller.signal.aborted || cancelled) {
-          return;
+      for (const phrase of pinnedPhrases) {
+        if (next[phrase] !== undefined) {
+          continue;
         }
-        setTrendPayload(null);
-        setTrendError(
-          loadError instanceof Error ? loadError.message : "Unknown trend fetch failure",
-        );
-      } finally {
-        if (!cancelled) {
-          setIsLoadingTrend(false);
+        const row = visibleRowsByPhrase.get(phrase);
+        if (!row) {
+          continue;
         }
+        next[phrase] = buildTrendPayloadFromHeatmapRow(payload, row);
+        changed = true;
       }
-    }
 
-    void loadTrend();
-
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
-  }, [heatmap.apiBasePath, selectedPhrase]);
+      return changed ? next : current;
+    });
+  }, [payload, pinnedPhrases]);
 
   useEffect(() => {
-    if (selectedPhrase === null || selectedMonth === null) {
+    if (pinnedPhrases.length === 0) {
+      setActivePhrase(null);
+      setSelectedMonth(null);
       setTopTweetsPayload(null);
       return;
     }
 
-    const activePhrase = selectedPhrase;
+    setActivePhrase((current) => {
+      if (current !== null && pinnedPhrases.includes(current)) {
+        return current;
+      }
+      return pinnedPhrases[0] ?? null;
+    });
+  }, [pinnedPhrases]);
+
+  useEffect(() => {
+    if (activePhrase === null || selectedMonth === null) {
+      setTopTweetsPayload(null);
+      return;
+    }
+
+    const drilldownPhrase = activePhrase;
     const activeMonth = selectedMonth;
     let cancelled = false;
     const controller = new AbortController();
@@ -237,7 +231,7 @@ export function AuthorHeatmapPage({ heatmap }: AuthorHeatmapPageProps) {
       try {
         const response = await fetchAuthorKeywordTopTweets(
           heatmap.apiBasePath,
-          activePhrase,
+          drilldownPhrase,
           activeMonth,
           controller.signal,
         );
@@ -267,22 +261,31 @@ export function AuthorHeatmapPage({ heatmap }: AuthorHeatmapPageProps) {
       cancelled = true;
       controller.abort();
     };
-  }, [heatmap.apiBasePath, selectedMonth, selectedPhrase]);
+  }, [activePhrase, heatmap.apiBasePath, selectedMonth]);
 
   const filteredRows = payload?.rows ?? [];
 
-  useEffect(() => {
-    if (payload === null) {
-      return;
-    }
+  const activeTrendPayload = activePhrase ? trendPayloads[activePhrase] ?? null : null;
 
-    setSelectedPhrase((current) => {
-      const phraseStillVisible =
-        current !== null &&
-        filteredRows.some((row) => row.normalized_phrase === current);
-      return phraseStillVisible ? current : filteredRows[0]?.normalized_phrase ?? null;
-    });
-  }, [filteredRows, payload]);
+  function pinPhrase(phrase: string) {
+    const matchingRow = payload?.rows.find((row) => row.normalized_phrase === phrase) ?? null;
+    if (matchingRow && payload) {
+      setTrendPayloads((current) =>
+        current[phrase]
+          ? current
+          : {
+              ...current,
+              [phrase]: buildTrendPayloadFromHeatmapRow(payload, matchingRow),
+            },
+      );
+    }
+    setPinnedPhrases((current) => (current.includes(phrase) ? current : [...current, phrase]));
+    setActivePhrase((current) => current ?? phrase);
+  }
+
+  function removePinnedPhrase(phrase: string) {
+    setPinnedPhrases((current) => current.filter((value) => value !== phrase));
+  }
 
   return (
     <section className="dashboard-page">
@@ -370,26 +373,35 @@ export function AuthorHeatmapPage({ heatmap }: AuthorHeatmapPageProps) {
               isLoading={isLoadingHeatmap}
               payload={payload}
               rows={filteredRows}
-              selectedPhrase={selectedPhrase}
-              onSelectPhrase={setSelectedPhrase}
+              pinnedPhrases={pinnedPhrases}
+              activePhrase={activePhrase}
+              onPinPhrase={pinPhrase}
             />
           </section>
 
           <section className="heatmap-bottom-layout">
             <div className="chart-shell chart-shell-dashboard heatmap-trend-shell">
               <KeywordTrendChart
-                isLoading={isLoadingTrend}
-                payload={trendPayload}
-                error={trendError}
+                isLoading={false}
+                activePhrase={activePhrase}
+                activePayload={activeTrendPayload}
+                error={null}
+                pinnedPhrases={pinnedPhrases}
+                trendPayloads={trendPayloads}
                 selectedMonth={selectedMonth}
-                onSelectMonth={setSelectedMonth}
+                onActivatePhrase={setActivePhrase}
+                onRemovePhrase={removePinnedPhrase}
+                onSelectMonth={(monthStart, phrase) => {
+                  setActivePhrase(phrase);
+                  setSelectedMonth(monthStart);
+                }}
               />
             </div>
 
             <PhraseTweetPanel
               payload={topTweetsPayload}
               selectedMonth={selectedMonth}
-              selectedPhrase={selectedPhrase}
+              activePhrase={activePhrase}
               isLoading={isLoadingTweets}
               error={tweetError}
             />
@@ -404,14 +416,16 @@ function HeatmapGrid({
   isLoading,
   payload,
   rows,
-  selectedPhrase,
-  onSelectPhrase,
+  pinnedPhrases,
+  activePhrase,
+  onPinPhrase,
 }: {
   isLoading: boolean;
   payload: AuthorKeywordHeatmapResponse | null;
   rows: AuthorKeywordHeatmapResponse["rows"];
-  selectedPhrase: string | null;
-  onSelectPhrase: (phrase: string) => void;
+  pinnedPhrases: string[];
+  activePhrase: string | null;
+  onPinPhrase: (phrase: string) => void;
 }) {
   const maxCellCount = useMemo(() => {
     if (!payload || rows.length === 0) {
@@ -468,12 +482,12 @@ function HeatmapGrid({
         {rows.map((row) => (
           <div
             key={row.normalized_phrase}
-            className={`heatmap-strip-row${selectedPhrase === row.normalized_phrase ? " is-selected" : ""}`}
+            className={`heatmap-strip-row${activePhrase === row.normalized_phrase ? " is-selected" : ""}${pinnedPhrases.includes(row.normalized_phrase) ? " is-pinned" : ""}`}
           >
             <div className="heatmap-strip-label-wrap">
               <button
                 className="heatmap-strip-label"
-                onClick={() => onSelectPhrase(row.normalized_phrase)}
+                onClick={() => onPinPhrase(row.normalized_phrase)}
                 type="button"
               >
                 <span className="heatmap-strip-label-name">
@@ -489,8 +503,8 @@ function HeatmapGrid({
               {row.monthly_counts.map((count, index) => (
                 <button
                   key={`${row.normalized_phrase}-${payload.months[index]}`}
-                  className={`heatmap-strip-cell${selectedPhrase === row.normalized_phrase ? " is-row-active" : ""}`}
-                  onClick={() => onSelectPhrase(row.normalized_phrase)}
+                  className={`heatmap-strip-cell${activePhrase === row.normalized_phrase ? " is-row-active" : ""}${pinnedPhrases.includes(row.normalized_phrase) ? " is-pinned" : ""}`}
+                  onClick={() => onPinPhrase(row.normalized_phrase)}
                   style={{
                     backgroundColor: buildHeatmapCellColor(count, maxCellCount),
                   }}
@@ -512,45 +526,68 @@ function HeatmapGrid({
 
 function KeywordTrendChart({
   isLoading,
-  payload,
+  activePhrase,
+  activePayload,
   error,
+  pinnedPhrases,
+  trendPayloads,
   selectedMonth,
+  onActivatePhrase,
+  onRemovePhrase,
   onSelectMonth,
 }: {
   isLoading: boolean;
-  payload: AuthorKeywordTrendResponse | null;
+  activePhrase: string | null;
+  activePayload: AuthorKeywordTrendResponse | null;
   error: string | null;
+  pinnedPhrases: string[];
+  trendPayloads: TrendPayloadMap;
   selectedMonth: string | null;
-  onSelectMonth: (monthStart: string) => void;
+  onActivatePhrase: (phrase: string) => void;
+  onRemovePhrase: (phrase: string) => void;
+  onSelectMonth: (monthStart: string, phrase: string) => void;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const [hoverLabel, setHoverLabel] = useState<string>("Hover the chart");
-  const [hoverValue, setHoverValue] = useState<string>("Monthly count");
-  const seriesData = useMemo<AreaData<Time>[]>(
+  const [hoverPhrase, setHoverPhrase] = useState<string>("Hover a line");
+  const [hoverLabel, setHoverLabel] = useState<string>("Month");
+  const [hoverValue, setHoverValue] = useState<string>("Count");
+  const visibleTrendPayloads = useMemo(
     () =>
-      payload?.series.map((point) => ({
-        time: toBusinessDay(point.period_start),
-        value: point.matching_tweet_count,
-      })) ?? [],
-    [payload],
+      pinnedPhrases
+        .map((phrase) => ({
+          phrase,
+          payload: trendPayloads[phrase] ?? null,
+          color: getPinColor(pinnedPhrases.indexOf(phrase)),
+        }))
+        .filter(
+          (
+            entry,
+          ): entry is {
+            phrase: string;
+            payload: AuthorKeywordTrendResponse;
+            color: string;
+          } => entry.payload !== null,
+        ),
+    [pinnedPhrases, trendPayloads],
   );
 
   useEffect(() => {
-    if (!payload) {
+    if (!activePayload || !activePhrase) {
       return;
     }
-    const latestPoint = payload.series[payload.series.length - 1];
+    const latestPoint = activePayload.series[activePayload.series.length - 1];
     if (!latestPoint) {
       return;
     }
 
+    setHoverPhrase(formatPhraseLabel(activePhrase));
     setHoverLabel(formatMonthLabel(latestPoint.period_start));
     setHoverValue(`${integerFormatter.format(latestPoint.matching_tweet_count)} tweets`);
-  }, [payload]);
+  }, [activePayload, activePhrase]);
 
   useEffect(() => {
     const container = containerRef.current;
-    if (!container || payload === null) {
+    if (!container || visibleTrendPayloads.length === 0) {
       return;
     }
 
@@ -560,39 +597,60 @@ function KeywordTrendChart({
       height: container.clientHeight,
     });
 
-    const series = chart.addSeries(AreaSeries, {
-      lineColor: "#ffb240",
-      topColor: "rgba(255, 178, 64, 0.32)",
-      bottomColor: "rgba(255, 178, 64, 0.04)",
-      lineWidth: 3,
-      lineType: LineType.Curved,
-      priceLineVisible: false,
-      lastValueVisible: false,
-      crosshairMarkerVisible: true,
-      crosshairMarkerRadius: 4,
-      crosshairMarkerBorderWidth: 2,
-      crosshairMarkerBorderColor: "#ffb240",
-      crosshairMarkerBackgroundColor: "#17130f",
-    });
+    const seriesEntries = visibleTrendPayloads.map((entry) => {
+      const series = chart.addSeries(LineSeries, {
+        color: entry.color,
+        lineWidth: activePhrase === entry.phrase ? 3 : 2,
+        lineType: LineType.Curved,
+        priceLineVisible: false,
+        lastValueVisible: false,
+        crosshairMarkerVisible: true,
+        crosshairMarkerRadius: activePhrase === entry.phrase ? 4 : 3,
+        crosshairMarkerBorderWidth: 2,
+        crosshairMarkerBorderColor: entry.color,
+        crosshairMarkerBackgroundColor: "#17130f",
+      });
 
-    series.setData(seriesData);
+      const data: LineData<Time>[] = entry.payload.series.map((point) => ({
+        time: toBusinessDay(point.period_start),
+        value: point.matching_tweet_count,
+      }));
+      series.setData(data);
+      return {
+        phrase: entry.phrase,
+        payload: entry.payload,
+        series,
+      };
+    });
     chart.timeScale().fitContent();
 
     const handleCrosshairMove = (param: MouseEventParams<Time>) => {
       if (!param.point || !param.time) {
-        const latestPoint = payload.series[payload.series.length - 1];
-        if (latestPoint) {
+        const fallbackPhrase = activePhrase ?? seriesEntries[0]?.phrase ?? null;
+        const fallbackPayload =
+          (fallbackPhrase ? trendPayloads[fallbackPhrase] : null) ?? seriesEntries[0]?.payload ?? null;
+        const latestPoint = fallbackPayload?.series[fallbackPayload.series.length - 1];
+        if (fallbackPhrase && latestPoint) {
+          setHoverPhrase(formatPhraseLabel(fallbackPhrase));
           setHoverLabel(formatMonthLabel(latestPoint.period_start));
           setHoverValue(`${integerFormatter.format(latestPoint.matching_tweet_count)} tweets`);
         }
         return;
       }
 
-      const matchingPoint = findTrendPointForTime(param.time, payload.series);
+      const hoveredPhrase = resolveHoveredPhrase(param, seriesEntries, activePhrase);
+      if (!hoveredPhrase) {
+        return;
+      }
+      const matchingSeries = seriesEntries.find((entry) => entry.phrase === hoveredPhrase);
+      const matchingPoint = matchingSeries
+        ? findTrendPointForTime(param.time, matchingSeries.payload.series)
+        : null;
       if (!matchingPoint) {
         return;
       }
 
+      setHoverPhrase(formatPhraseLabel(hoveredPhrase));
       setHoverLabel(formatMonthLabel(matchingPoint.period_start));
       setHoverValue(`${integerFormatter.format(matchingPoint.matching_tweet_count)} tweets`);
     };
@@ -602,12 +660,20 @@ function KeywordTrendChart({
         return;
       }
 
-      const matchingPoint = findTrendPointForTime(param.time, payload.series);
+      const hoveredPhrase = resolveHoveredPhrase(param, seriesEntries, activePhrase);
+      if (!hoveredPhrase) {
+        return;
+      }
+      const matchingSeries = seriesEntries.find((entry) => entry.phrase === hoveredPhrase);
+      const matchingPoint = matchingSeries
+        ? findTrendPointForTime(param.time, matchingSeries.payload.series)
+        : null;
       if (!matchingPoint) {
         return;
       }
 
-      onSelectMonth(matchingPoint.period_start);
+      onActivatePhrase(hoveredPhrase);
+      onSelectMonth(matchingPoint.period_start, hoveredPhrase);
     };
 
     chart.subscribeCrosshairMove(handleCrosshairMove);
@@ -627,23 +693,63 @@ function KeywordTrendChart({
       chart.unsubscribeClick(handleClick);
       chart.remove();
     };
-  }, [onSelectMonth, payload, seriesData]);
+  }, [activePhrase, onActivatePhrase, onSelectMonth, trendPayloads, visibleTrendPayloads]);
 
   return (
     <div className="heatmap-trend-layout">
       <div className="heatmap-trend-header">
-        <div>
-          <p className="chart-control-eyebrow">Selected Phrase</p>
+        <div className="heatmap-trend-copy">
+          <p className="chart-control-eyebrow">Pinned Phrases</p>
           <p className="heatmap-selection-title">
-            {payload ? formatPhraseLabel(payload.phrase) : "Choose a phrase from the heat map"}
+            {activePhrase ? formatPhraseLabel(activePhrase) : "Pin a phrase from the heat map"}
           </p>
           <p className="chart-control-note">
-            Full monthly history since August 2020. Click a month to load the drilldown.
+            Click heat map phrases to pin them. Click a chip or chart line to focus the drilldown.
           </p>
+          <div className="heatmap-pin-list">
+            {pinnedPhrases.map((phrase, index) => (
+              <div
+                key={phrase}
+                className={`heatmap-pin-chip${activePhrase === phrase ? " is-active" : ""}`}
+                style={
+                  {
+                    "--pin-color": getPinColor(index),
+                  } as CSSProperties
+                }
+              >
+                <button
+                  className="heatmap-pin-main"
+                  onClick={() => onActivatePhrase(phrase)}
+                  type="button"
+                >
+                  <span className="heatmap-pin-dot" aria-hidden="true" />
+                  <span className="heatmap-pin-label">{formatPhraseLabel(phrase)}</span>
+                </button>
+                <button
+                  aria-label={`Remove ${formatPhraseLabel(phrase)}`}
+                  className="heatmap-pin-remove"
+                  onClick={() => onRemovePhrase(phrase)}
+                  type="button"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
         <div className="heatmap-trend-stats">
           <div className="heatmap-mini-stat">
-            <span className="heatmap-stat-label">Hover</span>
+            <span className="heatmap-stat-label">Active</span>
+            <span className="heatmap-stat-value">
+              {activePhrase ? formatPhraseLabel(activePhrase) : "Pin a phrase"}
+            </span>
+          </div>
+          <div className="heatmap-mini-stat">
+            <span className="heatmap-stat-label">Hover phrase</span>
+            <span className="heatmap-stat-value">{hoverPhrase}</span>
+          </div>
+          <div className="heatmap-mini-stat">
+            <span className="heatmap-stat-label">Hover month</span>
             <span className="heatmap-stat-value">{hoverLabel}</span>
           </div>
           <div className="heatmap-mini-stat">
@@ -660,9 +766,16 @@ function KeywordTrendChart({
       </div>
 
       <div className="chart-stage">
-        {isLoading ? <div className="heatmap-grid-empty">Loading phrase trend...</div> : null}
-        {!isLoading && error ? <div className="heatmap-grid-empty">{error}</div> : null}
-        {!isLoading && !error && payload ? (
+        {pinnedPhrases.length === 0 ? (
+          <div className="heatmap-grid-empty">Click a phrase in the heat map to pin it here.</div>
+        ) : null}
+        {pinnedPhrases.length > 0 && isLoading && visibleTrendPayloads.length === 0 ? (
+          <div className="heatmap-grid-empty">Loading pinned phrase trends...</div>
+        ) : null}
+        {pinnedPhrases.length > 0 && !isLoading && error ? (
+          <div className="heatmap-grid-empty">{error}</div>
+        ) : null}
+        {visibleTrendPayloads.length > 0 ? (
           <div className="tradingview-chart heatmap-trend-chart" ref={containerRef} />
         ) : null}
       </div>
@@ -673,13 +786,13 @@ function KeywordTrendChart({
 function PhraseTweetPanel({
   payload,
   selectedMonth,
-  selectedPhrase,
+  activePhrase,
   isLoading,
   error,
 }: {
   payload: AuthorKeywordTopTweetsResponse | null;
   selectedMonth: string | null;
-  selectedPhrase: string | null;
+  activePhrase: string | null;
   isLoading: boolean;
   error: string | null;
 }) {
@@ -687,19 +800,19 @@ function PhraseTweetPanel({
     <section className="top-tweet-card phrase-tweet-panel">
       <p className="top-tweet-eyebrow">Phrase Drilldown</p>
       <p className="top-tweet-week">
-        {selectedPhrase ? formatPhraseLabel(selectedPhrase) : "Select a phrase"}
+        {activePhrase ? formatPhraseLabel(activePhrase) : "Pin a phrase"}
         {selectedMonth ? ` · ${formatMonthLabel(selectedMonth)}` : ""}
       </p>
 
-      {!selectedPhrase ? (
+      {!activePhrase ? (
         <p className="top-tweet-status">
-          Select a phrase in the heat map to inspect matching tweets.
+          Pin a phrase in the heat map to inspect matching tweets.
         </p>
       ) : null}
 
-      {selectedPhrase && !selectedMonth ? (
+      {activePhrase && !selectedMonth ? (
         <p className="top-tweet-status">
-          Click a month on the trend chart to load the top liked tweets.
+          Click a month on the trend chart to load the top liked tweets for the active pin.
         </p>
       ) : null}
 
@@ -845,6 +958,60 @@ function findTrendPointForTime(
     return null;
   }
   return series.find((point) => point.period_start.startsWith(businessDay)) ?? null;
+}
+
+function resolveHoveredPhrase(
+  param: MouseEventParams<Time>,
+  seriesEntries: Array<{
+    phrase: string;
+    payload: AuthorKeywordTrendResponse;
+    series: unknown;
+  }>,
+  activePhrase: string | null,
+): string | null {
+  const hoveredSeries = (
+    param as MouseEventParams<Time> & {
+      hoveredSeries?: unknown;
+    }
+  ).hoveredSeries;
+
+  if (hoveredSeries !== undefined) {
+    const matchingEntry = seriesEntries.find((entry) => entry.series === hoveredSeries);
+    if (matchingEntry) {
+      return matchingEntry.phrase;
+    }
+  }
+
+  return activePhrase ?? seriesEntries[0]?.phrase ?? null;
+}
+
+function getPinColor(index: number): string {
+  return pinPalette[index % pinPalette.length];
+}
+
+function buildTrendPayloadFromHeatmapRow(
+  payload: AuthorKeywordHeatmapResponse,
+  row: AuthorKeywordHeatmapResponse["rows"][number],
+): AuthorKeywordTrendResponse {
+  const series = payload.months.map((month, index) => ({
+    period_start: month,
+    matching_tweet_count: row.monthly_counts[index] ?? 0,
+  }));
+
+  return {
+    view: `${payload.view}-derived-trend`,
+    subject: payload.subject,
+    phrase: row.phrase,
+    normalized_phrase: row.normalized_phrase,
+    word_count: row.word_count,
+    granularity: "month",
+    range: payload.range,
+    summary: {
+      total_matching_tweets: row.total_matching_tweets,
+      peak_month_count: row.monthly_counts.reduce((max, count) => Math.max(max, count), 0),
+    },
+    series,
+  };
 }
 
 function TweetActionStat({
