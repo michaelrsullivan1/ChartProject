@@ -541,6 +541,7 @@ function KeywordTrendChart({
   onSelectMonth: (monthStart: string, phrase: string) => void;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const visibleRangeRef = useRef<{ from: number; to: number } | null>(null);
   const [hoverPhrase, setHoverPhrase] = useState<string>("Hover a line");
   const [hoverLabel, setHoverLabel] = useState<string>("Month");
   const [hoverValue, setHoverValue] = useState<string>("Count");
@@ -615,7 +616,12 @@ function KeywordTrendChart({
         series,
       };
     });
-    chart.timeScale().fitContent();
+    const initialVisibleRange = visibleRangeRef.current;
+    if (initialVisibleRange) {
+      chart.timeScale().setVisibleLogicalRange(initialVisibleRange);
+    } else {
+      chart.timeScale().fitContent();
+    }
 
     const handleCrosshairMove = (param: MouseEventParams<Time>) => {
       if (!param.point || !param.time) {
@@ -669,8 +675,13 @@ function KeywordTrendChart({
       onSelectMonth(matchingPoint.period_start, hoveredPhrase);
     };
 
+    const handleVisibleLogicalRangeChange = (range: { from: number; to: number } | null) => {
+      visibleRangeRef.current = range;
+    };
+
     chart.subscribeCrosshairMove(handleCrosshairMove);
     chart.subscribeClick(handleClick);
+    chart.timeScale().subscribeVisibleLogicalRangeChange(handleVisibleLogicalRangeChange);
 
     const resizeObserver = new ResizeObserver(() => {
       chart.applyOptions({
@@ -681,9 +692,11 @@ function KeywordTrendChart({
     resizeObserver.observe(container);
 
     return () => {
+      visibleRangeRef.current = chart.timeScale().getVisibleLogicalRange();
       resizeObserver.disconnect();
       chart.unsubscribeCrosshairMove(handleCrosshairMove);
       chart.unsubscribeClick(handleClick);
+      chart.timeScale().unsubscribeVisibleLogicalRangeChange(handleVisibleLogicalRangeChange);
       chart.remove();
     };
   }, [activePhrase, onActivatePhrase, onSelectMonth, trendPayloads, visibleTrendPayloads]);
