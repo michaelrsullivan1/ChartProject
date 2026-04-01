@@ -290,13 +290,6 @@ export function AuthorHeatmapPage({ heatmap }: AuthorHeatmapPageProps) {
   return (
     <section className="dashboard-page">
       <article className="panel panel-accent dashboard-workspace heatmap-workspace">
-        {isLoadingHeatmap || error ? (
-          <div className="dashboard-workspace-header heatmap-workspace-header">
-            {isLoadingHeatmap ? <p className="status-copy">Loading heat map...</p> : null}
-            {error ? <p className="status-copy">{error}</p> : null}
-          </div>
-        ) : null}
-
         <div className="heatmap-layout">
           <section className="heatmap-panel">
             <div className="heatmap-topbar">
@@ -697,16 +690,13 @@ function KeywordTrendChart({
 
   return (
     <div className="heatmap-trend-layout">
-      <div className="heatmap-trend-header">
-        <div className="heatmap-trend-copy">
-          <p className="chart-control-eyebrow">Pinned Phrases</p>
-          <p className="heatmap-selection-title">
-            {activePhrase ? formatPhraseLabel(activePhrase) : "Pin a phrase from the heat map"}
-          </p>
-          <p className="chart-control-note">
-            Click heat map phrases to pin them. Click a chip or chart line to focus the drilldown.
-          </p>
-          <div className="heatmap-pin-list">
+        <div className="heatmap-trend-header">
+          <div className="heatmap-trend-copy">
+            <p className="chart-control-eyebrow">Pinned Phrases</p>
+            <p className="heatmap-selection-title">
+              {activePhrase ? formatPhraseLabel(activePhrase) : "Pin a phrase from the heat map"}
+            </p>
+            <div className="heatmap-pin-list">
             {pinnedPhrases.map((phrase, index) => (
               <div
                 key={phrase}
