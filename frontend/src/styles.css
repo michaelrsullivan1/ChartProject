@@ -920,7 +920,7 @@ textarea {
 .heatmap-toolbar {
   display: grid;
   gap: 10px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .heatmap-control-card {
@@ -929,6 +929,54 @@ textarea {
 
 .heatmap-control-card .chart-toggle-group-compact {
   grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.heatmap-ranking-group {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.heatmap-search-card {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
+.heatmap-search-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.heatmap-search-meta {
+  color: var(--muted);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.heatmap-search-input {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid rgba(255, 245, 220, 0.12);
+  border-radius: 12px;
+  background: rgba(12, 10, 8, 0.62);
+  color: #fff2d0;
+  padding: 10px 12px;
+  outline: none;
+  transition:
+    border-color 120ms ease,
+    box-shadow 120ms ease,
+    background 120ms ease;
+}
+
+.heatmap-search-input::placeholder {
+  color: rgba(212, 197, 173, 0.72);
+}
+
+.heatmap-search-input:focus {
+  border-color: rgba(255, 178, 64, 0.36);
+  box-shadow: 0 0 0 3px rgba(255, 178, 64, 0.08);
+  background: rgba(18, 14, 10, 0.78);
 }
 .heatmap-mini-stat {
   display: grid;

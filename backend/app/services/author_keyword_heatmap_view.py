@@ -24,6 +24,7 @@ class AuthorKeywordHeatmapViewRequest:
     word_count: str = "all"
     granularity: str = "month"
     limit: int = 48
+    phrase_query: str | None = None
     analysis_start: str = DEFAULT_KEYWORD_ANALYSIS_START
     extractor_key: str = DEFAULT_KEYWORD_EXTRACTOR_KEY
     extractor_version: str = DEFAULT_KEYWORD_EXTRACTOR_VERSION
@@ -58,8 +59,8 @@ def build_author_keyword_heatmap_view(
     session_factory: sessionmaker[Session] = SessionLocal,
 ) -> dict[str, object]:
     mode = request.mode.strip().lower()
-    if mode not in {"common", "rising"}:
-        raise RuntimeError("author-keyword-heatmap only supports mode=common or mode=rising.")
+    if mode not in {"all", "common", "rising"}:
+        raise RuntimeError("author-keyword-heatmap only supports mode=all, common, or rising.")
     if request.granularity.strip().lower() != "month":
         raise RuntimeError("author-keyword-heatmap only supports granularity=month.")
     if request.limit < 1:
@@ -67,6 +68,7 @@ def build_author_keyword_heatmap_view(
 
     keyword_length = _parse_word_count_filter(request.word_count)
     analysis_start = _floor_to_month(_parse_utc_datetime(request.analysis_start))
+    normalized_phrase_query = _normalize_phrase_query(request.phrase_query)
 
     session = session_factory()
     try:
@@ -83,6 +85,10 @@ def build_author_keyword_heatmap_view(
         ]
         if keyword_length is not None:
             where_conditions.append(TweetKeyword.keyword_length == keyword_length)
+        if normalized_phrase_query is not None:
+            where_conditions.append(
+                TweetKeyword.normalized_keyword.contains(normalized_phrase_query)
+            )
 
         month_rows = session.execute(
             select(
@@ -165,6 +171,7 @@ def build_author_keyword_heatmap_view(
             "filters": {
                 "word_count": request.word_count,
                 "limit": request.limit,
+                "phrase_query": normalized_phrase_query,
                 "analysis_start": analysis_start.isoformat().replace("+00:00", "Z"),
                 "extractor_key": request.extractor_key,
                 "extractor_version": request.extractor_version,
@@ -351,7 +358,7 @@ def _rank_phrases(
         total = sum(counts)
         if total == 0:
             continue
-        if mode == "common":
+        if mode in {"all", "common"}:
             score = float(total)
         else:
             recent_slice = counts[-recent_window:]
@@ -380,6 +387,13 @@ def _parse_word_count_filter(value: str) -> int | None:
 
 def _normalize_phrase(value: str) -> str:
     return " ".join(value.strip().lower().split())
+
+
+def _normalize_phrase_query(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = _normalize_phrase(value)
+    return normalized or None
 
 
 def _parse_utc_datetime(value: str) -> datetime:

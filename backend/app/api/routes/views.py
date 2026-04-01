@@ -95,6 +95,7 @@ def _build_author_keyword_heatmap(
     word_count: str,
     granularity: str,
     limit: int,
+    phrase_query: str | None = None,
     analysis_start: str | None = None,
 ) -> dict[str, object]:
     return build_author_keyword_heatmap_view(
@@ -104,6 +105,7 @@ def _build_author_keyword_heatmap(
             word_count=word_count,
             granularity=granularity,
             limit=limit,
+            phrase_query=phrase_query,
             analysis_start=analysis_start or "2020-08-01T00:00:00Z",
             view_name=view_name,
         )
@@ -192,10 +194,11 @@ def michael_saylor_overview_btc_spot() -> dict[str, object]:
 
 @router.get("/michael-saylor-heatmap")
 def michael_saylor_heatmap(
-    mode: str = Query(default="common", pattern="^(common|rising)$"),
+    mode: str = Query(default="common", pattern="^(all|common|rising)$"),
     word_count: str = Query(default="all", pattern="^(all|1|2|3)$"),
     granularity: str = Query(default="month", pattern="^(month)$"),
     limit: int = Query(default=48, ge=1, le=120),
+    phrase_query: str | None = Query(default=None),
 ) -> dict[str, object]:
     return _build_author_keyword_heatmap(
         username="saylor",
@@ -204,6 +207,7 @@ def michael_saylor_heatmap(
         word_count=word_count,
         granularity=granularity,
         limit=limit,
+        phrase_query=phrase_query,
         analysis_start="2020-08-01T00:00:00Z",
     )
 
@@ -281,10 +285,11 @@ def michael_sullivan_overview_btc_spot() -> dict[str, object]:
 
 @router.get("/michael-sullivan-heatmap")
 def michael_sullivan_heatmap(
-    mode: str = Query(default="common", pattern="^(common|rising)$"),
+    mode: str = Query(default="common", pattern="^(all|common|rising)$"),
     word_count: str = Query(default="all", pattern="^(all|1|2|3)$"),
     granularity: str = Query(default="month", pattern="^(month)$"),
     limit: int = Query(default=48, ge=1, le=120),
+    phrase_query: str | None = Query(default=None),
 ) -> dict[str, object]:
     return _build_author_keyword_heatmap(
         username="SullyMichaelvan",
@@ -293,6 +298,7 @@ def michael_sullivan_heatmap(
         word_count=word_count,
         granularity=granularity,
         limit=limit,
+        phrase_query=phrase_query,
         analysis_start="2024-01-01T00:00:00Z",
     )
 
@@ -358,16 +364,18 @@ def micheal_sullivan_overview_btc_spot_alias() -> dict[str, object]:
 
 @router.get("/micheal-sullivan-heatmap")
 def micheal_sullivan_heatmap_alias(
-    mode: str = Query(default="common", pattern="^(common|rising)$"),
+    mode: str = Query(default="common", pattern="^(all|common|rising)$"),
     word_count: str = Query(default="all", pattern="^(all|1|2|3)$"),
     granularity: str = Query(default="month", pattern="^(month)$"),
     limit: int = Query(default=48, ge=1, le=120),
+    phrase_query: str | None = Query(default=None),
 ) -> dict[str, object]:
     return michael_sullivan_heatmap(
         mode=mode,
         word_count=word_count,
         granularity=granularity,
         limit=limit,
+        phrase_query=phrase_query,
     )
 
 

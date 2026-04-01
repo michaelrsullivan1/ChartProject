@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 
 import {
   AreaSeries,
@@ -20,7 +20,7 @@ import {
 } from "../api/authorHeatmap";
 import { type HeatmapDefinition } from "../config/heatmaps";
 
-type HeatmapMode = "common" | "rising";
+type HeatmapMode = "all" | "common" | "rising";
 type WordCountFilter = "all" | "1" | "2" | "3";
 
 type AuthorHeatmapPageProps = {
@@ -100,6 +100,7 @@ const chartOptions = {
 export function AuthorHeatmapPage({ heatmap }: AuthorHeatmapPageProps) {
   const [mode, setMode] = useState<HeatmapMode>("common");
   const [wordCount, setWordCount] = useState<WordCountFilter>("all");
+  const [phraseQuery, setPhraseQuery] = useState("");
   const [limit] = useState(48);
   const [payload, setPayload] = useState<AuthorKeywordHeatmapResponse | null>(null);
   const [trendPayload, setTrendPayload] = useState<AuthorKeywordTrendResponse | null>(null);
@@ -114,6 +115,8 @@ export function AuthorHeatmapPage({ heatmap }: AuthorHeatmapPageProps) {
   const [error, setError] = useState<string | null>(null);
   const [trendError, setTrendError] = useState<string | null>(null);
   const [tweetError, setTweetError] = useState<string | null>(null);
+  const deferredPhraseQuery = useDeferredValue(phraseQuery);
+
   useEffect(() => {
     let cancelled = false;
     const controller = new AbortController();
@@ -123,7 +126,7 @@ export function AuthorHeatmapPage({ heatmap }: AuthorHeatmapPageProps) {
       try {
         const response = await fetchAuthorKeywordHeatmap(
           heatmap.apiBasePath,
-          { mode, wordCount, limit },
+          { mode, wordCount, limit, phraseQuery: deferredPhraseQuery },
           controller.signal,
         );
         if (cancelled) {
@@ -166,7 +169,7 @@ export function AuthorHeatmapPage({ heatmap }: AuthorHeatmapPageProps) {
       cancelled = true;
       controller.abort();
     };
-  }, [heatmap.apiBasePath, limit, mode, wordCount]);
+  }, [deferredPhraseQuery, heatmap.apiBasePath, limit, mode, wordCount]);
 
   useEffect(() => {
     if (selectedPhrase === null) {
@@ -266,6 +269,21 @@ export function AuthorHeatmapPage({ heatmap }: AuthorHeatmapPageProps) {
     };
   }, [heatmap.apiBasePath, selectedMonth, selectedPhrase]);
 
+  const filteredRows = payload?.rows ?? [];
+
+  useEffect(() => {
+    if (payload === null) {
+      return;
+    }
+
+    setSelectedPhrase((current) => {
+      const phraseStillVisible =
+        current !== null &&
+        filteredRows.some((row) => row.normalized_phrase === current);
+      return phraseStillVisible ? current : filteredRows[0]?.normalized_phrase ?? null;
+    });
+  }, [filteredRows, payload]);
+
   return (
     <section className="dashboard-page">
       <article className="panel panel-accent dashboard-workspace heatmap-workspace">
@@ -282,7 +300,14 @@ export function AuthorHeatmapPage({ heatmap }: AuthorHeatmapPageProps) {
               <div className="heatmap-toolbar">
                 <div className="chart-control-card heatmap-control-card">
                   <p className="chart-control-eyebrow">Ranking</p>
-                  <div className="chart-toggle-group">
+                  <div className="chart-toggle-group heatmap-ranking-group">
+                    <button
+                      className={`chart-toggle-button${mode === "all" ? " is-active" : ""}`}
+                      onClick={() => setMode("all")}
+                      type="button"
+                    >
+                      All
+                    </button>
                     <button
                       className={`chart-toggle-button${mode === "common" ? " is-active" : ""}`}
                       onClick={() => setMode("common")}
@@ -319,12 +344,32 @@ export function AuthorHeatmapPage({ heatmap }: AuthorHeatmapPageProps) {
                     ))}
                   </div>
                 </div>
+                <div className="chart-control-card heatmap-control-card heatmap-search-card">
+                  <div className="heatmap-search-header">
+                    <p className="chart-control-eyebrow">Phrase Search</p>
+                    <span className="heatmap-search-meta">
+                      {integerFormatter.format(filteredRows.length)} matches
+                    </span>
+                  </div>
+                  <label className="sr-only" htmlFor="heatmap-phrase-search">
+                    Filter visible phrases
+                  </label>
+                  <input
+                    id="heatmap-phrase-search"
+                    className="heatmap-search-input"
+                    onChange={(event) => setPhraseQuery(event.target.value)}
+                    placeholder="Search all extracted phrases"
+                    type="search"
+                    value={phraseQuery}
+                  />
+                </div>
               </div>
             </div>
 
             <HeatmapGrid
               isLoading={isLoadingHeatmap}
               payload={payload}
+              rows={filteredRows}
               selectedPhrase={selectedPhrase}
               onSelectPhrase={setSelectedPhrase}
             />
@@ -358,20 +403,22 @@ export function AuthorHeatmapPage({ heatmap }: AuthorHeatmapPageProps) {
 function HeatmapGrid({
   isLoading,
   payload,
+  rows,
   selectedPhrase,
   onSelectPhrase,
 }: {
   isLoading: boolean;
   payload: AuthorKeywordHeatmapResponse | null;
+  rows: AuthorKeywordHeatmapResponse["rows"];
   selectedPhrase: string | null;
   onSelectPhrase: (phrase: string) => void;
 }) {
   const maxCellCount = useMemo(() => {
-    if (!payload) {
+    if (!payload || rows.length === 0) {
       return 0;
     }
 
-    return payload.rows.reduce(
+    return rows.reduce(
       (rowMax, row) =>
         Math.max(
           rowMax,
@@ -379,14 +426,18 @@ function HeatmapGrid({
         ),
       0,
     );
-  }, [payload]);
+  }, [payload, rows]);
 
   if (isLoading && payload === null) {
     return <div className="heatmap-grid-empty">Loading phrase rows...</div>;
   }
 
-  if (payload === null || payload.rows.length === 0) {
+  if (payload === null) {
     return <div className="heatmap-grid-empty">No phrase rows available for this filter.</div>;
+  }
+
+  if (rows.length === 0) {
+    return <div className="heatmap-grid-empty">No phrases match this search.</div>;
   }
 
   const monthGridStyle: CSSProperties = {
@@ -414,7 +465,7 @@ function HeatmapGrid({
       </div>
 
       <div className="heatmap-strip-rows">
-        {payload.rows.map((row) => (
+        {rows.map((row) => (
           <div
             key={row.normalized_phrase}
             className={`heatmap-strip-row${selectedPhrase === row.normalized_phrase ? " is-selected" : ""}`}

@@ -5,7 +5,7 @@ export type AuthorKeywordHeatmapResponse = {
     username: string;
     display_name: string | null;
   };
-  mode: "common" | "rising";
+  mode: "all" | "common" | "rising";
   granularity: "month";
   range: {
     start: string;
@@ -14,6 +14,7 @@ export type AuthorKeywordHeatmapResponse = {
   filters: {
     word_count: "all" | "1" | "2" | "3";
     limit: number;
+    phrase_query: string | null;
     analysis_start: string;
     extractor_key: string;
     extractor_version: string;
@@ -83,14 +84,25 @@ export type AuthorKeywordTopTweetsResponse = {
 export async function fetchAuthorKeywordHeatmap(
   endpointPath: string,
   options: {
-    mode: "common" | "rising";
+    mode: "all" | "common" | "rising";
     wordCount: "all" | "1" | "2" | "3";
     limit: number;
+    phraseQuery?: string;
   },
   signal?: AbortSignal,
 ): Promise<AuthorKeywordHeatmapResponse> {
+  const params = new URLSearchParams({
+    mode: options.mode,
+    word_count: options.wordCount,
+    granularity: "month",
+    limit: String(options.limit),
+  });
+  if (options.phraseQuery && options.phraseQuery.trim() !== "") {
+    params.set("phrase_query", options.phraseQuery.trim());
+  }
+
   const response = await fetch(
-    `${endpointPath}?mode=${options.mode}&word_count=${options.wordCount}&granularity=month&limit=${options.limit}`,
+    `${endpointPath}?${params.toString()}`,
     { signal },
   );
 
