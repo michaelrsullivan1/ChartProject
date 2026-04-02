@@ -17,6 +17,7 @@ import {
   type AuthorKeywordTopTweetsResponse,
   type AuthorKeywordTrendResponse,
 } from "../api/authorHeatmap";
+import { TweetPreviewCard } from "../components/TweetPreviewCard";
 import { type HeatmapDefinition } from "../config/heatmaps";
 
 type HeatmapMode = "all" | "common" | "rising";
@@ -33,16 +34,6 @@ const monthLabelFormatter = new Intl.DateTimeFormat("en-US", {
   year: "numeric",
   timeZone: "UTC",
 });
-const tweetTimestampFormatter = new Intl.DateTimeFormat("en-US", {
-  hour: "numeric",
-  minute: "2-digit",
-  hour12: true,
-  month: "short",
-  day: "numeric",
-  year: "numeric",
-  timeZone: "UTC",
-});
-
 const pinPalette = [
   "#ffb240",
   "#76c7ff",
@@ -826,67 +817,13 @@ function PhraseTweetPanel({
       ) : null}
 
       {payload?.tweets.map((tweet) => {
-        const tweetUrl = tweet.url ?? buildTweetUrl(payload.subject.username, tweet.platform_tweet_id);
-
         return (
-          <a
+          <TweetPreviewCard
             key={tweet.platform_tweet_id}
-            className="phrase-tweet-link"
-            href={tweetUrl}
-            rel="noreferrer"
-            target="_blank"
-          >
-            <div className="tweet-preview-card phrase-tweet-card">
-              <div className="tweet-preview-header">
-                <div className="tweet-preview-identity">
-                  {payload.subject.profile_image_url ? (
-                    <img
-                      alt={payload.subject.display_name ?? payload.subject.username}
-                      className="tweet-preview-avatar"
-                      src={payload.subject.profile_image_url}
-                    />
-                  ) : (
-                    <div className="tweet-preview-avatar tweet-preview-avatar-fallback" aria-hidden="true">
-                      {buildAvatarInitials(payload.subject)}
-                    </div>
-                  )}
-                  <div className="tweet-preview-author-block">
-                    <p className="tweet-preview-name">
-                      {payload.subject.display_name ?? payload.subject.username}
-                    </p>
-                    <p className="tweet-preview-handle">@{payload.subject.username}</p>
-                  </div>
-                </div>
-              </div>
-              <p className="top-tweet-text">{tweet.text}</p>
-              <p className="tweet-preview-timestamp">
-                {formatTweetTimestamp(tweet.created_at_platform)}
-              </p>
-              <div className="tweet-preview-actions" aria-label="Post engagement">
-                <TweetActionStat
-                  icon="reply"
-                  label="Replies"
-                  value={tweet.reply_count}
-                />
-                <TweetActionStat
-                  icon="repost"
-                  label="Reposts"
-                  value={tweet.repost_count}
-                />
-                <TweetActionStat
-                  icon="like"
-                  label="Likes"
-                  value={tweet.like_count}
-                  tone="accent"
-                />
-                <TweetActionStat
-                  icon="bookmark"
-                  label="Bookmarks"
-                  value={tweet.bookmark_count}
-                />
-              </div>
-            </div>
-          </a>
+            author={payload.subject}
+            className="phrase-tweet-card"
+            tweet={tweet}
+          />
         );
       })}
     </section>
@@ -901,19 +838,6 @@ function buildHeatmapCellColor(count: number, maxCount: number): string {
   const intensity = Math.sqrt(count / maxCount);
   const alpha = 0.14 + intensity * 0.72;
   return `rgba(255, 178, 64, ${alpha.toFixed(3)})`;
-}
-
-function buildAvatarInitials(subject: {
-  display_name: string | null;
-  username: string;
-}): string {
-  const source = subject.display_name ?? subject.username;
-  return source
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((segment) => segment.charAt(0).toUpperCase())
-    .join("");
 }
 
 function formatPhraseLabel(value: string): string {
@@ -1015,85 +939,4 @@ function buildTrendPayloadFromHeatmapRow(
     },
     series,
   };
-}
-
-function TweetActionStat({
-  icon,
-  label,
-  value,
-  tone = "default",
-}: {
-  icon: "reply" | "repost" | "like" | "bookmark";
-  label: string;
-  value: number | null;
-  tone?: "default" | "accent";
-}) {
-  return (
-    <span
-      aria-label={`${label}: ${value ?? 0}`}
-      className={`tweet-action-stat tweet-action-stat-${icon}${tone === "accent" ? " is-accent" : ""}`}
-      title={label}
-    >
-      <span className="tweet-action-icon" aria-hidden="true">
-        {renderActionIcon(icon)}
-      </span>
-      <span>{formatCompactCount(value ?? 0)}</span>
-    </span>
-  );
-}
-
-function formatTweetTimestamp(value: string): string {
-  const parts = tweetTimestampFormatter.formatToParts(new Date(value));
-  const hour = parts.find((part) => part.type === "hour")?.value ?? "";
-  const minute = parts.find((part) => part.type === "minute")?.value ?? "";
-  const dayPeriod = parts.find((part) => part.type === "dayPeriod")?.value?.toUpperCase() ?? "";
-  const month = parts.find((part) => part.type === "month")?.value ?? "";
-  const day = parts.find((part) => part.type === "day")?.value ?? "";
-  const year = parts.find((part) => part.type === "year")?.value ?? "";
-
-  return `${hour}:${minute} ${dayPeriod} · ${month} ${day}, ${year}`;
-}
-
-function formatCompactCount(value: number): string {
-  if (value < 10_000) {
-    return integerFormatter.format(value);
-  }
-
-  return `${(value / 1000).toFixed(value >= 100_000 ? 0 : 1)}K`.replace(".0K", "K");
-}
-
-function buildTweetUrl(username: string, platformTweetId: string): string {
-  return `https://x.com/${username}/status/${platformTweetId}`;
-}
-
-function renderActionIcon(icon: "reply" | "repost" | "like" | "bookmark") {
-  switch (icon) {
-    case "reply":
-      return (
-        <svg viewBox="0 0 24 24">
-          <path d="M21 12c0 4.4-4 8-9 8-1 0-2-.1-2.9-.4L4 21l1.5-4A7.5 7.5 0 0 1 3 12c0-4.4 4-8 9-8s9 3.6 9 8Z" />
-        </svg>
-      );
-    case "repost":
-      return (
-        <svg viewBox="0 0 24 24">
-          <path d="M17 4 21 8l-4 4" />
-          <path d="M3 11V9a1 1 0 0 1 1-1h17" />
-          <path d="M7 20 3 16l4-4" />
-          <path d="M21 13v2a1 1 0 0 1-1 1H3" />
-        </svg>
-      );
-    case "like":
-      return (
-        <svg viewBox="0 0 24 24">
-          <path d="M12 20.3s-7-4.4-9.3-8.3C.9 8.9 2.2 5.5 5.7 4.7c2-.4 4 .4 5.3 2 1.3-1.6 3.3-2.4 5.3-2 3.5.8 4.8 4.2 3 7.3-2.3 3.9-9.3 8.3-9.3 8.3Z" />
-        </svg>
-      );
-    case "bookmark":
-      return (
-        <svg viewBox="0 0 24 24">
-          <path d="M6 3.5h12a1 1 0 0 1 1 1V21l-7-4-7 4V4.5a1 1 0 0 1 1-1Z" />
-        </svg>
-      );
-  }
 }

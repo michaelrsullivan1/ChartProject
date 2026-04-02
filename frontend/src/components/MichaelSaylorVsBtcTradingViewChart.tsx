@@ -22,6 +22,7 @@ import {
   type AuthorTopLikedTweetResponse,
 } from "../api/authorOverview";
 import type { OverviewDefinition } from "../config/overviews";
+import { TweetPreviewCard } from "./TweetPreviewCard";
 import {
   buildSentimentDeviationSeries,
   type SentimentMode,
@@ -81,16 +82,6 @@ const fullDateFormatter = new Intl.DateTimeFormat("en-US", {
 const shortDateFormatter = new Intl.DateTimeFormat("en-US", {
   month: "short",
   day: "numeric",
-  timeZone: "UTC",
-});
-
-const tweetTimestampFormatter = new Intl.DateTimeFormat("en-US", {
-  hour: "numeric",
-  minute: "2-digit",
-  hour12: true,
-  month: "short",
-  day: "numeric",
-  year: "numeric",
   timeZone: "UTC",
 });
 
@@ -724,26 +715,6 @@ function TopLikedTweetCard({
   selectedWeek: SelectedWeek | null;
   topTweetPanel: TopTweetPanelState;
 }) {
-  const topTweet = topTweetPanel.response?.top_tweet ?? null;
-  const weekStart = topTweetPanel.weekStart ?? selectedWeek?.weekStart ?? null;
-  const tweetUrl = topTweet !== null ? topTweet.url ?? buildTweetUrl(topTweetPanel.response) : null;
-
-  if (topTweet !== null && tweetUrl !== null) {
-    return (
-      <a
-        className="top-tweet-card top-tweet-card-link"
-        href={tweetUrl}
-        rel="noreferrer"
-        target="_blank"
-      >
-        <TopLikedTweetCardBody
-          selectedWeek={selectedWeek}
-          topTweetPanel={topTweetPanel}
-        />
-      </a>
-    );
-  }
-
   return (
     <article className="top-tweet-card">
       <TopLikedTweetCardBody
@@ -794,93 +765,19 @@ function TopLikedTweetCardBody({
       ) : null}
 
       {topTweet !== null ? (
-        <>
-          <div className="tweet-preview-card">
-            <div className="tweet-preview-header">
-              <div className="tweet-preview-identity">
-                {topTweetPanel.response?.subject.profile_image_url ? (
-                  <img
-                    alt={topTweetPanel.response.subject.display_name ?? topTweetPanel.response.subject.username}
-                    className="tweet-preview-avatar"
-                    src={topTweetPanel.response.subject.profile_image_url}
-                  />
-                ) : (
-                  <div className="tweet-preview-avatar tweet-preview-avatar-fallback" aria-hidden="true">
-                    {buildAvatarInitials(topTweetPanel.response?.subject)}
-                  </div>
-                )}
-
-                <div className="tweet-preview-author-block">
-                  <p className="tweet-preview-name">
-                    {topTweetPanel.response?.subject.display_name ??
-                      topTweetPanel.response?.subject.username ??
-                      "Unknown author"}
-                  </p>
-                  <p className="tweet-preview-handle">
-                    @{topTweetPanel.response?.subject.username ?? "unknown"}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <p className="top-tweet-text">{topTweet.text}</p>
-
-            <p className="tweet-preview-timestamp">
-              {formatTweetTimestamp(topTweet.created_at_platform)}
-            </p>
-
-            <div className="tweet-preview-actions" aria-label="Post engagement">
-              <TweetActionStat
-                icon="reply"
-                label="Replies"
-                value={topTweet.reply_count}
-              />
-              <TweetActionStat
-                icon="repost"
-                label="Reposts"
-                value={topTweet.repost_count}
-              />
-              <TweetActionStat
-                icon="like"
-                label="Likes"
-                value={topTweet.like_count}
-                tone="accent"
-              />
-              <TweetActionStat
-                icon="bookmark"
-                label="Bookmarks"
-                value={topTweet.bookmark_count}
-              />
-            </div>
-          </div>
-        </>
+        <TweetPreviewCard
+          author={{
+            display_name:
+              topTweetPanel.response?.subject.display_name ??
+              topTweetPanel.response?.subject.username ??
+              "Unknown author",
+            profile_image_url: topTweetPanel.response?.subject.profile_image_url ?? null,
+            username: topTweetPanel.response?.subject.username ?? "unknown",
+          }}
+          tweet={topTweet}
+        />
       ) : null}
     </>
-  );
-}
-
-function TweetActionStat({
-  icon,
-  label,
-  value,
-  tone = "default",
-}: {
-  icon: "reply" | "repost" | "like" | "bookmark";
-  label: string;
-  value: number | null;
-  tone?: "default" | "accent";
-}) {
-  return (
-    <span
-      aria-label={`${label}: ${value ?? 0}`}
-      className={`tweet-action-stat tweet-action-stat-${icon}${tone === "accent" ? " is-accent" : ""}`}
-      title={label}
-    >
-      <span className="tweet-action-icon" aria-hidden="true">
-        {renderActionIcon(icon)}
-      </span>
-      <span>{formatCompactCount(value ?? 0)}</span>
-    </span>
   );
 }
 
@@ -966,18 +863,6 @@ function formatTimeLabel(time: Time): string {
 
 function formatWeekLabel(value: string): string {
   return shortDateFormatter.format(new Date(`${value}T00:00:00Z`));
-}
-
-function formatTweetTimestamp(value: string): string {
-  const parts = tweetTimestampFormatter.formatToParts(new Date(value));
-  const hour = parts.find((part) => part.type === "hour")?.value ?? "";
-  const minute = parts.find((part) => part.type === "minute")?.value ?? "";
-  const dayPeriod = parts.find((part) => part.type === "dayPeriod")?.value?.toUpperCase() ?? "";
-  const month = parts.find((part) => part.type === "month")?.value ?? "";
-  const day = parts.find((part) => part.type === "day")?.value ?? "";
-  const year = parts.find((part) => part.type === "year")?.value ?? "";
-
-  return `${hour}:${minute} ${dayPeriod} · ${month} ${day}, ${year}`;
 }
 
 function formatCompactCount(value: number): string {
@@ -1227,64 +1112,4 @@ function hasSeriesValue(point: unknown): point is { value: number } {
     "value" in point &&
     typeof (point as { value?: unknown }).value === "number"
   );
-}
-
-function buildTweetUrl(response: AuthorTopLikedTweetResponse | null): string {
-  if (response?.top_tweet === null || response === null) {
-    return "#";
-  }
-
-  return `https://x.com/${response.subject.username}/status/${response.top_tweet.platform_tweet_id}`;
-}
-
-function buildAvatarInitials(
-  subject: AuthorTopLikedTweetResponse["subject"] | undefined,
-): string {
-  const source = subject?.display_name ?? subject?.username ?? "";
-  const parts = source
-    .split(/\s+/)
-    .map((part) => part.trim())
-    .filter(Boolean);
-
-  if (parts.length === 0) {
-    return "?";
-  }
-
-  if (parts.length === 1) {
-    return parts[0].slice(0, 2).toUpperCase();
-  }
-
-  return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase();
-}
-
-function renderActionIcon(icon: "reply" | "repost" | "like" | "bookmark") {
-  switch (icon) {
-    case "reply":
-      return (
-        <svg viewBox="0 0 24 24">
-          <path d="M21 12c0 4.4-4 8-9 8-1 0-2-.1-2.9-.4L4 21l1.5-4A7.5 7.5 0 0 1 3 12c0-4.4 4-8 9-8s9 3.6 9 8Z" />
-        </svg>
-      );
-    case "repost":
-      return (
-        <svg viewBox="0 0 24 24">
-          <path d="M17 4 21 8l-4 4" />
-          <path d="M3 11V9a1 1 0 0 1 1-1h17" />
-          <path d="M7 20 3 16l4-4" />
-          <path d="M21 13v2a1 1 0 0 1-1 1H3" />
-        </svg>
-      );
-    case "like":
-      return (
-        <svg viewBox="0 0 24 24">
-          <path d="M12 20.3s-7-4.4-9.3-8.3C.9 8.9 2.2 5.5 5.7 4.7c2-.4 4 .4 5.3 2 1.3-1.6 3.3-2.4 5.3-2 3.5.8 4.8 4.2 3 7.3-2.3 3.9-9.3 8.3-9.3 8.3Z" />
-        </svg>
-      );
-    case "bookmark":
-      return (
-        <svg viewBox="0 0 24 24">
-          <path d="M6 3.5h12a1 1 0 0 1 1 1V21l-7-4-7 4V4.5a1 1 0 0 1 1-1Z" />
-        </svg>
-      );
-  }
 }

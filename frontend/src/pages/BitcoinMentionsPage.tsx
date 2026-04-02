@@ -18,6 +18,13 @@ const currencyFormatter = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 2,
 });
 
+const wholeDollarFormatter = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 0,
+});
+
 const integerFormatter = new Intl.NumberFormat("en-US");
 
 const compactNumberFormatter = new Intl.NumberFormat("en-US", {
@@ -129,7 +136,7 @@ export function BitcoinMentionsPage({ bitcoinMentions }: BitcoinMentionsPageProp
                 {formatCurrency(mentionPayload.summary.total_invested_usd)}
               </p>
               <p className="metric-note">
-                Fixed at {formatCurrency(fixedBuyAmountUsd)} per mention
+                Fixed at {formatWholeDollarCurrency(fixedBuyAmountUsd)} per mention
               </p>
             </article>
             <article className="metric-card">
@@ -138,14 +145,14 @@ export function BitcoinMentionsPage({ bitcoinMentions }: BitcoinMentionsPageProp
                 {compactNumberFormatter.format(mentionPayload.summary.total_btc_accumulated)}
               </p>
               <p className="metric-note">
-                From buying {formatCurrency(fixedBuyAmountUsd)} each time
+                From buying {formatWholeDollarCurrency(fixedBuyAmountUsd)} each time
               </p>
             </article>
             <article className="metric-card">
               <p className="metric-label">Current value</p>
               <p className="metric-value">{formatCurrency(mentionPayload.summary.current_value_usd)}</p>
               <p className="metric-note">
-                Value today from {formatCurrency(fixedBuyAmountUsd)} per mention
+                Value today from {formatWholeDollarCurrency(fixedBuyAmountUsd)} per mention
               </p>
             </article>
             <article className="metric-card">
@@ -178,44 +185,6 @@ export function BitcoinMentionsPage({ bitcoinMentions }: BitcoinMentionsPageProp
               />
             </div>
           </article>
-
-          <div className="bitcoin-mentions-grid">
-            <article className="panel bitcoin-mentions-panel">
-              <div className="bitcoin-mentions-panel-header">
-                <div>
-                  <p className="eyebrow dashboard-eyebrow">Cheapest Entries</p>
-                  <h2>Lowest-price Bitcoin mentions</h2>
-                </div>
-                <p className="status-copy">
-                  Best-timed entries for {mentionPayload.subject.display_name ?? mentionPayload.subject.username}
-                </p>
-              </div>
-              {mentionPayload.cheapest_mentions.length > 0 ? (
-                <div className="bitcoin-mini-list">
-                  {mentionPayload.cheapest_mentions.map((mention) => (
-                    <article key={mention.platform_tweet_id} className="bitcoin-mini-card">
-                      <div className="bitcoin-mini-card-topline">
-                        <strong>{formatCurrency(mention.btc_price_usd)}</strong>
-                        <span>{formatDateTime(mention.created_at_platform)}</span>
-                      </div>
-                      <p className="bitcoin-mini-card-copy">{mention.text}</p>
-                      <p className="bitcoin-mini-card-meta">
-                        {formatCurrency(mention.hypothetical_current_value_usd)} today from{" "}
-                        {formatCurrency(mention.hypothetical_buy_amount_usd)}.{" "}
-                        {mention.url ? (
-                          <a href={mention.url} rel="noreferrer" target="_blank">
-                            Open tweet
-                          </a>
-                        ) : null}
-                      </p>
-                    </article>
-                  ))}
-                </div>
-              ) : (
-                <p className="status-copy">No phrase-matching mentions were found for this author.</p>
-              )}
-            </article>
-          </div>
         </>
       ) : null}
     </section>
@@ -227,6 +196,13 @@ function formatCurrency(value: number | null | undefined): string {
     return "N/A";
   }
   return currencyFormatter.format(value);
+}
+
+function formatWholeDollarCurrency(value: number | null | undefined): string {
+  if (value === null || value === undefined) {
+    return "N/A";
+  }
+  return wholeDollarFormatter.format(value);
 }
 
 function formatPercent(value: number | null | undefined): string {

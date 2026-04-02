@@ -13,6 +13,7 @@ import {
 } from "lightweight-charts";
 
 import type { AuthorBitcoinMentionsResponse, BitcoinMention } from "../api/bitcoinMentions";
+import { TweetPreviewCard } from "./TweetPreviewCard";
 
 type BitcoinMentionsHistoryChartProps = {
   payload: AuthorBitcoinMentionsResponse;
@@ -30,7 +31,12 @@ const currencyFormatter = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 2,
 });
 
-const integerFormatter = new Intl.NumberFormat("en-US");
+const wholeDollarFormatter = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 0,
+});
 
 const dateFormatter = new Intl.DateTimeFormat("en-US", {
   month: "short",
@@ -288,43 +294,69 @@ export function BitcoinMentionsHistoryChart({
         <div className="tradingview-chart bitcoin-history-chart" ref={containerRef} />
       </div>
 
-      <aside className="chart-sidebar">
-        <div className="top-tweet-card bitcoin-selected-mention-card">
-          <p className="top-tweet-eyebrow">Selected Mention</p>
-          {selectedMention ? (
-            <>
-              <p className="top-tweet-week">{timestampFormatter.format(new Date(selectedMention.created_at_platform))}</p>
+      <article className="top-tweet-card bitcoin-selected-mention-card bitcoin-history-column">
+        <p className="top-tweet-eyebrow">Selected Mention</p>
+        {selectedMention ? (
+          <TweetPreviewCard
+            author={payload.subject}
+            extraStats={[
+              {
+                label: "Return",
+                tone: "accent",
+                value: formatSignedPercent(selectedMention.price_change_since_tweet_pct),
+              },
+            ]}
+            summary={
               <p className="top-tweet-status">
                 BTC at tweet: {currencyFormatter.format(selectedMention.btc_price_usd)}. Value
-                today from {currencyFormatter.format(selectedMention.hypothetical_buy_amount_usd)}:{" "}
+                today from {wholeDollarFormatter.format(selectedMention.hypothetical_buy_amount_usd)}:{" "}
                 {currencyFormatter.format(selectedMention.hypothetical_current_value_usd)}.
               </p>
-              <p className="top-tweet-text">{selectedMention.text}</p>
-              <div className="tweet-preview-actions">
-                <span className="tweet-action-stat is-accent">
-                  Likes {integerFormatter.format(selectedMention.like_count ?? 0)}
-                </span>
-                <span className="tweet-action-stat">
-                  Replies {integerFormatter.format(selectedMention.reply_count ?? 0)}
-                </span>
-                <span className="tweet-action-stat">
-                  Reposts {integerFormatter.format(selectedMention.repost_count ?? 0)}
-                </span>
-                <span className="tweet-action-stat">
-                  Return {formatSignedPercent(selectedMention.price_change_since_tweet_pct)}
-                </span>
-              </div>
-              {selectedMention.url ? (
-                <a className="bitcoin-selected-mention-link" href={selectedMention.url} rel="noreferrer" target="_blank">
-                  Open tweet
-                </a>
-              ) : null}
-            </>
-          ) : (
-            <p className="top-tweet-status">No matching mention is available for this selection.</p>
-          )}
+            }
+            tweet={selectedMention}
+          />
+        ) : (
+          <p className="top-tweet-status">No matching mention is available for this selection.</p>
+        )}
+      </article>
+
+      <article className="top-tweet-card bitcoin-selected-mention-card bitcoin-cheapest-entries-card bitcoin-history-column">
+        <div className="bitcoin-mentions-panel-header">
+          <div>
+            <p className="top-tweet-eyebrow">Cheapest Entries</p>
+            <h2 className="bitcoin-sidebar-title">Lowest-price Bitcoin mentions</h2>
+          </div>
+          <p className="status-copy">
+            {payload.subject.display_name ?? payload.subject.username}
+          </p>
         </div>
-      </aside>
+        {payload.cheapest_mentions.length > 0 ? (
+          <div className="bitcoin-mini-list bitcoin-mini-list-sidebar">
+            {payload.cheapest_mentions.map((mention) => (
+              <TweetPreviewCard
+                key={mention.platform_tweet_id}
+                author={payload.subject}
+                className="bitcoin-mini-card"
+                footer={
+                  <p className="bitcoin-mini-card-meta">
+                    {currencyFormatter.format(mention.hypothetical_current_value_usd)} today from{" "}
+                    {wholeDollarFormatter.format(mention.hypothetical_buy_amount_usd)}.
+                  </p>
+                }
+                summary={
+                  <div className="bitcoin-mini-card-topline">
+                    <strong>{currencyFormatter.format(mention.btc_price_usd)}</strong>
+                    <span>BTC at mention</span>
+                  </div>
+                }
+                tweet={mention}
+              />
+            ))}
+          </div>
+        ) : (
+          <p className="top-tweet-status">No Bitcoin mentions were found for this author.</p>
+        )}
+      </article>
     </div>
   );
 }

@@ -741,6 +741,14 @@ textarea {
   font-size: 0.84rem;
 }
 
+.tweet-preview-summary {
+  margin-top: 10px;
+}
+
+.tweet-preview-summary .top-tweet-status {
+  margin-top: 0;
+}
+
 .top-tweet-text {
   margin-top: 10px;
   color: #f6ead0;
@@ -796,6 +804,10 @@ textarea {
 .tweet-action-stat.is-accent .tweet-action-icon svg {
   fill: currentColor;
   stroke: currentColor;
+}
+
+.tweet-preview-footer {
+  margin-top: 10px;
 }
 
 .tradingview-chart {
@@ -1270,13 +1282,13 @@ textarea {
   overflow: auto;
 }
 
-.phrase-tweet-link {
+.tweet-preview-link {
   display: block;
   color: inherit;
   text-decoration: none;
 }
 
-.phrase-tweet-link:hover .phrase-tweet-card {
+.tweet-preview-link:hover .tweet-preview-card {
   border-top-color: rgba(255, 178, 64, 0.18);
   transform: translateY(-1px);
 }
@@ -1448,6 +1460,12 @@ textarea {
   background: rgba(12, 10, 8, 0.28);
 }
 
+.tweet-preview-card.bitcoin-mini-card {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
 .bitcoin-mini-card-topline {
   display: flex;
   align-items: baseline;
@@ -1465,17 +1483,47 @@ textarea {
 
 .bitcoin-history-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 320px;
+  grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr) minmax(280px, 1fr);
   gap: 12px;
+  height: 560px;
   min-height: 560px;
+}
+
+.bitcoin-history-layout > * {
+  min-height: 0;
 }
 
 .bitcoin-history-chart {
   height: 560px;
 }
 
+.bitcoin-history-column {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .bitcoin-selected-mention-card {
   min-height: 0;
+  height: 100%;
+  overflow: auto;
+}
+
+.bitcoin-cheapest-entries-card {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 12px;
+}
+
+.bitcoin-sidebar-title {
+  margin: 2px 0 0;
+  font-size: 1.05rem;
+}
+
+.bitcoin-mini-list-sidebar {
+  min-height: 0;
+  overflow: auto;
+  padding-right: 4px;
 }
 
 .bitcoin-selected-mention-link {
@@ -1498,7 +1546,13 @@ textarea {
   }
 
   .bitcoin-history-layout {
+    height: auto;
     grid-template-columns: 1fr;
+  }
+
+  .bitcoin-selected-mention-card {
+    height: auto;
+    overflow: visible;
   }
 }
 
