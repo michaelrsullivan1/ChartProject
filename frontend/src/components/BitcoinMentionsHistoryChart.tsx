@@ -2,10 +2,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   ColorType,
+  HistogramSeries,
   LineSeries,
   LineType,
   createChart,
   isBusinessDay,
+  type HistogramData,
   type LineData,
   type MouseEventParams,
   type Time,
@@ -16,6 +18,7 @@ import type { AuthorBitcoinMentionsResponse, BitcoinMention } from "../api/bitco
 import { TweetPreviewCard } from "./TweetPreviewCard";
 
 type BitcoinMentionsHistoryChartProps = {
+  hoverSnapshot: HoverSnapshot | null;
   payload: AuthorBitcoinMentionsResponse;
   onHoverSnapshotChange: (snapshot: HoverSnapshot) => void;
 };
@@ -31,12 +34,7 @@ const currencyFormatter = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 2,
 });
 
-const wholeDollarFormatter = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-  minimumFractionDigits: 0,
-  maximumFractionDigits: 0,
-});
+const integerFormatter = new Intl.NumberFormat("en-US");
 
 const dateFormatter = new Intl.DateTimeFormat("en-US", {
   month: "short",
@@ -62,6 +60,11 @@ const chartOptions = {
     },
     textColor: "#d4c5ad",
     attributionLogo: false,
+    panes: {
+      enableResize: true,
+      separatorColor: "rgba(255, 245, 220, 0.12)",
+      separatorHoverColor: "rgba(255, 178, 64, 0.18)",
+    },
   },
   grid: {
     vertLines: {
@@ -109,6 +112,7 @@ const chartOptions = {
 };
 
 export function BitcoinMentionsHistoryChart({
+  hoverSnapshot,
   payload,
   onHoverSnapshotChange,
 }: BitcoinMentionsHistoryChartProps) {
@@ -158,6 +162,20 @@ export function BitcoinMentionsHistoryChart({
       })),
     [plottedMentions],
   );
+  const mentionVolumeData = useMemo<HistogramData<Time>[]>(
+    () => buildMentionVolumeSeries(payload, mentionWindow),
+    [mentionWindow, payload],
+  );
+  const mentionVolumeRange = useMemo(() => {
+    const maxValue = mentionVolumeData.reduce(
+      (currentMax, point) => Math.max(currentMax, point.value),
+      0,
+    );
+    return {
+      minValue: 0,
+      maxValue: Math.max(1, Math.ceil(maxValue * 1.2)),
+    };
+  }, [mentionVolumeData]);
   const [selectedMention, setSelectedMention] = useState<BitcoinMention | null>(
     payload.summary.best_timed_mention,
   );
@@ -213,8 +231,47 @@ export function BitcoinMentionsHistoryChart({
       },
     });
 
+    const volumeSeries = chart.addSeries(
+      HistogramSeries,
+      {
+        color: "rgba(118, 199, 255, 0.62)",
+        base: 0,
+        lastValueVisible: false,
+        priceLineVisible: false,
+        priceFormat: {
+          type: "custom",
+          minMove: 1,
+          formatter: (value: number) => integerFormatter.format(Math.round(value)),
+        },
+        autoscaleInfoProvider: () => ({
+          priceRange: mentionVolumeRange,
+        }),
+      },
+      1,
+    );
+
     btcSeries.setData(btcSeriesData);
     mentionSeries.setData(mentionDotsData);
+    volumeSeries.setData(mentionVolumeData);
+
+    chart.priceScale("right", 0).applyOptions({
+      borderVisible: false,
+      scaleMargins: {
+        top: 0.08,
+        bottom: 0.06,
+      },
+    });
+    chart.priceScale("right", 1).applyOptions({
+      borderVisible: false,
+      scaleMargins: {
+        top: 0.12,
+        bottom: 0.16,
+      },
+    });
+
+    const panes = chart.panes();
+    panes[0]?.setHeight(410);
+    panes[1]?.setHeight(130);
 
     chart.timeScale().fitContent();
 
@@ -282,6 +339,8 @@ export function BitcoinMentionsHistoryChart({
   }, [
     btcSeriesData,
     mentionDotsData,
+    mentionVolumeData,
+    mentionVolumeRange,
     mentionsByPlotTimestamp,
     onHoverSnapshotChange,
     payload,
@@ -294,31 +353,36 @@ export function BitcoinMentionsHistoryChart({
         <div className="tradingview-chart bitcoin-history-chart" ref={containerRef} />
       </div>
 
-      <article className="top-tweet-card bitcoin-selected-mention-card bitcoin-history-column">
-        <p className="top-tweet-eyebrow">Selected Mention</p>
-        {selectedMention ? (
-          <TweetPreviewCard
-            author={payload.subject}
-            extraStats={[
-              {
-                label: "Return",
-                tone: "accent",
-                value: formatSignedPercent(selectedMention.price_change_since_tweet_pct),
-              },
-            ]}
-            summary={
-              <p className="top-tweet-status">
-                BTC at tweet: {currencyFormatter.format(selectedMention.btc_price_usd)}. Value
-                today from {wholeDollarFormatter.format(selectedMention.hypothetical_buy_amount_usd)}:{" "}
-                {currencyFormatter.format(selectedMention.hypothetical_current_value_usd)}.
-              </p>
-            }
-            tweet={selectedMention}
-          />
-        ) : (
-          <p className="top-tweet-status">No matching mention is available for this selection.</p>
-        )}
-      </article>
+      <div className="bitcoin-history-column bitcoin-history-selected-column">
+        <article className="top-tweet-card bitcoin-selected-mention-card">
+          <p className="top-tweet-eyebrow">Selected Mention</p>
+          {selectedMention ? (
+            <TweetPreviewCard
+              author={payload.subject}
+              extraStats={[
+                {
+                  label: "BTC",
+                  value: currencyFormatter.format(selectedMention.btc_price_usd),
+                },
+                {
+                  label: "Return",
+                  tone: "accent",
+                  value: formatSignedPercent(selectedMention.price_change_since_tweet_pct),
+                },
+              ]}
+              tweet={selectedMention}
+            />
+          ) : (
+            <p className="top-tweet-status">No matching mention is available for this selection.</p>
+          )}
+        </article>
+
+        <article className="metric-card bitcoin-hover-btc-card">
+          <p className="metric-label">BTC Price</p>
+          <p className="metric-value">{hoverSnapshot?.btcPriceLabel ?? "N/A"}</p>
+          <p className="metric-note">{hoverSnapshot?.dateLabel ?? "No BTC data"}</p>
+        </article>
+      </div>
 
       <article className="top-tweet-card bitcoin-selected-mention-card bitcoin-cheapest-entries-card bitcoin-history-column">
         <div className="bitcoin-mentions-panel-header">
@@ -326,9 +390,6 @@ export function BitcoinMentionsHistoryChart({
             <p className="top-tweet-eyebrow">Cheapest Entries</p>
             <h2 className="bitcoin-sidebar-title">Lowest-price Bitcoin mentions</h2>
           </div>
-          <p className="status-copy">
-            {payload.subject.display_name ?? payload.subject.username}
-          </p>
         </div>
         {payload.cheapest_mentions.length > 0 ? (
           <div className="bitcoin-mini-list bitcoin-mini-list-sidebar">
@@ -337,18 +398,17 @@ export function BitcoinMentionsHistoryChart({
                 key={mention.platform_tweet_id}
                 author={payload.subject}
                 className="bitcoin-mini-card"
-                footer={
-                  <p className="bitcoin-mini-card-meta">
-                    {currencyFormatter.format(mention.hypothetical_current_value_usd)} today from{" "}
-                    {wholeDollarFormatter.format(mention.hypothetical_buy_amount_usd)}.
-                  </p>
-                }
-                summary={
-                  <div className="bitcoin-mini-card-topline">
-                    <strong>{currencyFormatter.format(mention.btc_price_usd)}</strong>
-                    <span>BTC at mention</span>
-                  </div>
-                }
+                extraStats={[
+                  {
+                    label: "BTC",
+                    value: currencyFormatter.format(mention.btc_price_usd),
+                  },
+                  {
+                    label: "Return",
+                    tone: "accent",
+                    value: formatSignedPercent(mention.price_change_since_tweet_pct),
+                  },
+                ]}
                 tweet={mention}
               />
             ))}
@@ -407,6 +467,39 @@ function buildPlottedMentions(
   }
 
   return plottedMentions;
+}
+
+function buildMentionVolumeSeries(
+  payload: AuthorBitcoinMentionsResponse,
+  mentionWindow: { startTimestamp: number; endTimestamp: number } | null,
+): HistogramData<Time>[] {
+  const countsByPricingDay = new Map<number, number>();
+
+  for (const mention of payload.mentions) {
+    const dayTimestamp = toUnixSeconds(mention.pricing_day);
+    countsByPricingDay.set(dayTimestamp, (countsByPricingDay.get(dayTimestamp) ?? 0) + 1);
+  }
+
+  return payload.btc_series
+    .filter((point) => {
+      if (!mentionWindow) {
+        return true;
+      }
+
+      const timestamp = toUnixSeconds(point.timestamp);
+      return timestamp >= mentionWindow.startTimestamp && timestamp <= mentionWindow.endTimestamp;
+    })
+    .map((point) => {
+      const dayTimestamp = toUnixSeconds(point.timestamp);
+      const mentionCount = countsByPricingDay.get(dayTimestamp) ?? 0;
+
+      return {
+        time: toChartTimestamp(point.timestamp),
+        value: mentionCount,
+        color:
+          mentionCount > 0 ? "rgba(118, 199, 255, 0.7)" : "rgba(118, 199, 255, 0.08)",
+      };
+    });
 }
 
 function findNearestMention(

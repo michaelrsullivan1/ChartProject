@@ -116,11 +116,6 @@ export function BitcoinMentionsPage({ bitcoinMentions }: BitcoinMentionsPageProp
         <>
           <div className="metric-strip">
             <article className="metric-card">
-              <p className="metric-label">BTC Price</p>
-              <p className="metric-value">{hoverSnapshot?.btcPriceLabel ?? "N/A"}</p>
-              <p className="metric-note">{hoverSnapshot?.dateLabel ?? "No BTC data"}</p>
-            </article>
-            <article className="metric-card">
               <p className="metric-label">Bitcoin mentions</p>
               <p className="metric-value">
                 {integerFormatter.format(mentionPayload.summary.mention_count)}
@@ -180,6 +175,7 @@ export function BitcoinMentionsPage({ bitcoinMentions }: BitcoinMentionsPageProp
           <article className="panel bitcoin-mentions-panel bitcoin-mentions-panel-wide">
             <div className="chart-shell">
               <BitcoinMentionsHistoryChart
+                hoverSnapshot={hoverSnapshot}
                 payload={mentionPayload}
                 onHoverSnapshotChange={setHoverSnapshot}
               />

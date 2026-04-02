@@ -763,7 +763,7 @@ textarea {
 
 .tweet-preview-actions {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
   gap: 10px;
   margin-top: 10px;
   padding-top: 10px;
@@ -1503,6 +1503,12 @@ textarea {
   overflow: hidden;
 }
 
+.bitcoin-history-selected-column {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 12px;
+}
+
 .bitcoin-selected-mention-card {
   min-height: 0;
   height: 100%;
@@ -1524,6 +1530,10 @@ textarea {
   min-height: 0;
   overflow: auto;
   padding-right: 4px;
+}
+
+.bitcoin-hover-btc-card {
+  align-self: end;
 }
 
 .bitcoin-selected-mention-link {
@@ -1553,6 +1563,10 @@ textarea {
   .bitcoin-selected-mention-card {
     height: auto;
     overflow: visible;
+  }
+
+  .bitcoin-history-selected-column {
+    grid-template-rows: auto;
   }
 }
 
