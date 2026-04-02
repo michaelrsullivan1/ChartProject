@@ -4,7 +4,10 @@ import {
   fetchAuthorBitcoinMentions,
   type AuthorBitcoinMentionsResponse,
 } from "../api/bitcoinMentions";
-import { BitcoinMentionsHistoryChart } from "../components/BitcoinMentionsHistoryChart";
+import {
+  BitcoinMentionsHistoryChart,
+  type HoverSnapshot,
+} from "../components/BitcoinMentionsHistoryChart";
 import {
   type BitcoinMentionsDefinition,
 } from "../config/bitcoinMentions";
@@ -44,6 +47,7 @@ const fixedBuyAmountUsd = 10;
 
 export function BitcoinMentionsPage({ bitcoinMentions }: BitcoinMentionsPageProps) {
   const [mentionPayload, setMentionPayload] = useState<AuthorBitcoinMentionsResponse | null>(null);
+  const [hoverSnapshot, setHoverSnapshot] = useState<HoverSnapshot | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -60,6 +64,15 @@ export function BitcoinMentionsPage({ bitcoinMentions }: BitcoinMentionsPageProp
 
         if (!cancelled) {
           setMentionPayload(detailResponse);
+          const latestPoint = detailResponse.btc_series[detailResponse.btc_series.length - 1];
+          setHoverSnapshot(
+            latestPoint
+              ? {
+                  btcPriceLabel: formatCurrency(latestPoint.price_usd),
+                  dateLabel: formatDateTime(latestPoint.timestamp),
+                }
+              : null,
+          );
           setError(null);
         }
       } catch (loadError) {
@@ -95,6 +108,11 @@ export function BitcoinMentionsPage({ bitcoinMentions }: BitcoinMentionsPageProp
       {mentionPayload ? (
         <>
           <div className="metric-strip">
+            <article className="metric-card">
+              <p className="metric-label">BTC Price</p>
+              <p className="metric-value">{hoverSnapshot?.btcPriceLabel ?? "N/A"}</p>
+              <p className="metric-note">{hoverSnapshot?.dateLabel ?? "No BTC data"}</p>
+            </article>
             <article className="metric-card">
               <p className="metric-label">Bitcoin mentions</p>
               <p className="metric-value">
@@ -153,17 +171,11 @@ export function BitcoinMentionsPage({ bitcoinMentions }: BitcoinMentionsPageProp
           </div>
 
           <article className="panel bitcoin-mentions-panel bitcoin-mentions-panel-wide">
-            <div className="bitcoin-mentions-panel-header">
-              <div>
-                <p className="eyebrow dashboard-eyebrow">Price History</p>
-                <h2>BTC price with one dot per matched tweet</h2>
-              </div>
-              <p className="status-copy">
-                Click near a dot to load the closest matching tweet in the side panel.
-              </p>
-            </div>
             <div className="chart-shell">
-              <BitcoinMentionsHistoryChart payload={mentionPayload} />
+              <BitcoinMentionsHistoryChart
+                payload={mentionPayload}
+                onHoverSnapshotChange={setHoverSnapshot}
+              />
             </div>
           </article>
 

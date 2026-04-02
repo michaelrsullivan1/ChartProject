@@ -16,12 +16,12 @@ import type { AuthorBitcoinMentionsResponse, BitcoinMention } from "../api/bitco
 
 type BitcoinMentionsHistoryChartProps = {
   payload: AuthorBitcoinMentionsResponse;
+  onHoverSnapshotChange: (snapshot: HoverSnapshot) => void;
 };
 
-type HoverSnapshot = {
+export type HoverSnapshot = {
   dateLabel: string;
   btcPriceLabel: string;
-  mentionsLabel: string;
 };
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
@@ -102,7 +102,10 @@ const chartOptions = {
   },
 };
 
-export function BitcoinMentionsHistoryChart({ payload }: BitcoinMentionsHistoryChartProps) {
+export function BitcoinMentionsHistoryChart({
+  payload,
+  onHoverSnapshotChange,
+}: BitcoinMentionsHistoryChartProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const plottedMentions = useMemo(() => buildPlottedMentions(payload.mentions), [payload.mentions]);
   const mentionWindow = useMemo(() => {
@@ -121,19 +124,6 @@ export function BitcoinMentionsHistoryChart({ payload }: BitcoinMentionsHistoryC
     () => new Map(plottedMentions.map((item) => [item.plotTimestamp, item.mention])),
     [plottedMentions],
   );
-  const mentionsByPricingDay = useMemo(() => {
-    const map = new Map<number, BitcoinMention[]>();
-    for (const mention of payload.mentions) {
-      const key = toUnixSeconds(mention.pricing_day);
-      const group = map.get(key);
-      if (group) {
-        group.push(mention);
-      } else {
-        map.set(key, [mention]);
-      }
-    }
-    return map;
-  }, [payload.mentions]);
   const btcSeriesData = useMemo<LineData<Time>[]>(
     () =>
       payload.btc_series
@@ -162,17 +152,15 @@ export function BitcoinMentionsHistoryChart({ payload }: BitcoinMentionsHistoryC
       })),
     [plottedMentions],
   );
-  const [hoverSnapshot, setHoverSnapshot] = useState<HoverSnapshot>(() =>
-    buildLatestHoverSnapshot(payload),
-  );
   const [selectedMention, setSelectedMention] = useState<BitcoinMention | null>(
     payload.summary.best_timed_mention,
   );
 
   useEffect(() => {
-    setHoverSnapshot(buildLatestHoverSnapshot(payload));
+    const nextSnapshot = buildLatestHoverSnapshot(payload);
+    onHoverSnapshotChange(nextSnapshot);
     setSelectedMention(payload.summary.best_timed_mention);
-  }, [payload]);
+  }, [onHoverSnapshotChange, payload]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -226,28 +214,21 @@ export function BitcoinMentionsHistoryChart({ payload }: BitcoinMentionsHistoryC
 
     const handleCrosshairMove = (param: MouseEventParams<Time>) => {
       if (!param.time) {
-        setHoverSnapshot(buildLatestHoverSnapshot(payload));
+        const nextSnapshot = buildLatestHoverSnapshot(payload);
+        onHoverSnapshotChange(nextSnapshot);
         return;
       }
 
       const dayTimestamp = normalizeChartTimeToDayTimestamp(param.time);
       const btcPoint = param.seriesData.get(btcSeries) as LineData<Time> | undefined;
-      const mentionPoint = param.seriesData.get(mentionSeries) as LineData<Time> | undefined;
-      const mentionsOnDay = mentionsByPricingDay.get(dayTimestamp) ?? [];
-
-      setHoverSnapshot({
+      const nextSnapshot = {
         dateLabel: formatChartTime(param.time),
         btcPriceLabel:
           btcPoint?.value !== undefined
             ? currencyFormatter.format(btcPoint.value)
             : currencyFormatter.format(findClosestBtcPrice(payload, dayTimestamp) ?? 0),
-        mentionsLabel:
-          mentionPoint?.value !== undefined
-            ? "1 plotted mention at this timestamp"
-            : mentionsOnDay.length > 0
-              ? `${integerFormatter.format(mentionsOnDay.length)} mentions on this BTC pricing day`
-              : "No plotted mention at this cursor",
-      });
+      };
+      onHoverSnapshotChange(nextSnapshot);
     };
 
     const handleClick = (param: MouseEventParams<Time>) => {
@@ -292,35 +273,17 @@ export function BitcoinMentionsHistoryChart({ payload }: BitcoinMentionsHistoryC
       resizeObserver.disconnect();
       chart.remove();
     };
-  }, [btcSeriesData, mentionDotsData, mentionsByPlotTimestamp, mentionsByPricingDay, payload, plottedMentions]);
+  }, [
+    btcSeriesData,
+    mentionDotsData,
+    mentionsByPlotTimestamp,
+    onHoverSnapshotChange,
+    payload,
+    plottedMentions,
+  ]);
 
   return (
     <div className="bitcoin-history-layout">
-      <aside className="chart-sidebar chart-sidebar-left">
-        <div className="chart-control-card">
-          <p className="chart-control-eyebrow">Chart View</p>
-          <p className="chart-control-note">
-            Full stored BTC history in orange. Each blue dot is one matching tweet plotted at the
-            BTC daily close used for the analysis.
-          </p>
-        </div>
-
-        <div className="chart-hover-strip">
-          <div className="chart-hover-item">
-            <span className="chart-hover-label">Cursor Date</span>
-            <span className="chart-hover-value">{hoverSnapshot.dateLabel}</span>
-          </div>
-          <div className="chart-hover-item">
-            <span className="chart-hover-label">BTC Price</span>
-            <span className="chart-hover-value">{hoverSnapshot.btcPriceLabel}</span>
-          </div>
-          <div className="chart-hover-item">
-            <span className="chart-hover-label">Mention Density</span>
-            <span className="chart-hover-value">{hoverSnapshot.mentionsLabel}</span>
-          </div>
-        </div>
-      </aside>
-
       <div className="chart-stage">
         <div className="tradingview-chart bitcoin-history-chart" ref={containerRef} />
       </div>
@@ -358,7 +321,7 @@ export function BitcoinMentionsHistoryChart({ payload }: BitcoinMentionsHistoryC
               ) : null}
             </>
           ) : (
-            <p className="top-tweet-status">No plotted mention is available for this selection.</p>
+            <p className="top-tweet-status">No matching mention is available for this selection.</p>
           )}
         </div>
       </aside>
@@ -371,7 +334,6 @@ function buildLatestHoverSnapshot(payload: AuthorBitcoinMentionsResponse): Hover
   return {
     dateLabel: latestBtcPoint ? dateFormatter.format(new Date(latestBtcPoint.timestamp)) : "No BTC data",
     btcPriceLabel: latestBtcPoint ? currencyFormatter.format(latestBtcPoint.price_usd) : "No BTC data",
-    mentionsLabel: `${integerFormatter.format(payload.summary.mention_count)} plotted mentions`,
   };
 }
 

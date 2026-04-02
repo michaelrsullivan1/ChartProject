@@ -1465,7 +1465,7 @@ textarea {
 
 .bitcoin-history-layout {
   display: grid;
-  grid-template-columns: 248px minmax(0, 1fr) 320px;
+  grid-template-columns: minmax(0, 1fr) 320px;
   gap: 12px;
   min-height: 560px;
 }
