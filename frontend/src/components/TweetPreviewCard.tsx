@@ -25,6 +25,7 @@ type TweetPreviewStat = {
 };
 
 type TweetPreviewCardProps = {
+  actionsClassName?: string;
   author: TweetPreviewAuthor;
   tweet: TweetPreviewTweet;
   className?: string;
@@ -49,6 +50,7 @@ const tweetTimestampFormatter = new Intl.DateTimeFormat("en-US", {
 });
 
 export function TweetPreviewCard({
+  actionsClassName,
   author,
   tweet,
   className,
@@ -90,7 +92,10 @@ export function TweetPreviewCard({
       </p>
 
       {stats.length > 0 ? (
-        <div className="tweet-preview-actions" aria-label="Post engagement">
+        <div
+          aria-label="Post engagement"
+          className={["tweet-preview-actions", actionsClassName].filter(Boolean).join(" ")}
+        >
           {stats.map((stat) => (
             <TweetActionStat
               key={`${stat.label}-${stat.icon ?? "plain"}`}

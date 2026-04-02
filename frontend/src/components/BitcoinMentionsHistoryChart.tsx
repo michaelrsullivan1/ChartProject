@@ -34,6 +34,13 @@ const currencyFormatter = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 2,
 });
 
+const wholeDollarFormatter = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 0,
+});
+
 const integerFormatter = new Intl.NumberFormat("en-US");
 
 const dateFormatter = new Intl.DateTimeFormat("en-US", {
@@ -358,11 +365,12 @@ export function BitcoinMentionsHistoryChart({
           <p className="top-tweet-eyebrow">Selected Mention</p>
           {selectedMention ? (
             <TweetPreviewCard
+              actionsClassName="tweet-preview-actions-bitcoin"
               author={payload.subject}
               extraStats={[
                 {
                   label: "BTC",
-                  value: currencyFormatter.format(selectedMention.btc_price_usd),
+                  value: formatBitcoinStatPrice(selectedMention.btc_price_usd),
                 },
                 {
                   label: "Return",
@@ -395,13 +403,14 @@ export function BitcoinMentionsHistoryChart({
           <div className="bitcoin-mini-list bitcoin-mini-list-sidebar">
             {payload.cheapest_mentions.map((mention) => (
               <TweetPreviewCard
+                actionsClassName="tweet-preview-actions-bitcoin"
                 key={mention.platform_tweet_id}
                 author={payload.subject}
                 className="bitcoin-mini-card"
                 extraStats={[
                   {
                     label: "BTC",
-                    value: currencyFormatter.format(mention.btc_price_usd),
+                    value: formatBitcoinStatPrice(mention.btc_price_usd),
                   },
                   {
                     label: "Return",
@@ -558,5 +567,9 @@ function formatChartTime(time: Time): string {
 
 function formatSignedPercent(value: number): string {
   const prefix = value >= 0 ? "+" : "";
-  return `${prefix}${value.toFixed(1)}%`;
+  return `${prefix}${Math.round(value)}%`;
+}
+
+function formatBitcoinStatPrice(value: number): string {
+  return wholeDollarFormatter.format(Math.round(value));
 }

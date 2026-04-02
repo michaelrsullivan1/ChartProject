@@ -780,6 +780,22 @@ textarea {
   white-space: nowrap;
 }
 
+.tweet-preview-actions-bitcoin {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.tweet-preview-actions-bitcoin .tweet-action-stat {
+  gap: 5px;
+  font-size: 0.8rem;
+}
+
+.tweet-preview-actions-bitcoin .tweet-action-icon,
+.tweet-preview-actions-bitcoin .tweet-action-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
 .tweet-action-stat.is-accent {
   color: #ffb240;
 }
