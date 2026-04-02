@@ -29,6 +29,7 @@ After the stack is running:
 - [http://127.0.0.1:5173](http://127.0.0.1:5173) shows the Foundation page
 - [http://127.0.0.1:5173/#/overviews/michael-saylor](http://127.0.0.1:5173/#/overviews/michael-saylor) shows the Michael Saylor overview
 - [http://127.0.0.1:5173/#/overviews/michael-sullivan](http://127.0.0.1:5173/#/overviews/michael-sullivan) shows the Michael Sullivan overview
+- [http://127.0.0.1:5173/#/bitcoin-mentions](http://127.0.0.1:5173/#/bitcoin-mentions) shows the Bitcoin mentions timing analysis page
 - [http://127.0.0.1:5173/#/heatmaps/michael-saylor](http://127.0.0.1:5173/#/heatmaps/michael-saylor) shows the Michael Saylor phrase heatmap
 - [http://127.0.0.1:5173/#/heatmaps/michael-sullivan](http://127.0.0.1:5173/#/heatmaps/michael-sullivan) shows the Michael Sullivan phrase heatmap
 
@@ -50,6 +51,14 @@ The heatmap pages currently:
 - support `All`, `1 word`, `2 words`, and `3 words` filters
 - load the selected phrase trend on demand in the bottom pane
 - load the top liked matching tweets for a clicked month from a companion backend endpoint
+
+The Bitcoin mentions page currently:
+
+- requests `/api/views/bitcoin-mentions?username=<handle>&phrase=bitcoin&buy_amount_usd=10`
+- pairs exact tweet timestamps with the stored BTC daily UTC close for that date
+- models the result of buying a fixed dollar amount of BTC on every matching mention
+- ranks configured authors by average BTC entry price across their matched mentions
+- lists the cheapest and full-history Bitcoin mentions for the selected author
 
 ## Quick start
 

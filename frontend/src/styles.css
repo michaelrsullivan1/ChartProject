@@ -1275,6 +1275,201 @@ textarea {
     border-color 120ms ease;
 }
 
+.bitcoin-mentions-page {
+  margin-top: 0;
+}
+
+.bitcoin-mentions-hero {
+  display: grid;
+  gap: 18px;
+}
+
+.bitcoin-mentions-title {
+  margin: 0;
+  font-size: clamp(1.8rem, 3.1vw, 2.6rem);
+  line-height: 0.98;
+}
+
+.bitcoin-mentions-subtitle {
+  max-width: 78ch;
+}
+
+.bitcoin-mentions-controls {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  align-items: end;
+}
+
+.bitcoin-mentions-field,
+.bitcoin-mentions-inline-field {
+  display: grid;
+  gap: 8px;
+}
+
+.bitcoin-mentions-field span,
+.bitcoin-mentions-inline-field span {
+  color: var(--accent);
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.bitcoin-mentions-field input,
+.bitcoin-mentions-field select,
+.bitcoin-mentions-inline-field select {
+  width: 100%;
+  border: 1px solid rgba(255, 245, 220, 0.14);
+  border-radius: 14px;
+  background: rgba(12, 10, 8, 0.5);
+  color: #fff2d0;
+  padding: 12px 14px;
+}
+
+.bitcoin-mentions-submit {
+  border: 1px solid rgba(255, 178, 64, 0.28);
+  border-radius: 14px;
+  background: rgba(255, 178, 64, 0.14);
+  color: #ffe7bf;
+  cursor: pointer;
+  min-height: 48px;
+  padding: 0 16px;
+}
+
+.bitcoin-mentions-methodology {
+  max-width: 88ch;
+}
+
+.bitcoin-mentions-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.85fr);
+  gap: 20px;
+}
+
+.bitcoin-mentions-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.bitcoin-mentions-panel-wide {
+  min-width: 0;
+}
+
+.bitcoin-mentions-panel-header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.bitcoin-mentions-panel-header h2 {
+  margin-bottom: 0;
+}
+
+.bitcoin-table-shell {
+  overflow: auto;
+  border: 1px solid rgba(255, 245, 220, 0.08);
+  border-radius: 18px;
+  background: rgba(12, 10, 8, 0.22);
+}
+
+.bitcoin-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 720px;
+}
+
+.bitcoin-table th,
+.bitcoin-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(255, 245, 220, 0.08);
+  text-align: left;
+  vertical-align: top;
+}
+
+.bitcoin-table th {
+  color: var(--accent);
+  font-size: 0.76rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.bitcoin-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.bitcoin-table tbody tr.is-active {
+  background: rgba(255, 178, 64, 0.08);
+}
+
+.bitcoin-table-detail td:last-child {
+  min-width: 360px;
+}
+
+.bitcoin-tweet-cell {
+  display: grid;
+  gap: 8px;
+}
+
+.bitcoin-tweet-cell p,
+.bitcoin-mini-card-copy {
+  margin: 0;
+  color: #fff2d0;
+}
+
+.bitcoin-tweet-cell a,
+.bitcoin-mini-card-meta a {
+  color: #ffd38a;
+}
+
+.bitcoin-mini-list {
+  display: grid;
+  gap: 12px;
+}
+
+.bitcoin-mini-card {
+  padding: 14px 16px;
+  border: 1px solid rgba(255, 245, 220, 0.1);
+  border-radius: 16px;
+  background: rgba(12, 10, 8, 0.28);
+}
+
+.bitcoin-mini-card-topline {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+  color: var(--muted);
+}
+
+.bitcoin-mini-card-meta {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.bitcoin-history-layout {
+  display: grid;
+  grid-template-columns: 248px minmax(0, 1fr) 320px;
+  gap: 12px;
+  min-height: 560px;
+}
+
+.bitcoin-history-chart {
+  height: 560px;
+}
+
+.bitcoin-selected-mention-card {
+  min-height: 0;
+}
+
+.bitcoin-selected-mention-link {
+  display: inline-flex;
+  margin-top: 12px;
+  color: #ffd38a;
+}
+
 @media (max-width: 1100px) {
   .heatmap-bottom-layout {
     grid-template-columns: 1fr;
@@ -1282,6 +1477,14 @@ textarea {
 
   .heatmap-trend-stats {
     min-width: 0;
+  }
+
+  .bitcoin-mentions-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .bitcoin-history-layout {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -1336,6 +1539,15 @@ textarea {
 
   .heatmap-trend-header {
     display: grid;
+  }
+
+  .bitcoin-mentions-controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .bitcoin-mentions-panel-header {
+    display: grid;
+    align-items: start;
   }
 }
 
@@ -1402,6 +1614,14 @@ textarea {
   .chart-watermark-handle {
     font-size: clamp(0.82rem, 4vw, 1.1rem);
     letter-spacing: 0.14em;
+  }
+
+  .bitcoin-mentions-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .bitcoin-table {
+    min-width: 640px;
   }
 }
 

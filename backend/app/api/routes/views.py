@@ -8,6 +8,12 @@ from app.services.author_keyword_heatmap_view import (
     build_author_keyword_top_tweets_for_month,
     build_author_keyword_trend_view,
 )
+from app.services.author_bitcoin_mentions_view import (
+    AuthorBitcoinMentionsViewRequest,
+    BitcoinMentionsLeaderboardRequest,
+    build_author_bitcoin_mentions_view,
+    build_bitcoin_mentions_leaderboard,
+)
 from app.services.author_sentiment_view import (
     AuthorSentimentViewRequest,
     build_author_sentiment_view,
@@ -145,6 +151,40 @@ def _build_author_keyword_top_tweets(
             phrase=phrase,
             month_start=month_start,
             limit=limit,
+            view_name=view_name,
+        )
+    )
+
+
+def _build_author_bitcoin_mentions(
+    *,
+    username: str,
+    phrase: str,
+    buy_amount_usd: float,
+    view_name: str,
+) -> dict[str, object]:
+    return build_author_bitcoin_mentions_view(
+        AuthorBitcoinMentionsViewRequest(
+            username=username,
+            phrase=phrase,
+            buy_amount_usd=buy_amount_usd,
+            view_name=view_name,
+        )
+    )
+
+
+def _build_bitcoin_mentions_leaderboard(
+    *,
+    usernames: list[str] | None,
+    phrase: str,
+    buy_amount_usd: float,
+    view_name: str,
+) -> dict[str, object]:
+    return build_bitcoin_mentions_leaderboard(
+        BitcoinMentionsLeaderboardRequest(
+            usernames=usernames,
+            phrase=phrase,
+            buy_amount_usd=buy_amount_usd,
             view_name=view_name,
         )
     )
@@ -400,4 +440,32 @@ def micheal_sullivan_heatmap_top_liked_tweets_alias(
         phrase=phrase,
         month_start=month_start,
         limit=limit,
+    )
+
+
+@router.get("/bitcoin-mentions")
+def bitcoin_mentions(
+    username: str = Query(...),
+    phrase: str = Query(default="bitcoin"),
+    buy_amount_usd: float = Query(default=10.0, gt=0),
+) -> dict[str, object]:
+    return _build_author_bitcoin_mentions(
+        username=username,
+        phrase=phrase,
+        buy_amount_usd=buy_amount_usd,
+        view_name="bitcoin-mentions",
+    )
+
+
+@router.get("/bitcoin-mentions/leaderboard")
+def bitcoin_mentions_leaderboard(
+    username: list[str] | None = Query(default=None),
+    phrase: str = Query(default="bitcoin"),
+    buy_amount_usd: float = Query(default=10.0, gt=0),
+) -> dict[str, object]:
+    return _build_bitcoin_mentions_leaderboard(
+        usernames=username,
+        phrase=phrase,
+        buy_amount_usd=buy_amount_usd,
+        view_name="bitcoin-mentions-leaderboard",
     )

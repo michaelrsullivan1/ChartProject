@@ -14,9 +14,11 @@ type AppShellProps = {
   dashboardTitle?: string;
   activeOverviewSlug: string | null;
   activeHeatmapSlug: string | null;
+  activeUtilityRoute: "bitcoin-mentions" | null;
   overviews: OverviewDefinition[];
   heatmaps: HeatmapDefinition[];
   onNavigateHome: () => void;
+  onNavigateBitcoinMentions: () => void;
   onNavigateOverview: (slug: string) => void;
   onNavigateHeatmap: (slug: string) => void;
   children: ReactNode;
@@ -27,9 +29,11 @@ export function AppShell({
   dashboardTitle,
   activeOverviewSlug,
   activeHeatmapSlug,
+  activeUtilityRoute,
   overviews,
   heatmaps,
   onNavigateHome,
+  onNavigateBitcoinMentions,
   onNavigateOverview,
   onNavigateHeatmap,
   children,
@@ -39,7 +43,7 @@ export function AppShell({
 
   useEffect(() => {
     setOpenMenu(null);
-  }, [activeOverviewSlug, activeHeatmapSlug, mode]);
+  }, [activeHeatmapSlug, activeOverviewSlug, activeUtilityRoute, mode]);
 
   useEffect(() => {
     function handlePointerDown(event: PointerEvent) {
@@ -63,6 +67,13 @@ export function AppShell({
           type="button"
         >
           Foundation
+        </button>
+        <button
+          className={`page-nav-link${activeUtilityRoute === "bitcoin-mentions" ? " is-active" : ""}`}
+          onClick={onNavigateBitcoinMentions}
+          type="button"
+        >
+          Bitcoin Mentions
         </button>
         <div className="overview-dropdown">
           <button

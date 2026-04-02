@@ -18,12 +18,14 @@ import {
 } from "./config/overviews";
 import { HomePage } from "./pages/HomePage";
 import { AuthorHeatmapPage } from "./pages/AuthorHeatmapPage";
+import { BitcoinMentionsPage } from "./pages/BitcoinMentionsPage";
 import { AuthorOverviewPage } from "./pages/MichaelSaylorVsBtcPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import type { HealthResponse } from "./types/health";
 
 type AppRoute =
   | { kind: "home" }
+  | { kind: "bitcoin-mentions" }
   | { kind: "overview"; overview: OverviewDefinition }
   | { kind: "heatmap"; heatmap: HeatmapDefinition }
   | { kind: "not-found" };
@@ -31,6 +33,10 @@ type AppRoute =
 function getRouteFromHash(hash: string): AppRoute {
   if (hash === "" || hash === "#" || hash === "#/") {
     return { kind: "home" };
+  }
+
+  if (hash === "#/bitcoin-mentions") {
+    return { kind: "bitcoin-mentions" };
   }
 
   if (hash.startsWith("#/overviews/")) {
@@ -105,6 +111,10 @@ export default function App() {
     window.location.hash = getOverviewHash(slug);
   }
 
+  function navigateBitcoinMentions() {
+    window.location.hash = "#/bitcoin-mentions";
+  }
+
   function navigateHeatmap(slug: string) {
     window.location.hash = getHeatmapHash(slug);
   }
@@ -115,7 +125,9 @@ export default function App() {
         mode="home"
         activeOverviewSlug={null}
         activeHeatmapSlug={null}
+        activeUtilityRoute={null}
         onNavigateHome={navigateHome}
+        onNavigateBitcoinMentions={navigateBitcoinMentions}
         onNavigateOverview={navigateOverview}
         onNavigateHeatmap={navigateHeatmap}
         overviews={overviewDefinitions}
@@ -133,7 +145,9 @@ export default function App() {
         dashboardTitle={getOverviewTitle(route.overview)}
         activeOverviewSlug={route.overview.slug}
         activeHeatmapSlug={null}
+        activeUtilityRoute={null}
         onNavigateHome={navigateHome}
+        onNavigateBitcoinMentions={navigateBitcoinMentions}
         onNavigateOverview={navigateOverview}
         onNavigateHeatmap={navigateHeatmap}
         overviews={overviewDefinitions}
@@ -151,7 +165,9 @@ export default function App() {
         dashboardTitle={getHeatmapTitle(route.heatmap)}
         activeOverviewSlug={null}
         activeHeatmapSlug={route.heatmap.slug}
+        activeUtilityRoute={null}
         onNavigateHome={navigateHome}
+        onNavigateBitcoinMentions={navigateBitcoinMentions}
         onNavigateOverview={navigateOverview}
         onNavigateHeatmap={navigateHeatmap}
         overviews={overviewDefinitions}
@@ -162,13 +178,35 @@ export default function App() {
     );
   }
 
+  if (route.kind === "bitcoin-mentions") {
+    return (
+      <AppShell
+        mode="dashboard"
+        dashboardTitle="Bitcoin Mentions"
+        activeOverviewSlug={null}
+        activeHeatmapSlug={null}
+        activeUtilityRoute="bitcoin-mentions"
+        onNavigateHome={navigateHome}
+        onNavigateBitcoinMentions={navigateBitcoinMentions}
+        onNavigateOverview={navigateOverview}
+        onNavigateHeatmap={navigateHeatmap}
+        overviews={overviewDefinitions}
+        heatmaps={heatmapDefinitions}
+      >
+        <BitcoinMentionsPage />
+      </AppShell>
+    );
+  }
+
   return (
     <AppShell
       mode="dashboard"
       dashboardTitle="Overview Not Found"
       activeOverviewSlug={null}
       activeHeatmapSlug={null}
+      activeUtilityRoute={null}
       onNavigateHome={navigateHome}
+      onNavigateBitcoinMentions={navigateBitcoinMentions}
       onNavigateOverview={navigateOverview}
       onNavigateHeatmap={navigateHeatmap}
       overviews={overviewDefinitions}

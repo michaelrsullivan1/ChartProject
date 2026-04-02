@@ -11,6 +11,7 @@ const foundationItems = [
   "Core SQLAlchemy models for users, posts, runs, and raw artifacts",
   "Working local-first normalization and validation flow for post archives",
   "Dedicated Michael Saylor vs BTC endpoint ready for frontend consumption",
+  "Bitcoin mentions analysis page with per-mention BTC timing and hypothetical DCA math",
 ];
 
 export function HomePage({ health, error, isLoading }: HomePageProps) {
