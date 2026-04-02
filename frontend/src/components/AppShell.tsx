@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import {
+  type BitcoinMentionsDefinition,
+  getBitcoinMentionsLabel,
+} from "../config/bitcoinMentions";
+import {
   type HeatmapDefinition,
   getHeatmapLabel,
 } from "../config/heatmaps";
@@ -12,13 +16,14 @@ import {
 type AppShellProps = {
   mode: "home" | "dashboard";
   dashboardTitle?: string;
+  activeBitcoinMentionsSlug: string | null;
   activeOverviewSlug: string | null;
   activeHeatmapSlug: string | null;
-  activeUtilityRoute: "bitcoin-mentions" | null;
+  bitcoinMentions: BitcoinMentionsDefinition[];
   overviews: OverviewDefinition[];
   heatmaps: HeatmapDefinition[];
   onNavigateHome: () => void;
-  onNavigateBitcoinMentions: () => void;
+  onNavigateBitcoinMentions: (slug: string) => void;
   onNavigateOverview: (slug: string) => void;
   onNavigateHeatmap: (slug: string) => void;
   children: ReactNode;
@@ -27,9 +32,10 @@ type AppShellProps = {
 export function AppShell({
   mode,
   dashboardTitle,
+  activeBitcoinMentionsSlug,
   activeOverviewSlug,
   activeHeatmapSlug,
-  activeUtilityRoute,
+  bitcoinMentions,
   overviews,
   heatmaps,
   onNavigateHome,
@@ -38,12 +44,12 @@ export function AppShell({
   onNavigateHeatmap,
   children,
 }: AppShellProps) {
-  const [openMenu, setOpenMenu] = useState<"overviews" | "heatmaps" | null>(null);
+  const [openMenu, setOpenMenu] = useState<"bitcoin-mentions" | "overviews" | "heatmaps" | null>(null);
   const navRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     setOpenMenu(null);
-  }, [activeHeatmapSlug, activeOverviewSlug, activeUtilityRoute, mode]);
+  }, [activeBitcoinMentionsSlug, activeHeatmapSlug, activeOverviewSlug, mode]);
 
   useEffect(() => {
     function handlePointerDown(event: PointerEvent) {
@@ -68,13 +74,36 @@ export function AppShell({
         >
           Foundation
         </button>
-        <button
-          className={`page-nav-link${activeUtilityRoute === "bitcoin-mentions" ? " is-active" : ""}`}
-          onClick={onNavigateBitcoinMentions}
-          type="button"
-        >
-          Bitcoin Mentions
-        </button>
+        <div className="overview-dropdown">
+          <button
+            aria-expanded={openMenu === "bitcoin-mentions"}
+            className={`page-nav-link${activeBitcoinMentionsSlug !== null ? " is-active" : ""}`}
+            onClick={() =>
+              setOpenMenu((current) => (current === "bitcoin-mentions" ? null : "bitcoin-mentions"))
+            }
+            type="button"
+          >
+            Bitcoin Mentions
+          </button>
+          {openMenu === "bitcoin-mentions" ? (
+            <div
+              className={`overview-dropdown-menu${isDashboardNav ? " overview-dropdown-menu-dashboard" : ""}`}
+              role="menu"
+            >
+              {bitcoinMentions.map((definition) => (
+                <button
+                  key={definition.slug}
+                  className={`overview-dropdown-item${activeBitcoinMentionsSlug === definition.slug ? " is-active" : ""}`}
+                  onClick={() => onNavigateBitcoinMentions(definition.slug)}
+                  role="menuitem"
+                  type="button"
+                >
+                  {getBitcoinMentionsLabel(definition)}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
         <div className="overview-dropdown">
           <button
             aria-expanded={openMenu === "overviews"}
@@ -144,7 +173,7 @@ export function AppShell({
       <div className="app-dashboard-shell">
         <header className="dashboard-topbar">
           <div className="dashboard-topbar-brand">
-            <span className="dashboard-topbar-kicker">ChartProject</span>
+            <span className="dashboard-topbar-kicker">Sentiment Analysis</span>
             <span className="dashboard-topbar-title">{dashboardTitle ?? "Overview"}</span>
           </div>
           <nav className="dashboard-nav" aria-label="Primary" ref={navRef}>
@@ -159,7 +188,7 @@ export function AppShell({
   return (
     <div className="app-shell">
       <header className="hero">
-        <p className="eyebrow">ChartProject</p>
+        <p className="eyebrow">Sentiment Analysis</p>
         <h1>Local-first X research foundation</h1>
         <p className="hero-copy">
           Backend ingestion and archival come first. The frontend stays lean

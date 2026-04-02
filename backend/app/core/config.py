@@ -7,7 +7,7 @@ BACKEND_ROOT = Path(__file__).resolve().parents[2]
 
 
 class Settings(BaseSettings):
-    app_name: str = "ChartProject API"
+    app_name: str = "Sentiment Analysis API"
     environment: str = "development"
     database_url: str = "postgresql+psycopg://postgres:postgres@localhost:5432/chartproject"
     twitterapi_base_url: str = "https://api.twitterapi.io"

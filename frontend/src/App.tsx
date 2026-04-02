@@ -3,6 +3,13 @@ import { useEffect, useState } from "react";
 import { fetchHealth } from "./api/health";
 import { AppShell } from "./components/AppShell";
 import {
+  bitcoinMentionsDefinitions,
+  findBitcoinMentionsBySlug,
+  getBitcoinMentionsHash,
+  getBitcoinMentionsTitle,
+  type BitcoinMentionsDefinition,
+} from "./config/bitcoinMentions";
+import {
   findHeatmapBySlug,
   getHeatmapHash,
   getHeatmapTitle,
@@ -25,7 +32,7 @@ import type { HealthResponse } from "./types/health";
 
 type AppRoute =
   | { kind: "home" }
-  | { kind: "bitcoin-mentions" }
+  | { kind: "bitcoin-mentions"; bitcoinMentions: BitcoinMentionsDefinition }
   | { kind: "overview"; overview: OverviewDefinition }
   | { kind: "heatmap"; heatmap: HeatmapDefinition }
   | { kind: "not-found" };
@@ -36,7 +43,14 @@ function getRouteFromHash(hash: string): AppRoute {
   }
 
   if (hash === "#/bitcoin-mentions") {
-    return { kind: "bitcoin-mentions" };
+    const bitcoinMentions = bitcoinMentionsDefinitions[0];
+    return bitcoinMentions ? { kind: "bitcoin-mentions", bitcoinMentions } : { kind: "not-found" };
+  }
+
+  if (hash.startsWith("#/bitcoin-mentions/")) {
+    const slug = decodeURIComponent(hash.slice("#/bitcoin-mentions/".length));
+    const bitcoinMentions = findBitcoinMentionsBySlug(slug);
+    return bitcoinMentions ? { kind: "bitcoin-mentions", bitcoinMentions } : { kind: "not-found" };
   }
 
   if (hash.startsWith("#/overviews/")) {
@@ -111,8 +125,8 @@ export default function App() {
     window.location.hash = getOverviewHash(slug);
   }
 
-  function navigateBitcoinMentions() {
-    window.location.hash = "#/bitcoin-mentions";
+  function navigateBitcoinMentions(slug: string) {
+    window.location.hash = getBitcoinMentionsHash(slug);
   }
 
   function navigateHeatmap(slug: string) {
@@ -123,9 +137,10 @@ export default function App() {
     return (
       <AppShell
         mode="home"
+        activeBitcoinMentionsSlug={null}
         activeOverviewSlug={null}
         activeHeatmapSlug={null}
-        activeUtilityRoute={null}
+        bitcoinMentions={bitcoinMentionsDefinitions}
         onNavigateHome={navigateHome}
         onNavigateBitcoinMentions={navigateBitcoinMentions}
         onNavigateOverview={navigateOverview}
@@ -143,9 +158,10 @@ export default function App() {
       <AppShell
         mode="dashboard"
         dashboardTitle={getOverviewTitle(route.overview)}
+        activeBitcoinMentionsSlug={null}
         activeOverviewSlug={route.overview.slug}
         activeHeatmapSlug={null}
-        activeUtilityRoute={null}
+        bitcoinMentions={bitcoinMentionsDefinitions}
         onNavigateHome={navigateHome}
         onNavigateBitcoinMentions={navigateBitcoinMentions}
         onNavigateOverview={navigateOverview}
@@ -163,9 +179,10 @@ export default function App() {
       <AppShell
         mode="dashboard"
         dashboardTitle={getHeatmapTitle(route.heatmap)}
+        activeBitcoinMentionsSlug={null}
         activeOverviewSlug={null}
         activeHeatmapSlug={route.heatmap.slug}
-        activeUtilityRoute={null}
+        bitcoinMentions={bitcoinMentionsDefinitions}
         onNavigateHome={navigateHome}
         onNavigateBitcoinMentions={navigateBitcoinMentions}
         onNavigateOverview={navigateOverview}
@@ -182,10 +199,11 @@ export default function App() {
     return (
       <AppShell
         mode="dashboard"
-        dashboardTitle="Bitcoin Mentions"
+        dashboardTitle={getBitcoinMentionsTitle(route.bitcoinMentions)}
+        activeBitcoinMentionsSlug={route.bitcoinMentions.slug}
         activeOverviewSlug={null}
         activeHeatmapSlug={null}
-        activeUtilityRoute="bitcoin-mentions"
+        bitcoinMentions={bitcoinMentionsDefinitions}
         onNavigateHome={navigateHome}
         onNavigateBitcoinMentions={navigateBitcoinMentions}
         onNavigateOverview={navigateOverview}
@@ -193,7 +211,7 @@ export default function App() {
         overviews={overviewDefinitions}
         heatmaps={heatmapDefinitions}
       >
-        <BitcoinMentionsPage />
+        <BitcoinMentionsPage bitcoinMentions={route.bitcoinMentions} />
       </AppShell>
     );
   }
@@ -202,9 +220,10 @@ export default function App() {
     <AppShell
       mode="dashboard"
       dashboardTitle="Overview Not Found"
+      activeBitcoinMentionsSlug={null}
       activeOverviewSlug={null}
       activeHeatmapSlug={null}
-      activeUtilityRoute={null}
+      bitcoinMentions={bitcoinMentionsDefinitions}
       onNavigateHome={navigateHome}
       onNavigateBitcoinMentions={navigateBitcoinMentions}
       onNavigateOverview={navigateOverview}

@@ -105,6 +105,18 @@ const chartOptions = {
 export function BitcoinMentionsHistoryChart({ payload }: BitcoinMentionsHistoryChartProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const plottedMentions = useMemo(() => buildPlottedMentions(payload.mentions), [payload.mentions]);
+  const mentionWindow = useMemo(() => {
+    const firstMentionAt = payload.summary.first_mention_at;
+    const latestMentionAt = payload.summary.latest_mention_at;
+    if (!firstMentionAt || !latestMentionAt) {
+      return null;
+    }
+
+    return {
+      startTimestamp: toDayStartUnixSeconds(firstMentionAt),
+      endTimestamp: toDayStartUnixSeconds(latestMentionAt),
+    };
+  }, [payload.summary.first_mention_at, payload.summary.latest_mention_at]);
   const mentionsByPlotTimestamp = useMemo(
     () => new Map(plottedMentions.map((item) => [item.plotTimestamp, item.mention])),
     [plottedMentions],
@@ -124,11 +136,23 @@ export function BitcoinMentionsHistoryChart({ payload }: BitcoinMentionsHistoryC
   }, [payload.mentions]);
   const btcSeriesData = useMemo<LineData<Time>[]>(
     () =>
-      payload.btc_series.map((point) => ({
-        time: toChartTimestamp(point.timestamp),
-        value: point.price_usd,
-      })),
-    [payload.btc_series],
+      payload.btc_series
+        .filter((point) => {
+          if (!mentionWindow) {
+            return true;
+          }
+
+          const timestamp = toUnixSeconds(point.timestamp);
+          return (
+            timestamp >= mentionWindow.startTimestamp &&
+            timestamp <= mentionWindow.endTimestamp
+          );
+        })
+        .map((point) => ({
+          time: toChartTimestamp(point.timestamp),
+          value: point.price_usd,
+        })),
+    [mentionWindow, payload.btc_series],
   );
   const mentionDotsData = useMemo<LineData<Time>[]>(
     () =>
@@ -413,6 +437,11 @@ function toChartTimestamp(value: string): UTCTimestamp {
 
 function toUnixSeconds(value: string): number {
   return Math.floor(new Date(value).getTime() / 1000);
+}
+
+function toDayStartUnixSeconds(value: string): number {
+  const date = new Date(value);
+  return Math.floor(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()) / 1000);
 }
 
 function normalizeChartTimeToDayTimestamp(time: Time): number {
