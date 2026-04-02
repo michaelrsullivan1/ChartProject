@@ -42,6 +42,7 @@ const wholeDollarFormatter = new Intl.NumberFormat("en-US", {
 });
 
 const integerFormatter = new Intl.NumberFormat("en-US");
+const mentionVolumeBucketDays = 3;
 
 const dateFormatter = new Intl.DateTimeFormat("en-US", {
   month: "short",
@@ -99,7 +100,7 @@ const chartOptions = {
     timeVisible: true,
     secondsVisible: false,
     rightOffset: 4,
-    barSpacing: 7.5,
+    barSpacing: 9.5,
     minBarSpacing: 0.2,
   },
   handleScroll: {
@@ -483,33 +484,47 @@ function buildMentionVolumeSeries(
   payload: AuthorBitcoinMentionsResponse,
   mentionWindow: { startTimestamp: number; endTimestamp: number } | null,
 ): HistogramData<Time>[] {
-  const countsByPricingDay = new Map<number, number>();
+  const countsByBucketStart = new Map<number, number>();
 
   for (const mention of payload.mentions) {
-    const dayTimestamp = toUnixSeconds(mention.pricing_day);
-    countsByPricingDay.set(dayTimestamp, (countsByPricingDay.get(dayTimestamp) ?? 0) + 1);
+    const bucketStartTimestamp = toBucketStartUnixSeconds(mention.pricing_day);
+    countsByBucketStart.set(
+      bucketStartTimestamp,
+      (countsByBucketStart.get(bucketStartTimestamp) ?? 0) + 1,
+    );
   }
 
-  return payload.btc_series
-    .filter((point) => {
-      if (!mentionWindow) {
-        return true;
-      }
+  const filteredBtcSeries = payload.btc_series.filter((point) => {
+    if (!mentionWindow) {
+      return true;
+    }
 
-      const timestamp = toUnixSeconds(point.timestamp);
-      return timestamp >= mentionWindow.startTimestamp && timestamp <= mentionWindow.endTimestamp;
-    })
-    .map((point) => {
-      const dayTimestamp = toUnixSeconds(point.timestamp);
-      const mentionCount = countsByPricingDay.get(dayTimestamp) ?? 0;
+    const timestamp = toUnixSeconds(point.timestamp);
+    return timestamp >= mentionWindow.startTimestamp && timestamp <= mentionWindow.endTimestamp;
+  });
 
-      return {
-        time: toChartTimestamp(point.timestamp),
-        value: mentionCount,
-        color:
-          mentionCount > 0 ? "rgba(118, 199, 255, 0.7)" : "rgba(118, 199, 255, 0.08)",
-      };
+  const firstPoint = filteredBtcSeries[0];
+  const lastPoint = filteredBtcSeries[filteredBtcSeries.length - 1];
+  if (!firstPoint || !lastPoint) {
+    return [];
+  }
+
+  const series: HistogramData<Time>[] = [];
+  let currentBucketStart = toBucketStartUnixSeconds(firstPoint.timestamp);
+  const finalBucketStart = toBucketStartUnixSeconds(lastPoint.timestamp);
+
+  while (currentBucketStart <= finalBucketStart) {
+    const mentionCount = countsByBucketStart.get(currentBucketStart) ?? 0;
+    series.push({
+      time: currentBucketStart as UTCTimestamp,
+      value: mentionCount,
+      color:
+        mentionCount > 0 ? "rgba(118, 199, 255, 0.7)" : "rgba(118, 199, 255, 0.08)",
     });
+    currentBucketStart += mentionVolumeBucketDays * 24 * 60 * 60;
+  }
+
+  return series;
 }
 
 function findNearestMention(
@@ -539,6 +554,15 @@ function toUnixSeconds(value: string): number {
 function toDayStartUnixSeconds(value: string): number {
   const date = new Date(value);
   return Math.floor(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()) / 1000);
+}
+
+function toBucketStartUnixSeconds(value: string): number {
+  const date = new Date(value);
+  const dayStart = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+  const epochDay = Math.floor(dayStart / (24 * 60 * 60 * 1000));
+  const bucketStartEpochDay =
+    epochDay - (((epochDay % mentionVolumeBucketDays) + mentionVolumeBucketDays) % mentionVolumeBucketDays);
+  return bucketStartEpochDay * 24 * 60 * 60;
 }
 
 function normalizeChartTimeToDayTimestamp(time: Time): number {
