@@ -180,7 +180,8 @@ export function BitcoinMentionsHistoryChart({
     );
     return {
       minValue: 0,
-      maxValue: Math.max(1, Math.ceil(maxValue * 1.2)),
+      maxValue:
+        maxValue > 0 ? maxValue + Math.max(0.25, maxValue * 0.04) : 1,
     };
   }, [mentionVolumeData]);
   const [selectedMention, setSelectedMention] = useState<BitcoinMention | null>(
@@ -271,8 +272,8 @@ export function BitcoinMentionsHistoryChart({
     chart.priceScale("right", 1).applyOptions({
       borderVisible: false,
       scaleMargins: {
-        top: 0.12,
-        bottom: 0.16,
+        top: 0.04,
+        bottom: 0.14,
       },
     });
 
