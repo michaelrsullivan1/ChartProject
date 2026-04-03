@@ -9,14 +9,15 @@ The architecture source of truth is [ProjectPlan.md](/Users/michaelsullivan/Code
 One full local flow is working end-to-end:
 
 - containerized Postgres on Docker Compose
-- Alembic migrations through `0005_add_tweet_keywords`
-- FastAPI backend with health, overview, and heatmap view routes
-- React frontend with a Foundation page, shared overview pages, and shared heatmap pages
+- Alembic migrations through `0006_add_tweet_mood_scores`
+- FastAPI backend with health, overview, mood, and heatmap view routes
+- React frontend with a Foundation page, shared overview pages, shared mood pages, and shared heatmap pages
 - raw-first X/Twitter ingest archived into Postgres via `raw_ingestion_artifacts`
 - canonical normalization and validation for archived `saylor` tweet history
 - raw BTC/USD FRED ingest plus canonical normalization and validation
 - raw MSTR/USD Twelve Data ingest plus canonical normalization and validation
 - versioned RoBERTa tweet sentiment scoring stored in Postgres
+- versioned RoBERTa multilabel tweet mood scoring stored in Postgres
 - versioned exact phrase extraction stored in Postgres via `tweet_keywords`
 - a working chart flow from canonical data to backend payloads to frontend rendering
 - click-through drilldown for the top liked tweet in a selected week
@@ -29,6 +30,7 @@ After the stack is running:
 - [http://127.0.0.1:5173](http://127.0.0.1:5173) shows the Foundation page
 - [http://127.0.0.1:5173/#/overviews/michael-saylor](http://127.0.0.1:5173/#/overviews/michael-saylor) shows the Michael Saylor overview
 - [http://127.0.0.1:5173/#/overviews/michael-sullivan](http://127.0.0.1:5173/#/overviews/michael-sullivan) shows the Michael Sullivan overview
+- [http://127.0.0.1:5173/#/moods/michael-saylor](http://127.0.0.1:5173/#/moods/michael-saylor) shows the Michael Saylor moods page
 - [http://127.0.0.1:5173/#/bitcoin-mentions](http://127.0.0.1:5173/#/bitcoin-mentions) shows the Bitcoin mentions timing analysis page
 - [http://127.0.0.1:5173/#/heatmaps/michael-saylor](http://127.0.0.1:5173/#/heatmaps/michael-saylor) shows the Michael Saylor phrase heatmap
 - [http://127.0.0.1:5173/#/heatmaps/michael-sullivan](http://127.0.0.1:5173/#/heatmaps/michael-sullivan) shows the Michael Sullivan phrase heatmap
@@ -51,6 +53,15 @@ The heatmap pages currently:
 - support `All`, `1 word`, `2 words`, and `3 words` filters
 - load the selected phrase trend on demand in the bottom pane
 - load the top liked matching tweets for a clicked month from a companion backend endpoint
+
+The mood pages currently:
+
+- request a dedicated mood overview endpoint such as `/api/views/michael-saylor-moods?granularity=week`
+- request a companion mood series endpoint such as `/api/views/michael-saylor-moods/mood-series?granularity=week`
+- render BTC in the top pane and the selected mood deviation in the bottom pane
+- default to relative-to-baseline mood deviation with the same weighted smoothing modes as the sentiment page
+- expose the current curated mood set from the GoEmotions model: `optimism`, `fear`, `nervousness`, `annoyance`, `excitement`, and `confusion`
+- store absolute per-tweet mood scores in Postgres and compute relative deviation at request time
 
 The Bitcoin mentions page currently:
 
@@ -212,6 +223,7 @@ The main runtime data directories currently kept in the repo are:
 - `tweet_keywords`
 - `tweet_references`
 - `market_price_points`
+- `tweet_mood_scores`
 - `tweet_sentiment_scores`
 - `ingestion_runs`
 - `raw_ingestion_artifacts`
@@ -222,9 +234,10 @@ The main runtime data directories currently kept in the repo are:
 2. Normalize archived payloads into canonical relational tables.
 3. Run validation against raw versus normalized data.
 4. Enrich canonical tweets with versioned sentiment scores.
-5. Enrich canonical tweets with versioned exact phrase rows in `tweet_keywords`.
-6. Build request-time backend view payloads from canonical tables.
-7. Render the current frontend chart pages from those backend view payloads.
+5. Enrich canonical tweets with versioned multilabel mood scores.
+6. Enrich canonical tweets with versioned exact phrase rows in `tweet_keywords`.
+7. Build request-time backend view payloads from canonical tables.
+8. Render the current frontend chart pages from those backend view payloads.
 
 No live provider calls are required for normalization, validation, the overview pages, the heatmap pages, or their tweet drilldowns.
 
@@ -256,6 +269,9 @@ The current chart flow uses dedicated overview endpoints:
 /api/views/michael-saylor-overview?granularity=week
 /api/views/michael-saylor-overview/top-liked-tweet?week_start=2024-01-01T00:00:00Z
 /api/views/michael-saylor-overview/btc-spot
+/api/views/michael-saylor-moods?granularity=week
+/api/views/michael-saylor-moods/mood-series?granularity=week
+/api/views/michael-saylor-moods/btc-spot
 /api/views/michael-sullivan-overview?granularity=week
 /api/views/michael-sullivan-overview/top-liked-tweet?week_start=2024-01-01T00:00:00Z
 /api/views/michael-sullivan-overview/btc-spot
@@ -280,6 +296,9 @@ Current behavior:
 - BTC stays daily in the payload and in the current chart UI
 - MSTR stays daily in the payload and in the current chart UI
 - the click drilldown ranks tweets within the selected week by `like_count`
+- mood pages currently reuse the overview BTC payload but replace the lower pane with mood deviation
+- mood deviation is computed against the selected author's own historical baseline
+- the current mood UI is curated to six labels, but the scorer stores every label emitted by the configured model
 - heatmap rows are phrase-level exact `1-3` word matches extracted from canonical tweet text
 - heatmap ranking supports `mode=common` and `mode=rising`
 - heatmap rows are zero-filled for a continuous UTC month timeline
@@ -357,7 +376,13 @@ python3 backend/scripts/validate/validate_normalized_user.py --username someuser
 python3 backend/scripts/enrich/score_tweet_sentiment.py --username someuser
 ```
 
-7. Extract phrase keywords on the normalized tweets:
+7. Score moods on the normalized tweets:
+
+```bash
+python3 backend/scripts/enrich/score_tweet_moods.py --username someuser
+```
+
+8. Extract phrase keywords on the normalized tweets:
 
 ```bash
 python3 backend/scripts/enrich/extract_tweet_keywords.py \
@@ -365,7 +390,7 @@ python3 backend/scripts/enrich/extract_tweet_keywords.py \
   --analysis-start 2020-08-01T00:00:00Z
 ```
 
-8. Confirm the dedicated overview endpoints, heatmap endpoints, and frontend pages render correctly.
+9. Confirm the dedicated overview endpoints, mood endpoints, heatmap endpoints, and frontend pages render correctly.
 
 ### Preflight checklist
 
@@ -573,6 +598,43 @@ Expected normal outcomes:
 - the RoBERTa load report may show `UNEXPECTED` keys for this checkpoint; that is acceptable in the current setup
 - some tweets may be skipped because they are unsupported for scoring after language or preprocessing checks
 
+### Score tweet moods for one or more normalized users
+
+The current mood scorer uses [`SamLowe/roberta-base-go_emotions`](https://huggingface.co/SamLowe/roberta-base-go_emotions).
+
+It stores one row per `(tweet, model_key, mood_label)` in `tweet_mood_scores`.
+
+It currently powers the `#/moods/michael-saylor` page and stores all labels emitted by the model, even though the UI only exposes a curated subset today.
+
+```bash
+cd /Users/michaelsullivan/Code/ChartProject
+source .venv/bin/activate
+cd backend
+python scripts/enrich/score_tweet_moods.py --username saylor
+```
+
+Useful options:
+
+- `--username saylor otheruser`
+- `--dry-run`
+- `--overwrite-existing`
+- `--model-key some-custom-key`
+- `--batch-size 16`
+
+Expected normal outcomes:
+
+- Hugging Face may warn about unauthenticated downloads if `HF_TOKEN` is unset
+- the RoBERTa load report may show `UNEXPECTED` keys for this checkpoint; that is acceptable in the current setup
+- some tweets may be skipped because they are unsupported for scoring after language or preprocessing checks
+- the first run may take longer because the model weights need to be downloaded and cached locally
+
+Current scorer behavior:
+
+- reuses the same URL stripping, mention normalization, language filtering, and empty-after-preprocess skip rules as the sentiment scorer
+- stores absolute per-label probabilities only
+- leaves baseline-relative calculations to the backend view layer
+- is reusable for any normalized user by running the same command with a different `--username`
+
 ### Extract exact phrase keywords for one or more normalized users
 
 ```bash
@@ -614,6 +676,13 @@ To add a new author cleanly, treat the backend route wiring and frontend page co
 3. Add a frontend entry in [frontend/src/config/overviews.ts](/Users/michaelsullivan/Code/ChartProject/frontend/src/config/overviews.ts).
 4. Verify the route renders under `#/overviews/<slug>`.
 
+### Add a new moods subject
+
+1. Ensure the user's tweets are ingested, normalized, validated, and mood-scored.
+2. Add a dedicated route entry in [backend/app/api/routes/views.py](/Users/michaelsullivan/Code/ChartProject/backend/app/api/routes/views.py).
+3. Add a frontend entry in [frontend/src/config/moods.ts](/Users/michaelsullivan/Code/ChartProject/frontend/src/config/moods.ts).
+4. Verify the route renders under `#/moods/<slug>`.
+
 ### Add a new heatmap subject
 
 1. Ensure the user's tweets are ingested, normalized, validated, and keyword-extracted.
@@ -633,6 +702,45 @@ python3 backend/scripts/enrich/extract_tweet_keywords.py \
   --username someuser \
   --analysis-start 2020-08-01T00:00:00Z
 ```
+
+### Recommended repeatable workflow for a new moods author
+
+Use this when you want to add moods for another author in the future.
+
+```bash
+cd /Users/michaelsullivan/Code/ChartProject
+source .venv/bin/activate
+python3 backend/scripts/normalize/normalize_archived_user.py --username someuser
+python3 backend/scripts/validate/validate_normalized_user.py --username someuser
+python3 backend/scripts/enrich/score_tweet_moods.py --username someuser
+```
+
+Then wire the new author into:
+
+- [backend/app/api/routes/views.py](/Users/michaelsullivan/Code/ChartProject/backend/app/api/routes/views.py)
+- [frontend/src/config/moods.ts](/Users/michaelsullivan/Code/ChartProject/frontend/src/config/moods.ts)
+
+### Add more moods to the current moods page
+
+The current GoEmotions scorer already stores every label emitted by the model for each scored tweet.
+
+That means adding another mood label to the page usually does not require rescoring existing users, as long as:
+
+- you keep using the same `model_key`
+- the mood label already exists in the underlying model output
+
+For a new display mood label:
+
+1. Add the label to the curated mood list in [backend/app/services/moods.py](/Users/michaelsullivan/Code/ChartProject/backend/app/services/moods.py).
+2. Confirm the view returns it from [backend/app/services/author_mood_view.py](/Users/michaelsullivan/Code/ChartProject/backend/app/services/author_mood_view.py).
+3. Confirm it appears in the page controls on [frontend/src/pages/AuthorMoodPage.tsx](/Users/michaelsullivan/Code/ChartProject/frontend/src/pages/AuthorMoodPage.tsx).
+4. Verify the chart renders cleanly for that label.
+
+You only need a fresh backfill if:
+
+- you switch to a different mood model
+- you change the `model_key`
+- you want to recompute rows for tweets that were not previously scored under that model key
 
 ## Troubleshooting
 
