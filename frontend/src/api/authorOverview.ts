@@ -91,6 +91,46 @@ export type AuthorTopLikedTweetResponse = {
   };
 };
 
+export type AuthorMoodResponse = {
+  view: string;
+  subject: {
+    platform_user_id: string;
+    username: string;
+    display_name: string | null;
+  };
+  model: {
+    model_key: string;
+    granularity: string;
+    status_filter: string;
+    mood_labels: string[];
+  };
+  range: {
+    start: string;
+    end: string;
+  };
+  summary: {
+    scored_tweet_count: number;
+    moods: Record<
+      string,
+      {
+        average_score: number;
+        score_count: number;
+      }
+    >;
+  };
+  mood_series: Array<{
+    period_start: string;
+    scored_tweet_count: number;
+    moods: Record<
+      string,
+      {
+        average_score: number;
+        score_count: number;
+      }
+    >;
+  }>;
+};
+
 export type BtcSpotPriceResponse = {
   asset_symbol: string;
   quote_currency: string;
@@ -127,6 +167,22 @@ export async function fetchAuthorSentiment(
   }
 
   return (await response.json()) as AuthorSentimentResponse;
+}
+
+export async function fetchAuthorMoods(
+  endpointPath: string,
+  granularity: "day" | "week" = "week",
+  signal?: AbortSignal,
+): Promise<AuthorMoodResponse> {
+  const response = await fetch(`${endpointPath}/mood-series?granularity=${granularity}`, {
+    signal,
+  });
+
+  if (!response.ok) {
+    throw new Error(`Mood request failed with status ${response.status}`);
+  }
+
+  return (await response.json()) as AuthorMoodResponse;
 }
 
 export async function fetchAuthorTopLikedTweet(

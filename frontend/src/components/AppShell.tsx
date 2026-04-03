@@ -9,6 +9,10 @@ import {
   getHeatmapLabel,
 } from "../config/heatmaps";
 import {
+  type MoodDefinition,
+  getMoodLabel,
+} from "../config/moods";
+import {
   type OverviewDefinition,
   getOverviewLabel,
 } from "../config/overviews";
@@ -17,13 +21,16 @@ type AppShellProps = {
   mode: "home" | "dashboard";
   dashboardTitle?: string;
   activeBitcoinMentionsSlug: string | null;
+  activeMoodSlug: string | null;
   activeOverviewSlug: string | null;
   activeHeatmapSlug: string | null;
   bitcoinMentions: BitcoinMentionsDefinition[];
+  moods: MoodDefinition[];
   overviews: OverviewDefinition[];
   heatmaps: HeatmapDefinition[];
   onNavigateHome: () => void;
   onNavigateBitcoinMentions: (slug: string) => void;
+  onNavigateMood: (slug: string) => void;
   onNavigateOverview: (slug: string) => void;
   onNavigateHeatmap: (slug: string) => void;
   children: ReactNode;
@@ -33,23 +40,26 @@ export function AppShell({
   mode,
   dashboardTitle,
   activeBitcoinMentionsSlug,
+  activeMoodSlug,
   activeOverviewSlug,
   activeHeatmapSlug,
   bitcoinMentions,
+  moods,
   overviews,
   heatmaps,
   onNavigateHome,
   onNavigateBitcoinMentions,
+  onNavigateMood,
   onNavigateOverview,
   onNavigateHeatmap,
   children,
 }: AppShellProps) {
-  const [openMenu, setOpenMenu] = useState<"bitcoin-mentions" | "overviews" | "heatmaps" | null>(null);
+  const [openMenu, setOpenMenu] = useState<"bitcoin-mentions" | "moods" | "overviews" | "heatmaps" | null>(null);
   const navRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     setOpenMenu(null);
-  }, [activeBitcoinMentionsSlug, activeHeatmapSlug, activeOverviewSlug, mode]);
+  }, [activeBitcoinMentionsSlug, activeHeatmapSlug, activeMoodSlug, activeOverviewSlug, mode]);
 
   useEffect(() => {
     function handlePointerDown(event: PointerEvent) {
@@ -99,6 +109,34 @@ export function AppShell({
                   type="button"
                 >
                   {getBitcoinMentionsLabel(definition)}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
+        <div className="overview-dropdown">
+          <button
+            aria-expanded={openMenu === "moods"}
+            className={`page-nav-link${activeMoodSlug !== null ? " is-active" : ""}`}
+            onClick={() => setOpenMenu((current) => (current === "moods" ? null : "moods"))}
+            type="button"
+          >
+            Moods
+          </button>
+          {openMenu === "moods" ? (
+            <div
+              className={`overview-dropdown-menu${isDashboardNav ? " overview-dropdown-menu-dashboard" : ""}`}
+              role="menu"
+            >
+              {moods.map((mood) => (
+                <button
+                  key={mood.slug}
+                  className={`overview-dropdown-item${activeMoodSlug === mood.slug ? " is-active" : ""}`}
+                  onClick={() => onNavigateMood(mood.slug)}
+                  role="menuitem"
+                  type="button"
+                >
+                  {getMoodLabel(mood)}
                 </button>
               ))}
             </div>
@@ -173,7 +211,7 @@ export function AppShell({
       <div className="app-dashboard-shell">
         <header className="dashboard-topbar">
           <div className="dashboard-topbar-brand">
-            <span className="dashboard-topbar-kicker">Sentiment Analysis</span>
+            <span className="dashboard-topbar-kicker">Sentiment And Mood Analysis</span>
             <span className="dashboard-topbar-title">{dashboardTitle ?? "Overview"}</span>
           </div>
           <nav className="dashboard-nav" aria-label="Primary" ref={navRef}>
@@ -188,7 +226,7 @@ export function AppShell({
   return (
     <div className="app-shell">
       <header className="hero">
-        <p className="eyebrow">Sentiment Analysis</p>
+        <p className="eyebrow">Sentiment And Mood Analysis</p>
         <h1>Local-first X research foundation</h1>
         <p className="hero-copy">
           Backend ingestion and archival come first. The frontend stays lean

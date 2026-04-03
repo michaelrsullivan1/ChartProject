@@ -17,6 +17,13 @@ import {
   type HeatmapDefinition,
 } from "./config/heatmaps";
 import {
+  findMoodBySlug,
+  getMoodHash,
+  getMoodTitle,
+  moodDefinitions,
+  type MoodDefinition,
+} from "./config/moods";
+import {
   findOverviewBySlug,
   getOverviewHash,
   getOverviewTitle,
@@ -25,6 +32,7 @@ import {
 } from "./config/overviews";
 import { HomePage } from "./pages/HomePage";
 import { AuthorHeatmapPage } from "./pages/AuthorHeatmapPage";
+import { AuthorMoodPage } from "./pages/AuthorMoodPage";
 import { BitcoinMentionsPage } from "./pages/BitcoinMentionsPage";
 import { AuthorOverviewPage } from "./pages/MichaelSaylorVsBtcPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
@@ -33,6 +41,7 @@ import type { HealthResponse } from "./types/health";
 type AppRoute =
   | { kind: "home" }
   | { kind: "bitcoin-mentions"; bitcoinMentions: BitcoinMentionsDefinition }
+  | { kind: "mood"; mood: MoodDefinition }
   | { kind: "overview"; overview: OverviewDefinition }
   | { kind: "heatmap"; heatmap: HeatmapDefinition }
   | { kind: "not-found" };
@@ -57,6 +66,12 @@ function getRouteFromHash(hash: string): AppRoute {
     const slug = decodeURIComponent(hash.slice("#/overviews/".length));
     const overview = findOverviewBySlug(slug);
     return overview ? { kind: "overview", overview } : { kind: "not-found" };
+  }
+
+  if (hash.startsWith("#/moods/")) {
+    const slug = decodeURIComponent(hash.slice("#/moods/".length));
+    const mood = findMoodBySlug(slug);
+    return mood ? { kind: "mood", mood } : { kind: "not-found" };
   }
 
   if (hash.startsWith("#/heatmaps/")) {
@@ -125,6 +140,10 @@ export default function App() {
     window.location.hash = getOverviewHash(slug);
   }
 
+  function navigateMood(slug: string) {
+    window.location.hash = getMoodHash(slug);
+  }
+
   function navigateBitcoinMentions(slug: string) {
     window.location.hash = getBitcoinMentionsHash(slug);
   }
@@ -138,11 +157,14 @@ export default function App() {
       <AppShell
         mode="home"
         activeBitcoinMentionsSlug={null}
+        activeMoodSlug={null}
         activeOverviewSlug={null}
         activeHeatmapSlug={null}
         bitcoinMentions={bitcoinMentionsDefinitions}
+        moods={moodDefinitions}
         onNavigateHome={navigateHome}
         onNavigateBitcoinMentions={navigateBitcoinMentions}
+        onNavigateMood={navigateMood}
         onNavigateOverview={navigateOverview}
         onNavigateHeatmap={navigateHeatmap}
         overviews={overviewDefinitions}
@@ -159,11 +181,14 @@ export default function App() {
         mode="dashboard"
         dashboardTitle={getOverviewTitle(route.overview)}
         activeBitcoinMentionsSlug={null}
+        activeMoodSlug={null}
         activeOverviewSlug={route.overview.slug}
         activeHeatmapSlug={null}
         bitcoinMentions={bitcoinMentionsDefinitions}
+        moods={moodDefinitions}
         onNavigateHome={navigateHome}
         onNavigateBitcoinMentions={navigateBitcoinMentions}
+        onNavigateMood={navigateMood}
         onNavigateOverview={navigateOverview}
         onNavigateHeatmap={navigateHeatmap}
         overviews={overviewDefinitions}
@@ -174,17 +199,44 @@ export default function App() {
     );
   }
 
+  if (route.kind === "mood") {
+    return (
+      <AppShell
+        mode="dashboard"
+        dashboardTitle={getMoodTitle(route.mood)}
+        activeBitcoinMentionsSlug={null}
+        activeMoodSlug={route.mood.slug}
+        activeOverviewSlug={null}
+        activeHeatmapSlug={null}
+        bitcoinMentions={bitcoinMentionsDefinitions}
+        moods={moodDefinitions}
+        onNavigateHome={navigateHome}
+        onNavigateBitcoinMentions={navigateBitcoinMentions}
+        onNavigateMood={navigateMood}
+        onNavigateOverview={navigateOverview}
+        onNavigateHeatmap={navigateHeatmap}
+        overviews={overviewDefinitions}
+        heatmaps={heatmapDefinitions}
+      >
+        <AuthorMoodPage mood={route.mood} />
+      </AppShell>
+    );
+  }
+
   if (route.kind === "heatmap") {
     return (
       <AppShell
         mode="dashboard"
         dashboardTitle={getHeatmapTitle(route.heatmap)}
         activeBitcoinMentionsSlug={null}
+        activeMoodSlug={null}
         activeOverviewSlug={null}
         activeHeatmapSlug={route.heatmap.slug}
         bitcoinMentions={bitcoinMentionsDefinitions}
+        moods={moodDefinitions}
         onNavigateHome={navigateHome}
         onNavigateBitcoinMentions={navigateBitcoinMentions}
+        onNavigateMood={navigateMood}
         onNavigateOverview={navigateOverview}
         onNavigateHeatmap={navigateHeatmap}
         overviews={overviewDefinitions}
@@ -201,11 +253,14 @@ export default function App() {
         mode="dashboard"
         dashboardTitle={getBitcoinMentionsTitle(route.bitcoinMentions)}
         activeBitcoinMentionsSlug={route.bitcoinMentions.slug}
+        activeMoodSlug={null}
         activeOverviewSlug={null}
         activeHeatmapSlug={null}
         bitcoinMentions={bitcoinMentionsDefinitions}
+        moods={moodDefinitions}
         onNavigateHome={navigateHome}
         onNavigateBitcoinMentions={navigateBitcoinMentions}
+        onNavigateMood={navigateMood}
         onNavigateOverview={navigateOverview}
         onNavigateHeatmap={navigateHeatmap}
         overviews={overviewDefinitions}
@@ -221,11 +276,14 @@ export default function App() {
       mode="dashboard"
       dashboardTitle="Overview Not Found"
       activeBitcoinMentionsSlug={null}
+      activeMoodSlug={null}
       activeOverviewSlug={null}
       activeHeatmapSlug={null}
       bitcoinMentions={bitcoinMentionsDefinitions}
+      moods={moodDefinitions}
       onNavigateHome={navigateHome}
       onNavigateBitcoinMentions={navigateBitcoinMentions}
+      onNavigateMood={navigateMood}
       onNavigateOverview={navigateOverview}
       onNavigateHeatmap={navigateHeatmap}
       overviews={overviewDefinitions}

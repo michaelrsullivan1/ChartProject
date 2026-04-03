@@ -18,6 +18,7 @@ from app.services.author_sentiment_view import (
     AuthorSentimentViewRequest,
     build_author_sentiment_view,
 )
+from app.services.author_mood_view import AuthorMoodViewRequest, build_author_mood_view
 from app.services.author_vs_btc_view import (
     AuthorTopTweetForWeekRequest,
     AuthorVsBtcViewRequest,
@@ -25,6 +26,7 @@ from app.services.author_vs_btc_view import (
     build_author_vs_btc_view,
 )
 from app.services.market_data import fetch_coinbase_spot_price
+from app.services.moods import DEFAULT_MOOD_MODEL
 from app.services.sentiment import DEFAULT_SENTIMENT_MODEL
 
 
@@ -91,6 +93,25 @@ def _build_btc_spot_price() -> dict[str, object]:
         "fetched_at": summary.fetched_at.isoformat().replace("+00:00", "Z"),
         "source_name": summary.source_name,
     }
+
+
+def _build_author_moods(
+    *,
+    username: str,
+    view_name: str,
+    granularity: str,
+    model_key: str,
+    analysis_start: str | None = None,
+) -> dict[str, object]:
+    return build_author_mood_view(
+        AuthorMoodViewRequest(
+            username=username,
+            granularity=granularity,
+            model_key=model_key,
+            view_name=view_name,
+            analysis_start=analysis_start,
+        )
+    )
 
 
 def _build_author_keyword_heatmap(
@@ -229,6 +250,37 @@ def michael_saylor_overview_sentiment(
 
 @router.get("/michael-saylor-overview/btc-spot")
 def michael_saylor_overview_btc_spot() -> dict[str, object]:
+    return _build_btc_spot_price()
+
+
+@router.get("/michael-saylor-moods")
+def michael_saylor_moods(
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+) -> dict[str, object]:
+    return _build_overview_view(
+        username="saylor",
+        view_name="michael-saylor-moods",
+        granularity=granularity,
+        analysis_start="2020-08-01T00:00:00Z",
+    )
+
+
+@router.get("/michael-saylor-moods/mood-series")
+def michael_saylor_mood_series(
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+    model_key: str = Query(default=DEFAULT_MOOD_MODEL),
+) -> dict[str, object]:
+    return _build_author_moods(
+        username="saylor",
+        view_name="michael-saylor-mood-series",
+        granularity=granularity,
+        model_key=model_key,
+        analysis_start="2020-08-01T00:00:00Z",
+    )
+
+
+@router.get("/michael-saylor-moods/btc-spot")
+def michael_saylor_moods_btc_spot() -> dict[str, object]:
     return _build_btc_spot_price()
 
 
