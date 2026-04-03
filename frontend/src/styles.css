@@ -904,6 +904,7 @@ textarea {
 
 .heatmap-workspace {
   grid-template-rows: auto minmax(0, 1fr);
+  padding: 10px;
 }
 
 .heatmap-workspace-header {
@@ -913,8 +914,8 @@ textarea {
 .heatmap-layout {
   min-height: 0;
   display: grid;
-  grid-template-rows: minmax(280px, 0.78fr) minmax(340px, 1.22fr);
-  gap: 10px;
+  grid-template-rows: minmax(260px, 0.72fr) 14px minmax(320px, 1.28fr);
+  gap: 8px;
   overflow: hidden;
 }
 
@@ -922,11 +923,61 @@ textarea {
 .heatmap-bottom-layout {
   min-height: 0;
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .heatmap-panel {
   grid-template-rows: auto minmax(0, 1fr);
+}
+
+.heatmap-layout.is-resizing {
+  cursor: row-resize;
+}
+
+.heatmap-resize-handle {
+  position: relative;
+  display: grid;
+  place-items: center;
+  cursor: row-resize;
+  touch-action: none;
+}
+
+.heatmap-resize-handle::before {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  top: 50%;
+  height: 1px;
+  background: rgba(255, 245, 220, 0.12);
+  transform: translateY(-50%);
+}
+
+.heatmap-resize-handle:focus-visible {
+  outline: none;
+}
+
+.heatmap-resize-handle:focus-visible .heatmap-resize-grip {
+  border-color: rgba(255, 178, 64, 0.34);
+  box-shadow: 0 0 0 3px rgba(255, 178, 64, 0.08);
+}
+
+.heatmap-resize-grip {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border: 1px solid rgba(255, 245, 220, 0.12);
+  border-radius: 999px;
+  background: rgba(18, 14, 10, 0.92);
+}
+
+.heatmap-resize-grip span {
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(255, 178, 64, 0.8);
 }
 
 .heatmap-topbar {
@@ -935,12 +986,12 @@ textarea {
 
 .heatmap-toolbar {
   display: grid;
-  gap: 10px;
+  gap: 8px;
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .heatmap-control-card {
-  padding: 10px 12px;
+  padding: 9px 10px;
 }
 
 .heatmap-control-card .chart-toggle-group-compact {
@@ -979,7 +1030,7 @@ textarea {
   border-radius: 12px;
   background: rgba(12, 10, 8, 0.62);
   color: #fff2d0;
-  padding: 10px 12px;
+  padding: 9px 11px;
   outline: none;
   transition:
     border-color 120ms ease,
@@ -1042,10 +1093,10 @@ textarea {
 
 .heatmap-strip-axis {
   display: grid;
-  grid-template-columns: 148px minmax(0, 1fr);
-  gap: 10px;
+  grid-template-columns: 136px minmax(0, 1fr);
+  gap: 8px;
   align-items: end;
-  padding: 8px 10px 6px;
+  padding: 7px 8px 6px;
   border-bottom: 1px solid rgba(255, 245, 220, 0.06);
 }
 
@@ -1084,10 +1135,10 @@ textarea {
 
 .heatmap-strip-row {
   display: grid;
-  grid-template-columns: 148px minmax(0, 1fr);
-  gap: 10px;
+  grid-template-columns: 136px minmax(0, 1fr);
+  gap: 8px;
   align-items: center;
-  padding: 4px 10px;
+  padding: 3px 8px;
   border-bottom: 1px solid rgba(255, 245, 220, 0.05);
 }
 
@@ -1115,7 +1166,7 @@ textarea {
   cursor: pointer;
   padding: 4px 2px;
   text-align: left;
-  font-size: 0.88rem;
+  font-size: 0.84rem;
 }
 
 .heatmap-strip-label:hover {
@@ -1131,8 +1182,8 @@ textarea {
 
 .heatmap-strip-label-total {
   color: var(--muted);
-  font-size: 0.82rem;
-  margin-left: 8px;
+  font-size: 0.78rem;
+  margin-left: 6px;
   flex: 0 0 auto;
 }
 
@@ -1183,7 +1234,7 @@ textarea {
 }
 
 .heatmap-bottom-layout {
-  grid-template-columns: minmax(0, 2.35fr) minmax(320px, 1fr);
+  grid-template-columns: minmax(0, 2.5fr) minmax(280px, 0.95fr);
 }
 
 .heatmap-trend-layout {
@@ -1204,13 +1255,13 @@ textarea {
 .heatmap-trend-copy {
   min-width: 0;
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .heatmap-pin-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
 }
 
 .heatmap-pin-chip {
@@ -1243,7 +1294,7 @@ textarea {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 7px 6px 7px 10px;
+  padding: 6px 6px 6px 9px;
 }
 
 .heatmap-pin-dot {
@@ -1266,24 +1317,25 @@ textarea {
   font-size: 1rem;
   line-height: 1;
   flex: 0 0 auto;
-  padding: 7px 10px 7px 2px;
+  padding: 6px 9px 6px 2px;
 }
 
 .heatmap-trend-stats {
   display: grid;
-  gap: 10px;
+  gap: 8px;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  min-width: min(680px, 100%);
+  min-width: min(600px, 100%);
 }
 
 .heatmap-trend-chart {
   height: 100%;
-  min-height: 400px;
+  min-height: 360px;
 }
 
 .phrase-tweet-panel {
   min-height: 0;
   overflow: auto;
+  padding: 12px 14px;
 }
 
 .tweet-preview-link {
@@ -1375,6 +1427,11 @@ textarea {
 
 .bitcoin-mentions-panel-wide {
   min-width: 0;
+  padding: 14px 16px 16px;
+}
+
+.bitcoin-mentions-panel-wide .chart-shell {
+  margin-top: 0;
 }
 
 .bitcoin-mentions-panel-header {
@@ -1539,11 +1596,20 @@ textarea {
 }
 
 @media (max-width: 1100px) {
+  .heatmap-toolbar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .heatmap-search-card {
+    grid-column: 1 / -1;
+  }
+
   .heatmap-bottom-layout {
     grid-template-columns: 1fr;
   }
 
   .heatmap-trend-stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     min-width: 0;
   }
 
@@ -1603,7 +1669,7 @@ textarea {
   }
 
   .heatmap-layout {
-    grid-template-rows: minmax(300px, 0.86fr) minmax(0, 1.14fr);
+    grid-template-rows: minmax(280px, 0.78fr) 14px minmax(0, 1.22fr);
   }
 
   .heatmap-toolbar,
@@ -1658,6 +1724,10 @@ textarea {
   .heatmap-strip-axis,
   .heatmap-strip-row {
     grid-template-columns: 132px minmax(0, 1fr);
+  }
+
+  .heatmap-trend-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .heatmap-strip-label-name {

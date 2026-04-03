@@ -44,6 +44,11 @@ const pinPalette = [
   "#5fe0c8",
   "#ff9d5c",
 ];
+const DEFAULT_HEATMAP_TOP_SECTION_RATIO = 0.39;
+const HEATMAP_MIN_TOP_SECTION_HEIGHT = 220;
+const HEATMAP_MIN_BOTTOM_SECTION_HEIGHT = 280;
+const HEATMAP_RESIZE_HANDLE_HEIGHT = 14;
+const HEATMAP_KEYBOARD_RESIZE_STEP = 24;
 
 const chartOptions = {
   layout: {
@@ -116,7 +121,12 @@ export function AuthorHeatmapPage({ heatmap }: AuthorHeatmapPageProps) {
   const [isLoadingTweets, setIsLoadingTweets] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tweetError, setTweetError] = useState<string | null>(null);
+  const [topSectionHeight, setTopSectionHeight] = useState<number | null>(null);
+  const [isResizingLayout, setIsResizingLayout] = useState(false);
   const deferredPhraseQuery = useDeferredValue(phraseQuery);
+  const layoutRef = useRef<HTMLDivElement | null>(null);
+  const heatmapPanelRef = useRef<HTMLElement | null>(null);
+  const resizeStateRef = useRef<{ startY: number; startHeight: number } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -254,9 +264,76 @@ export function AuthorHeatmapPage({ heatmap }: AuthorHeatmapPageProps) {
     };
   }, [activePhrase, heatmap.apiBasePath, selectedMonth]);
 
+  useEffect(() => {
+    const layout = layoutRef.current;
+    if (!layout) {
+      return;
+    }
+
+    const resizeObserver = new ResizeObserver(() => {
+      setTopSectionHeight((current) => {
+        if (current === null) {
+          return current;
+        }
+        return clampHeatmapTopSectionHeight(current, layout.clientHeight);
+      });
+    });
+    resizeObserver.observe(layout);
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isResizingLayout) {
+      return;
+    }
+
+    function handlePointerMove(event: PointerEvent) {
+      const layout = layoutRef.current;
+      const resizeState = resizeStateRef.current;
+      if (!layout || !resizeState) {
+        return;
+      }
+
+      setTopSectionHeight(
+        clampHeatmapTopSectionHeight(
+          resizeState.startHeight + (event.clientY - resizeState.startY),
+          layout.clientHeight,
+        ),
+      );
+    }
+
+    function stopResizing() {
+      resizeStateRef.current = null;
+      setIsResizingLayout(false);
+      document.body.style.removeProperty("cursor");
+      document.body.style.removeProperty("user-select");
+    }
+
+    document.body.style.cursor = "row-resize";
+    document.body.style.userSelect = "none";
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", stopResizing);
+    window.addEventListener("pointercancel", stopResizing);
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", stopResizing);
+      window.removeEventListener("pointercancel", stopResizing);
+      document.body.style.removeProperty("cursor");
+      document.body.style.removeProperty("user-select");
+    };
+  }, [isResizingLayout]);
+
   const filteredRows = payload?.rows ?? [];
 
   const activeTrendPayload = activePhrase ? trendPayloads[activePhrase] ?? null : null;
+  const heatmapLayoutStyle: CSSProperties = topSectionHeight
+    ? {
+        gridTemplateRows: `minmax(${HEATMAP_MIN_TOP_SECTION_HEIGHT}px, ${topSectionHeight}px) ${HEATMAP_RESIZE_HANDLE_HEIGHT}px minmax(${HEATMAP_MIN_BOTTOM_SECTION_HEIGHT}px, 1fr)`,
+      }
+    : {};
 
   function pinPhrase(phrase: string) {
     const matchingRow = payload?.rows.find((row) => row.normalized_phrase === phrase) ?? null;
@@ -278,11 +355,102 @@ export function AuthorHeatmapPage({ heatmap }: AuthorHeatmapPageProps) {
     setPinnedPhrases((current) => current.filter((value) => value !== phrase));
   }
 
+  function beginHeatmapResize(event: React.PointerEvent<HTMLDivElement>) {
+    if (event.pointerType === "mouse" && event.button !== 0) {
+      return;
+    }
+
+    const layout = layoutRef.current;
+    const panel = heatmapPanelRef.current;
+    if (!layout || !panel) {
+      return;
+    }
+
+    const currentHeight = panel.getBoundingClientRect().height;
+    resizeStateRef.current = {
+      startY: event.clientY,
+      startHeight: currentHeight,
+    };
+    setTopSectionHeight(currentHeight);
+    setIsResizingLayout(true);
+    event.preventDefault();
+  }
+
+  function resizeHeatmapWithKeyboard(nextHeight: number) {
+    const layout = layoutRef.current;
+    const panel = heatmapPanelRef.current;
+    if (!layout || !panel) {
+      return;
+    }
+
+    const currentHeight = topSectionHeight ?? panel.getBoundingClientRect().height;
+    setTopSectionHeight(
+      clampHeatmapTopSectionHeight(currentHeight + nextHeight, layout.clientHeight),
+    );
+  }
+
+  function handleHeatmapResizeKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      resizeHeatmapWithKeyboard(-HEATMAP_KEYBOARD_RESIZE_STEP);
+      return;
+    }
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      resizeHeatmapWithKeyboard(HEATMAP_KEYBOARD_RESIZE_STEP);
+      return;
+    }
+
+    if (event.key === "Home") {
+      const layout = layoutRef.current;
+      if (!layout) {
+        return;
+      }
+      event.preventDefault();
+      setTopSectionHeight(HEATMAP_MIN_TOP_SECTION_HEIGHT);
+      return;
+    }
+
+    if (event.key === "End") {
+      const layout = layoutRef.current;
+      if (!layout) {
+        return;
+      }
+      event.preventDefault();
+      setTopSectionHeight(
+        clampHeatmapTopSectionHeight(
+          layout.clientHeight - HEATMAP_MIN_BOTTOM_SECTION_HEIGHT - HEATMAP_RESIZE_HANDLE_HEIGHT,
+          layout.clientHeight,
+        ),
+      );
+      return;
+    }
+
+    if (event.key === "Enter" || event.key === " ") {
+      const layout = layoutRef.current;
+      if (!layout) {
+        return;
+      }
+      event.preventDefault();
+      setTopSectionHeight(
+        clampHeatmapTopSectionHeight(
+          layout.clientHeight * DEFAULT_HEATMAP_TOP_SECTION_RATIO,
+          layout.clientHeight,
+        ),
+      );
+    }
+  }
+
   return (
     <section className="dashboard-page">
       <article className="panel panel-accent dashboard-workspace heatmap-workspace">
-        <div className="heatmap-layout">
-          <section className="heatmap-panel">
+        <div
+          ref={layoutRef}
+          className={`heatmap-layout${isResizingLayout ? " is-resizing" : ""}`}
+          style={heatmapLayoutStyle}
+        >
+          <section ref={heatmapPanelRef} className="heatmap-panel">
             <div className="heatmap-topbar">
               <div className="heatmap-toolbar">
                 <div className="chart-control-card heatmap-control-card">
@@ -362,6 +530,33 @@ export function AuthorHeatmapPage({ heatmap }: AuthorHeatmapPageProps) {
               onPinPhrase={pinPhrase}
             />
           </section>
+
+          <div
+            aria-label="Resize heat map sections"
+            aria-orientation="horizontal"
+            aria-valuemax={100}
+            aria-valuemin={0}
+            aria-valuenow={
+              layoutRef.current && heatmapPanelRef.current
+                ? Math.round(
+                    (100 * heatmapPanelRef.current.getBoundingClientRect().height) /
+                      layoutRef.current.clientHeight,
+                  )
+                : Math.round(DEFAULT_HEATMAP_TOP_SECTION_RATIO * 100)
+            }
+            className="heatmap-resize-handle"
+            onKeyDown={handleHeatmapResizeKeyDown}
+            onPointerDown={beginHeatmapResize}
+            role="separator"
+            tabIndex={0}
+            title="Drag to resize the heat map and pinned phrase sections"
+          >
+            <span className="heatmap-resize-grip" aria-hidden="true">
+              <span />
+              <span />
+              <span />
+            </span>
+          </div>
 
           <section className="heatmap-bottom-layout">
             <div className="chart-shell chart-shell-dashboard heatmap-trend-shell">
@@ -856,6 +1051,14 @@ function formatPhraseLabel(value: string): string {
     .split(" ")
     .map((token) => (uppercaseTokens.has(token) ? token.toUpperCase() : token))
     .join(" ");
+}
+
+function clampHeatmapTopSectionHeight(nextHeight: number, containerHeight: number): number {
+  const maxTopHeight = Math.max(
+    HEATMAP_MIN_TOP_SECTION_HEIGHT,
+    containerHeight - HEATMAP_MIN_BOTTOM_SECTION_HEIGHT - HEATMAP_RESIZE_HANDLE_HEIGHT,
+  );
+  return Math.min(Math.max(nextHeight, HEATMAP_MIN_TOP_SECTION_HEIGHT), maxTopHeight);
 }
 
 function formatMonthLabel(value: string): string {
