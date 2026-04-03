@@ -60,7 +60,7 @@ The mood pages currently:
 - request a companion mood series endpoint such as `/api/views/michael-saylor-moods/mood-series?granularity=week`
 - render BTC in the top pane and the selected mood deviation in the bottom pane
 - default to relative-to-baseline mood deviation with the same weighted smoothing modes as the sentiment page
-- expose the current curated mood set from the GoEmotions model: `optimism`, `fear`, `nervousness`, `annoyance`, `excitement`, and `confusion`
+- expose the current curated mood set from the GoEmotions model: `optimism`, `fear`, `nervousness`, `annoyance`, `excitement`, `confusion`, `anger`, `disapproval`, `curiosity`, `surprise`, `disappointment`, `disgust`, and `embarrassment`
 - store absolute per-tweet mood scores in Postgres and compute relative deviation at request time
 
 The Bitcoin mentions page currently:

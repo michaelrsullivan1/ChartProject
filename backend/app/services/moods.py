@@ -28,6 +28,13 @@ DEFAULT_VISIBLE_MOOD_LABELS = (
     "annoyance",
     "excitement",
     "confusion",
+    "anger",
+    "disapproval",
+    "curiosity",
+    "surprise",
+    "disappointment",
+    "disgust",
+    "embarrassment",
 )
 SKIP_MOOD_LABEL = "__skip__"
 
