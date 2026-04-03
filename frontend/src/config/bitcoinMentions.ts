@@ -12,6 +12,10 @@ export const bitcoinMentionsDefinitions: BitcoinMentionsDefinition[] = [
     slug: "michael-sullivan",
     username: "SullyMichaelvan",
   },
+  {
+    slug: "peter-schiff",
+    username: "PeterSchiff",
+  },
 ];
 
 export function findBitcoinMentionsBySlug(

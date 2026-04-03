@@ -15,6 +15,11 @@ export const overviewDefinitions: OverviewDefinition[] = [
     username: "SullyMichaelvan",
     apiBasePath: "/api/views/michael-sullivan-overview",
   },
+  {
+    slug: "peter-schiff",
+    username: "PeterSchiff",
+    apiBasePath: "/api/views/peter-schiff-overview",
+  },
 ];
 
 export function findOverviewBySlug(slug: string): OverviewDefinition | undefined {

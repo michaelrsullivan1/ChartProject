@@ -372,6 +372,97 @@ def michael_sullivan_heatmap_top_liked_tweets(
     )
 
 
+@router.get("/peter-schiff-overview")
+def peter_schiff_overview(
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+) -> dict[str, object]:
+    return _build_overview_view(
+        username="PeterSchiff",
+        view_name="peter-schiff-overview",
+        granularity=granularity,
+        analysis_start="2009-07-14T00:00:00Z",
+    )
+
+
+@router.get("/peter-schiff-overview/top-liked-tweet")
+def peter_schiff_overview_top_liked_tweet(
+    week_start: str = Query(...),
+) -> dict[str, object]:
+    return _build_overview_top_liked_tweet(
+        username="PeterSchiff",
+        view_name="peter-schiff-overview-top-liked-tweet",
+        week_start=week_start,
+    )
+
+
+@router.get("/peter-schiff-overview/sentiment")
+def peter_schiff_overview_sentiment(
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+    model_key: str = Query(default=DEFAULT_SENTIMENT_MODEL),
+) -> dict[str, object]:
+    return _build_overview_sentiment(
+        username="PeterSchiff",
+        view_name="peter-schiff-overview-sentiment",
+        granularity=granularity,
+        model_key=model_key,
+        analysis_start="2009-07-14T00:00:00Z",
+    )
+
+
+@router.get("/peter-schiff-overview/btc-spot")
+def peter_schiff_overview_btc_spot() -> dict[str, object]:
+    return _build_btc_spot_price()
+
+
+@router.get("/peter-schiff-heatmap")
+def peter_schiff_heatmap(
+    mode: str = Query(default="common", pattern="^(all|common|rising)$"),
+    word_count: str = Query(default="all", pattern="^(all|1|2|3)$"),
+    granularity: str = Query(default="month", pattern="^(month)$"),
+    limit: int = Query(default=48, ge=1, le=120),
+    phrase_query: str | None = Query(default=None),
+) -> dict[str, object]:
+    return _build_author_keyword_heatmap(
+        username="PeterSchiff",
+        view_name="peter-schiff-heatmap",
+        mode=mode,
+        word_count=word_count,
+        granularity=granularity,
+        limit=limit,
+        phrase_query=phrase_query,
+        analysis_start="2009-07-14T00:00:00Z",
+    )
+
+
+@router.get("/peter-schiff-heatmap/phrase-trend")
+def peter_schiff_heatmap_phrase_trend(
+    phrase: str = Query(...),
+    granularity: str = Query(default="month", pattern="^(month)$"),
+) -> dict[str, object]:
+    return _build_author_keyword_trend(
+        username="PeterSchiff",
+        view_name="peter-schiff-heatmap-phrase-trend",
+        phrase=phrase,
+        granularity=granularity,
+        analysis_start="2009-07-14T00:00:00Z",
+    )
+
+
+@router.get("/peter-schiff-heatmap/top-liked-tweets")
+def peter_schiff_heatmap_top_liked_tweets(
+    phrase: str = Query(...),
+    month_start: str = Query(...),
+    limit: int = Query(default=3, ge=1, le=10),
+) -> dict[str, object]:
+    return _build_author_keyword_top_tweets(
+        username="PeterSchiff",
+        view_name="peter-schiff-heatmap-top-liked-tweets",
+        phrase=phrase,
+        month_start=month_start,
+        limit=limit,
+    )
+
+
 @router.get("/micheal-sullivan-overview")
 def micheal_sullivan_overview_alias(
     granularity: str = Query(default="week", pattern="^(day|week)$"),
