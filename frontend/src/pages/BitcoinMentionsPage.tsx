@@ -126,6 +126,15 @@ export function BitcoinMentionsPage({ bitcoinMentions }: BitcoinMentionsPageProp
               </p>
             </article>
             <article className="metric-card">
+              <p className="metric-label">Portfolio return</p>
+              <p className="metric-value">
+                {formatPercent(mentionPayload.summary.total_return_pct)}
+              </p>
+              <p className="metric-note">
+                Avg entry {formatCurrency(mentionPayload.summary.average_entry_price_usd)}
+              </p>
+            </article>
+            <article className="metric-card">
               <p className="metric-label">Hypothetical invested</p>
               <p className="metric-value">
                 {formatCurrency(mentionPayload.summary.total_invested_usd)}
@@ -148,15 +157,6 @@ export function BitcoinMentionsPage({ bitcoinMentions }: BitcoinMentionsPageProp
               <p className="metric-value">{formatCurrency(mentionPayload.summary.current_value_usd)}</p>
               <p className="metric-note">
                 Value today from {formatWholeDollarCurrency(fixedBuyAmountUsd)} per mention
-              </p>
-            </article>
-            <article className="metric-card">
-              <p className="metric-label">Portfolio return</p>
-              <p className="metric-value">
-                {formatPercent(mentionPayload.summary.total_return_pct)}
-              </p>
-              <p className="metric-note">
-                Avg entry {formatCurrency(mentionPayload.summary.average_entry_price_usd)}
               </p>
             </article>
             <article className="metric-card">
