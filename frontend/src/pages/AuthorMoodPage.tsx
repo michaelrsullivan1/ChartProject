@@ -37,9 +37,10 @@ const compactDateFormatter = new Intl.DateTimeFormat("en-US", {
 
 type AuthorMoodPageProps = {
   mood: MoodDefinition;
+  showWatermark: boolean;
 };
 
-export function AuthorMoodPage({ mood }: AuthorMoodPageProps) {
+export function AuthorMoodPage({ mood, showWatermark }: AuthorMoodPageProps) {
   const [payload, setPayload] = useState<AuthorOverviewResponse | null>(null);
   const [moodPayload, setMoodPayload] = useState<AuthorMoodResponse | null>(null);
   const [btcSpotPayload, setBtcSpotPayload] = useState<BtcSpotPriceResponse | null>(null);
@@ -116,6 +117,7 @@ export function AuthorMoodPage({ mood }: AuthorMoodPageProps) {
             payload={payload}
             moodPayload={moodPayload}
             btcSpotPayload={btcSpotPayload}
+            showWatermark={showWatermark}
             selectedMoodLabel={selectedMoodLabel}
             onMoodLabelChange={setSelectedMoodLabel}
             isScreenshotMode={isScreenshotMode}
@@ -133,6 +135,7 @@ function AuthorMoodChartSection({
   payload,
   moodPayload,
   btcSpotPayload,
+  showWatermark,
   selectedMoodLabel,
   onMoodLabelChange,
   isScreenshotMode,
@@ -143,6 +146,7 @@ function AuthorMoodChartSection({
   payload: AuthorOverviewResponse;
   moodPayload: AuthorMoodResponse;
   btcSpotPayload: BtcSpotPriceResponse | null;
+  showWatermark: boolean;
   selectedMoodLabel: string;
   onMoodLabelChange: (label: string) => void;
   isScreenshotMode: boolean;
@@ -221,6 +225,7 @@ function AuthorMoodChartSection({
         <AuthorMoodTradingViewChart
           payload={payload}
           moodPayload={moodPayload}
+          showWatermark={showWatermark}
           selectedMoodLabel={selectedMoodLabel}
           onMoodLabelChange={onMoodLabelChange}
           isScreenshotMode={isScreenshotMode}

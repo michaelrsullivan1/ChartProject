@@ -36,6 +36,8 @@ import { AuthorMoodPage } from "./pages/AuthorMoodPage";
 import { BitcoinMentionsPage } from "./pages/BitcoinMentionsPage";
 import { AuthorOverviewPage } from "./pages/MichaelSaylorVsBtcPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
+import { SettingsPage } from "./pages/SettingsPage";
+import { CHART_WATERMARK_STORAGE_KEY } from "./lib/watermark";
 import type { HealthResponse } from "./types/health";
 
 type AppRoute =
@@ -44,6 +46,7 @@ type AppRoute =
   | { kind: "mood"; mood: MoodDefinition }
   | { kind: "overview"; overview: OverviewDefinition }
   | { kind: "heatmap"; heatmap: HeatmapDefinition }
+  | { kind: "settings" }
   | { kind: "not-found" };
 
 function getRouteFromHash(hash: string): AppRoute {
@@ -80,6 +83,10 @@ function getRouteFromHash(hash: string): AppRoute {
     return heatmap ? { kind: "heatmap", heatmap } : { kind: "not-found" };
   }
 
+  if (hash === "#/settings") {
+    return { kind: "settings" };
+  }
+
   return { kind: "not-found" };
 }
 
@@ -88,6 +95,10 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [route, setRoute] = useState<AppRoute>(() => getRouteFromHash(window.location.hash));
+  const [showWatermark, setShowWatermark] = useState(() => {
+    const storedValue = window.localStorage.getItem(CHART_WATERMARK_STORAGE_KEY);
+    return storedValue === null ? true : storedValue === "true";
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -132,6 +143,10 @@ export default function App() {
     };
   }, []);
 
+  useEffect(() => {
+    window.localStorage.setItem(CHART_WATERMARK_STORAGE_KEY, String(showWatermark));
+  }, [showWatermark]);
+
   function navigateHome() {
     window.location.hash = "#/";
   }
@@ -152,6 +167,10 @@ export default function App() {
     window.location.hash = getHeatmapHash(slug);
   }
 
+  function navigateSettings() {
+    window.location.hash = "#/settings";
+  }
+
   if (route.kind === "home") {
     return (
       <AppShell
@@ -167,6 +186,8 @@ export default function App() {
         onNavigateMood={navigateMood}
         onNavigateOverview={navigateOverview}
         onNavigateHeatmap={navigateHeatmap}
+        onNavigateSettings={navigateSettings}
+        isSettingsActive={false}
         overviews={overviewDefinitions}
         heatmaps={heatmapDefinitions}
       >
@@ -191,10 +212,12 @@ export default function App() {
         onNavigateMood={navigateMood}
         onNavigateOverview={navigateOverview}
         onNavigateHeatmap={navigateHeatmap}
+        onNavigateSettings={navigateSettings}
+        isSettingsActive={false}
         overviews={overviewDefinitions}
         heatmaps={heatmapDefinitions}
       >
-        <AuthorOverviewPage overview={route.overview} />
+        <AuthorOverviewPage overview={route.overview} showWatermark={showWatermark} />
       </AppShell>
     );
   }
@@ -215,10 +238,12 @@ export default function App() {
         onNavigateMood={navigateMood}
         onNavigateOverview={navigateOverview}
         onNavigateHeatmap={navigateHeatmap}
+        onNavigateSettings={navigateSettings}
+        isSettingsActive={false}
         overviews={overviewDefinitions}
         heatmaps={heatmapDefinitions}
       >
-        <AuthorMoodPage mood={route.mood} />
+        <AuthorMoodPage mood={route.mood} showWatermark={showWatermark} />
       </AppShell>
     );
   }
@@ -239,6 +264,8 @@ export default function App() {
         onNavigateMood={navigateMood}
         onNavigateOverview={navigateOverview}
         onNavigateHeatmap={navigateHeatmap}
+        onNavigateSettings={navigateSettings}
+        isSettingsActive={false}
         overviews={overviewDefinitions}
         heatmaps={heatmapDefinitions}
       >
@@ -263,10 +290,41 @@ export default function App() {
         onNavigateMood={navigateMood}
         onNavigateOverview={navigateOverview}
         onNavigateHeatmap={navigateHeatmap}
+        onNavigateSettings={navigateSettings}
+        isSettingsActive={false}
         overviews={overviewDefinitions}
         heatmaps={heatmapDefinitions}
       >
         <BitcoinMentionsPage bitcoinMentions={route.bitcoinMentions} />
+      </AppShell>
+    );
+  }
+
+  if (route.kind === "settings") {
+    return (
+      <AppShell
+        mode="dashboard"
+        dashboardTitle="Settings"
+        activeBitcoinMentionsSlug={null}
+        activeMoodSlug={null}
+        activeOverviewSlug={null}
+        activeHeatmapSlug={null}
+        bitcoinMentions={bitcoinMentionsDefinitions}
+        moods={moodDefinitions}
+        onNavigateHome={navigateHome}
+        onNavigateBitcoinMentions={navigateBitcoinMentions}
+        onNavigateMood={navigateMood}
+        onNavigateOverview={navigateOverview}
+        onNavigateHeatmap={navigateHeatmap}
+        onNavigateSettings={navigateSettings}
+        isSettingsActive
+        overviews={overviewDefinitions}
+        heatmaps={heatmapDefinitions}
+      >
+        <SettingsPage
+          showWatermark={showWatermark}
+          onShowWatermarkChange={setShowWatermark}
+        />
       </AppShell>
     );
   }
@@ -286,6 +344,8 @@ export default function App() {
       onNavigateMood={navigateMood}
       onNavigateOverview={navigateOverview}
       onNavigateHeatmap={navigateHeatmap}
+      onNavigateSettings={navigateSettings}
+      isSettingsActive={false}
       overviews={overviewDefinitions}
       heatmaps={heatmapDefinitions}
     >

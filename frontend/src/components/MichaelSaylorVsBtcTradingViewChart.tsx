@@ -33,6 +33,7 @@ type MichaelSaylorVsBtcTradingViewChartProps = {
   overview: OverviewDefinition;
   payload: AuthorOverviewResponse;
   sentimentPayload: AuthorSentimentResponse;
+  showWatermark: boolean;
   isScreenshotMode: boolean;
   onScreenshotModeChange: (enabled: boolean) => void;
   sentimentMode: SentimentMode;
@@ -159,6 +160,7 @@ export function MichaelSaylorVsBtcTradingViewChart({
   overview,
   payload,
   sentimentPayload,
+  showWatermark,
   isScreenshotMode,
   onScreenshotModeChange,
   sentimentMode,
@@ -168,7 +170,6 @@ export function MichaelSaylorVsBtcTradingViewChart({
   const topTweetCacheRef = useRef(new Map<string, AuthorTopLikedTweetResponse>());
   const [priceMode, setPriceMode] = useState<PriceMode>("btc");
   const [activityMode, setActivityMode] = useState<ActivityMode>("tweets");
-  const [showWatermark, setShowWatermark] = useState(true);
   const btcSeriesData = useMemo(() => buildBtcSeries(payload), [payload]);
   const mstrSeriesData = useMemo(() => buildMstrSeries(payload), [payload]);
   const activitySeriesData = useMemo(() => buildActivitySeries(payload, activityMode), [payload, activityMode]);
@@ -613,26 +614,6 @@ export function MichaelSaylorVsBtcTradingViewChart({
             Smoothed modes use trailing weekly averages weighted by scored post count, so
             low-volume weeks carry less influence.
           </p>
-        </div>
-
-        <div className="chart-control-card">
-          <p className="chart-control-eyebrow">Watermark</p>
-          <div className="chart-toggle-group chart-toggle-group-compact" role="group" aria-label="Chart watermark visibility">
-            <button
-              className={`chart-toggle-button${showWatermark ? " is-active" : ""}`}
-              onClick={() => setShowWatermark(true)}
-              type="button"
-            >
-              On
-            </button>
-            <button
-              className={`chart-toggle-button${showWatermark ? "" : " is-active"}`}
-              onClick={() => setShowWatermark(false)}
-              type="button"
-            >
-              Off
-            </button>
-          </div>
         </div>
 
         <div className="chart-control-card">

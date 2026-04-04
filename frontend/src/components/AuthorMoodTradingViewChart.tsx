@@ -21,6 +21,7 @@ type AuthorMoodTradingViewChartProps = {
   payload: AuthorOverviewResponse;
   moodPayload: AuthorMoodResponse;
   selectedMoodLabel: string;
+  showWatermark: boolean;
   isScreenshotMode: boolean;
   onScreenshotModeChange: (enabled: boolean) => void;
   sentimentMode: SentimentMode;
@@ -98,6 +99,7 @@ export function AuthorMoodTradingViewChart({
   payload,
   moodPayload,
   selectedMoodLabel,
+  showWatermark,
   isScreenshotMode,
   onScreenshotModeChange,
   sentimentMode,
@@ -105,7 +107,6 @@ export function AuthorMoodTradingViewChart({
   onMoodLabelChange,
 }: AuthorMoodTradingViewChartProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const [showWatermark, setShowWatermark] = useState(true);
   const btcSeriesData = useMemo(() => buildBtcSeries(payload), [payload]);
   const moodSeriesData = useMemo<MoodSeriesPoint[]>(
     () =>
@@ -257,26 +258,6 @@ export function AuthorMoodTradingViewChart({
             Smoothed modes use trailing weekly averages weighted by scored post count, so
             low-volume weeks carry less influence.
           </p>
-        </div>
-
-        <div className="chart-control-card">
-          <p className="chart-control-eyebrow">Watermark</p>
-          <div className="chart-toggle-group chart-toggle-group-compact" role="group" aria-label="Chart watermark visibility">
-            <button
-              className={`chart-toggle-button${showWatermark ? " is-active" : ""}`}
-              onClick={() => setShowWatermark(true)}
-              type="button"
-            >
-              On
-            </button>
-            <button
-              className={`chart-toggle-button${showWatermark ? "" : " is-active"}`}
-              onClick={() => setShowWatermark(false)}
-              type="button"
-            >
-              Off
-            </button>
-          </div>
         </div>
 
         <div className="chart-control-card">

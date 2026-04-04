@@ -33,6 +33,8 @@ type AppShellProps = {
   onNavigateMood: (slug: string) => void;
   onNavigateOverview: (slug: string) => void;
   onNavigateHeatmap: (slug: string) => void;
+  onNavigateSettings: () => void;
+  isSettingsActive: boolean;
   children: ReactNode;
 };
 
@@ -52,6 +54,8 @@ export function AppShell({
   onNavigateMood,
   onNavigateOverview,
   onNavigateHeatmap,
+  onNavigateSettings,
+  isSettingsActive,
   children,
 }: AppShellProps) {
   const [openMenu, setOpenMenu] = useState<"bitcoin-mentions" | "moods" | "overviews" | "heatmaps" | null>(null);
@@ -214,9 +218,19 @@ export function AppShell({
             <span className="dashboard-topbar-kicker">Sentiment And Mood Analysis</span>
             <span className="dashboard-topbar-title">{dashboardTitle ?? "Overview"}</span>
           </div>
-          <nav className="dashboard-nav" aria-label="Primary" ref={navRef}>
-            {renderNavigation(true)}
-          </nav>
+          <div className="topbar-actions">
+            <nav className="dashboard-nav" aria-label="Primary" ref={navRef}>
+              {renderNavigation(true)}
+            </nav>
+            <button
+              aria-label="Open settings"
+              className={`page-nav-link page-nav-icon-link${isSettingsActive ? " is-active" : ""}`}
+              onClick={onNavigateSettings}
+              type="button"
+            >
+              <SettingsIcon />
+            </button>
+          </div>
         </header>
         <main className="dashboard-main">{children}</main>
       </div>
@@ -232,11 +246,30 @@ export function AppShell({
           Backend ingestion and archival come first. The frontend stays lean
           until the data layer is trustworthy.
         </p>
-        <nav className="page-nav" aria-label="Primary" ref={navRef}>
-          {renderNavigation(false)}
-        </nav>
+        <div className="hero-nav-row">
+          <nav className="page-nav" aria-label="Primary" ref={navRef}>
+            {renderNavigation(false)}
+          </nav>
+          <button
+            aria-label="Open settings"
+            className={`page-nav-link page-nav-icon-link${isSettingsActive ? " is-active" : ""}`}
+            onClick={onNavigateSettings}
+            type="button"
+          >
+            <SettingsIcon />
+          </button>
+        </div>
       </header>
       <main>{children}</main>
     </div>
+  );
+}
+
+function SettingsIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24">
+      <path d="M10.5 3.3h3l.8 2.3a6.9 6.9 0 0 1 1.6.9l2.3-.8 1.5 2.6-1.6 1.8a6 6 0 0 1 0 1.9l1.6 1.8-1.5 2.6-2.3-.8a6.9 6.9 0 0 1-1.6.9l-.8 2.3h-3l-.8-2.3a6.9 6.9 0 0 1-1.6-.9l-2.3.8-1.5-2.6 1.6-1.8a6 6 0 0 1 0-1.9L4.1 8.4l1.5-2.6 2.3.8a6.9 6.9 0 0 1 1.6-.9l1-2.4Z" />
+      <circle cx="12" cy="12" r="3.1" />
+    </svg>
   );
 }

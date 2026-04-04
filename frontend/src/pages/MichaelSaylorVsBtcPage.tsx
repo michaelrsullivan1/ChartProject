@@ -39,9 +39,13 @@ const compactDateFormatter = new Intl.DateTimeFormat("en-US", {
 
 type AuthorOverviewPageProps = {
   overview: OverviewDefinition;
+  showWatermark: boolean;
 };
 
-export function AuthorOverviewPage({ overview }: AuthorOverviewPageProps) {
+export function AuthorOverviewPage({
+  overview,
+  showWatermark,
+}: AuthorOverviewPageProps) {
   const [payload, setPayload] = useState<AuthorOverviewResponse | null>(null);
   const [sentimentPayload, setSentimentPayload] = useState<AuthorSentimentResponse | null>(
     null,
@@ -118,6 +122,7 @@ export function AuthorOverviewPage({ overview }: AuthorOverviewPageProps) {
             payload={payload}
             sentimentPayload={sentimentPayload}
             btcSpotPayload={btcSpotPayload}
+            showWatermark={showWatermark}
             isScreenshotMode={isScreenshotMode}
             onScreenshotModeChange={setIsScreenshotMode}
             sentimentMode={sentimentMode}
@@ -134,6 +139,7 @@ function AuthorOverviewChartSection({
   payload,
   sentimentPayload,
   btcSpotPayload,
+  showWatermark,
   isScreenshotMode,
   onScreenshotModeChange,
   sentimentMode,
@@ -143,6 +149,7 @@ function AuthorOverviewChartSection({
   payload: AuthorOverviewResponse;
   sentimentPayload: AuthorSentimentResponse;
   btcSpotPayload: BtcSpotPriceResponse | null;
+  showWatermark: boolean;
   isScreenshotMode: boolean;
   onScreenshotModeChange: (enabled: boolean) => void;
   sentimentMode: SentimentMode;
@@ -225,6 +232,7 @@ function AuthorOverviewChartSection({
           overview={overview}
           payload={payload}
           sentimentPayload={sentimentPayload}
+          showWatermark={showWatermark}
           isScreenshotMode={isScreenshotMode}
           onScreenshotModeChange={onScreenshotModeChange}
           sentimentMode={sentimentMode}
