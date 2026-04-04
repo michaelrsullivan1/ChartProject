@@ -8,16 +8,12 @@ import {
   createChart,
   type BaselineData,
   type LineData,
-  type MouseEventParams,
   type Time,
   type WhitespaceData,
 } from "lightweight-charts";
 
 import type { AuthorMoodResponse, AuthorOverviewResponse } from "../api/authorOverview";
-import {
-  buildMoodDeviationSeries,
-  type MoodDeviationPoint,
-} from "../lib/moods";
+import { buildMoodDeviationSeries } from "../lib/moods";
 import type { SentimentMode } from "../lib/sentiment";
 import { CHART_WATERMARK_HANDLE } from "../lib/watermark";
 
@@ -32,28 +28,7 @@ type AuthorMoodTradingViewChartProps = {
   onMoodLabelChange: (label: string) => void;
 };
 
-type HoverSnapshot = {
-  dateLabel: string;
-  btcPriceLabel: string;
-  moodLabel: string;
-  hasBtcValue: boolean;
-};
-
 type MoodSeriesPoint = BaselineData<Time> | WhitespaceData<Time>;
-
-const currencyFormatter = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
-
-const fullDateFormatter = new Intl.DateTimeFormat("en-US", {
-  month: "short",
-  day: "numeric",
-  year: "numeric",
-  timeZone: "UTC",
-});
 
 const chartOptions = {
   layout: {
@@ -151,13 +126,6 @@ export function AuthorMoodTradingViewChart({
     () => buildSymmetricMoodRange(moodSeriesData, sentimentMode),
     [moodSeriesData, sentimentMode],
   );
-  const [hoverSnapshot, setHoverSnapshot] = useState<HoverSnapshot>(() =>
-    buildLatestHoverSnapshot(btcSeriesData, moodSeriesData, selectedMoodLabel),
-  );
-
-  useEffect(() => {
-    setHoverSnapshot(buildLatestHoverSnapshot(btcSeriesData, moodSeriesData, selectedMoodLabel));
-  }, [btcSeriesData, moodSeriesData, selectedMoodLabel]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -244,28 +212,6 @@ export function AuthorMoodTradingViewChart({
 
     chart.timeScale().fitContent();
 
-    const handleCrosshairMove = (param: MouseEventParams<Time>) => {
-      if (!param.point || !param.time) {
-        setHoverSnapshot(buildLatestHoverSnapshot(btcSeriesData, moodSeriesData, selectedMoodLabel));
-        return;
-      }
-
-      const btcPoint = param.seriesData.get(btcSeries) as LineData<Time> | undefined;
-      const moodPoint = findWeeklyPointForTime(param.time, moodSeriesData);
-
-      setHoverSnapshot({
-        dateLabel: formatTimeLabel(param.time),
-        btcPriceLabel:
-          btcPoint?.value !== undefined ? currencyFormatter.format(btcPoint.value) : "No BTC data",
-        moodLabel: hasSeriesValue(moodPoint)
-          ? formatSignedMood(moodPoint.value)
-          : `No ${formatMoodLabel(selectedMoodLabel)} bucket`,
-        hasBtcValue: btcPoint?.value !== undefined,
-      });
-    };
-
-    chart.subscribeCrosshairMove(handleCrosshairMove);
-
     const resizeObserver = new ResizeObserver((entries) => {
       const entry = entries[0];
       if (!entry) {
@@ -278,31 +224,14 @@ export function AuthorMoodTradingViewChart({
     resizeObserver.observe(container);
 
     return () => {
-      chart.unsubscribeCrosshairMove(handleCrosshairMove);
       resizeObserver.disconnect();
       chart.remove();
     };
-  }, [btcSeriesData, moodSeriesData, selectedMoodLabel, sentimentMode, moodRange]);
+  }, [btcSeriesData, moodSeriesData, moodRange]);
 
   return (
     <div className="tradingview-chart-shell">
       <aside className="chart-sidebar chart-sidebar-left">
-        <div className="chart-control-card">
-          <p className="chart-control-eyebrow">Mood</p>
-          <div className="chart-toggle-group" role="group" aria-label="Mood label">
-            {moodPayload.model.mood_labels.map((moodLabel) => (
-              <button
-                key={moodLabel}
-                className={`chart-toggle-button${selectedMoodLabel === moodLabel ? " is-active" : ""}`}
-                onClick={() => onMoodLabelChange(moodLabel)}
-                type="button"
-              >
-                {formatMoodLabel(moodLabel)}
-              </button>
-            ))}
-          </div>
-        </div>
-
         <div className="chart-control-card">
           <p className="chart-control-eyebrow">Mood Mode</p>
           <div className="chart-toggle-group" role="group" aria-label="Mood smoothing mode">
@@ -384,22 +313,19 @@ export function AuthorMoodTradingViewChart({
       </div>
 
       <aside className="chart-sidebar">
-        <div className="chart-hover-strip" aria-live="polite">
-          <div className="chart-hover-item">
-            <span className="chart-hover-label">Date</span>
-            <span className="chart-hover-value">{hoverSnapshot.dateLabel}</span>
-          </div>
-          <div className="chart-hover-item">
-            <span className="chart-hover-label">BTC</span>
-            <span
-              className={`chart-hover-value${hoverSnapshot.hasBtcValue ? "" : " is-muted"}`}
-            >
-              {hoverSnapshot.btcPriceLabel}
-            </span>
-          </div>
-          <div className="chart-hover-item">
-            <span className="chart-hover-label">{formatMoodLabel(selectedMoodLabel)} Deviation</span>
-            <span className="chart-hover-value">{hoverSnapshot.moodLabel}</span>
+        <div className="chart-control-card">
+          <p className="chart-control-eyebrow">Mood</p>
+          <div className="chart-toggle-group" role="group" aria-label="Mood label">
+            {moodPayload.model.mood_labels.map((moodLabel) => (
+              <button
+                key={moodLabel}
+                className={`chart-toggle-button${selectedMoodLabel === moodLabel ? " is-active" : ""}`}
+                onClick={() => onMoodLabelChange(moodLabel)}
+                type="button"
+              >
+                {formatMoodLabel(moodLabel)}
+              </button>
+            ))}
           </div>
         </div>
       </aside>
@@ -412,46 +338,6 @@ function buildBtcSeries(payload: AuthorOverviewResponse): LineData<Time>[] {
     time: toBusinessDay(point.timestamp),
     value: point.price_usd,
   }));
-}
-
-function buildLatestHoverSnapshot(
-  btcSeriesData: LineData<Time>[],
-  moodSeriesData: MoodSeriesPoint[],
-  selectedMoodLabel: string,
-): HoverSnapshot {
-  const latestBtc = btcSeriesData[btcSeriesData.length - 1];
-  const latestMood = moodSeriesData[moodSeriesData.length - 1];
-  const time = latestBtc?.time ?? latestMood?.time ?? "1970-01-01";
-
-  return {
-    dateLabel: formatTimeLabel(time),
-    btcPriceLabel:
-      latestBtc?.value !== undefined ? currencyFormatter.format(latestBtc.value) : "No BTC data",
-    moodLabel:
-      hasSeriesValue(latestMood)
-        ? formatSignedMood(latestMood.value)
-        : `No ${formatMoodLabel(selectedMoodLabel)} bucket`,
-    hasBtcValue: latestBtc?.value !== undefined,
-  };
-}
-
-function findWeeklyPointForTime<T extends { time: Time; value?: number }>(
-  time: Time,
-  seriesData: T[],
-): T | undefined {
-  const hoveredDate = normalizeTime(time).getTime();
-
-  for (let index = seriesData.length - 1; index >= 0; index -= 1) {
-    const point = seriesData[index];
-    const pointStart = normalizeTime(point.time).getTime();
-    const pointEnd = pointStart + 7 * 24 * 60 * 60 * 1000;
-
-    if (hoveredDate >= pointStart && hoveredDate < pointEnd) {
-      return point;
-    }
-  }
-
-  return undefined;
 }
 
 function buildSymmetricMoodRange(
@@ -520,14 +406,6 @@ function quantile(values: number[], percentile: number): number {
   );
 
   return sortedValues[position] ?? 0;
-}
-
-function formatTimeLabel(time: Time): string {
-  return fullDateFormatter.format(normalizeTime(time));
-}
-
-function formatSignedMood(value: number): string {
-  return formatSignedMoodPercent(value);
 }
 
 function formatSignedMoodPercent(value: number): string {
