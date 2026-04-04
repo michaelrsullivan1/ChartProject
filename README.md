@@ -631,6 +631,8 @@ Expected normal outcomes:
 - the RoBERTa load report may show `UNEXPECTED` keys for this checkpoint; that is acceptable in the current setup
 - some tweets may be skipped because they are unsupported for scoring after language or preprocessing checks
 - the first run may take longer because the model weights need to be downloaded and cached locally
+- very long tweets can trigger a tokenizer max-length warning during the truncation check; that warning is non-fatal in the current setup
+- truncated tweets are still scored and counted in the `tweets_truncated` summary field
 
 Current scorer behavior:
 
@@ -638,6 +640,7 @@ Current scorer behavior:
 - stores absolute per-label probabilities only
 - leaves baseline-relative calculations to the backend view layer
 - is reusable for any normalized user by running the same command with a different `--username`
+- writes one row per `(tweet, model_key, mood_label)`, so large accounts can generate very large row counts quickly
 
 ### Extract exact phrase keywords for one or more normalized users
 
