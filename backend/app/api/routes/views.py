@@ -284,6 +284,37 @@ def michael_saylor_moods_btc_spot() -> dict[str, object]:
     return _build_btc_spot_price()
 
 
+@router.get("/peter-schiff-moods")
+def peter_schiff_moods(
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+) -> dict[str, object]:
+    return _build_overview_view(
+        username="PeterSchiff",
+        view_name="peter-schiff-moods",
+        granularity=granularity,
+        analysis_start="2009-07-14T00:00:00Z",
+    )
+
+
+@router.get("/peter-schiff-moods/mood-series")
+def peter_schiff_mood_series(
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+    model_key: str = Query(default=DEFAULT_MOOD_MODEL),
+) -> dict[str, object]:
+    return _build_author_moods(
+        username="PeterSchiff",
+        view_name="peter-schiff-mood-series",
+        granularity=granularity,
+        model_key=model_key,
+        analysis_start="2009-07-14T00:00:00Z",
+    )
+
+
+@router.get("/peter-schiff-moods/btc-spot")
+def peter_schiff_moods_btc_spot() -> dict[str, object]:
+    return _build_btc_spot_price()
+
+
 @router.get("/michael-saylor-heatmap")
 def michael_saylor_heatmap(
     mode: str = Query(default="common", pattern="^(all|common|rising)$"),

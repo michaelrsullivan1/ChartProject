@@ -10,6 +10,11 @@ export const moodDefinitions: MoodDefinition[] = [
     username: "saylor",
     apiBasePath: "/api/views/michael-saylor-moods",
   },
+  {
+    slug: "peter-schiff",
+    username: "PeterSchiff",
+    apiBasePath: "/api/views/peter-schiff-moods",
+  },
 ];
 
 export function findMoodBySlug(slug: string): MoodDefinition | undefined {
