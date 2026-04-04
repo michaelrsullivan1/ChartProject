@@ -19,6 +19,7 @@ import {
 } from "../api/authorHeatmap";
 import { TweetPreviewCard } from "../components/TweetPreviewCard";
 import { type HeatmapDefinition } from "../config/heatmaps";
+import { CHART_WATERMARK_HANDLE } from "../lib/watermark";
 
 type HeatmapMode = "all" | "common" | "rising";
 type WordCountFilter = "all" | "1" | "2" | "3";
@@ -26,6 +27,7 @@ type TrendPayloadMap = Record<string, AuthorKeywordTrendResponse>;
 
 type AuthorHeatmapPageProps = {
   heatmap: HeatmapDefinition;
+  showWatermark: boolean;
 };
 
 const integerFormatter = new Intl.NumberFormat("en-US");
@@ -104,7 +106,10 @@ const chartOptions = {
   },
 };
 
-export function AuthorHeatmapPage({ heatmap }: AuthorHeatmapPageProps) {
+export function AuthorHeatmapPage({
+  heatmap,
+  showWatermark,
+}: AuthorHeatmapPageProps) {
   const [mode, setMode] = useState<HeatmapMode>("common");
   const [wordCount, setWordCount] = useState<WordCountFilter>("all");
   const [phraseQuery, setPhraseQuery] = useState("");
@@ -568,6 +573,7 @@ export function AuthorHeatmapPage({ heatmap }: AuthorHeatmapPageProps) {
                 pinnedPhrases={pinnedPhrases}
                 trendPayloads={trendPayloads}
                 selectedMonth={selectedMonth}
+                showWatermark={showWatermark}
                 onActivatePhrase={setActivePhrase}
                 onRemovePhrase={removePinnedPhrase}
                 onSelectMonth={(monthStart, phrase) => {
@@ -711,6 +717,7 @@ function KeywordTrendChart({
   pinnedPhrases,
   trendPayloads,
   selectedMonth,
+  showWatermark,
   onActivatePhrase,
   onRemovePhrase,
   onSelectMonth,
@@ -722,6 +729,7 @@ function KeywordTrendChart({
   pinnedPhrases: string[];
   trendPayloads: TrendPayloadMap;
   selectedMonth: string | null;
+  showWatermark: boolean;
   onActivatePhrase: (phrase: string) => void;
   onRemovePhrase: (phrase: string) => void;
   onSelectMonth: (monthStart: string, phrase: string) => void;
@@ -955,6 +963,11 @@ function KeywordTrendChart({
       </div>
 
       <div className="chart-stage">
+        {showWatermark && visibleTrendPayloads.length > 0 ? (
+          <div aria-hidden="true" className="chart-watermark">
+            <span className="chart-watermark-handle">{CHART_WATERMARK_HANDLE}</span>
+          </div>
+        ) : null}
         {pinnedPhrases.length === 0 ? (
           <div className="heatmap-grid-empty">Click a phrase in the heat map to pin it here.</div>
         ) : null}

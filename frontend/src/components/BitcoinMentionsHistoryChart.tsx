@@ -15,11 +15,13 @@ import {
 } from "lightweight-charts";
 
 import type { AuthorBitcoinMentionsResponse, BitcoinMention } from "../api/bitcoinMentions";
+import { CHART_WATERMARK_HANDLE } from "../lib/watermark";
 import { TweetPreviewCard } from "./TweetPreviewCard";
 
 type BitcoinMentionsHistoryChartProps = {
   hoverSnapshot: HoverSnapshot | null;
   payload: AuthorBitcoinMentionsResponse;
+  showWatermark: boolean;
   onHoverSnapshotChange: (snapshot: HoverSnapshot) => void;
 };
 
@@ -122,6 +124,7 @@ const chartOptions = {
 export function BitcoinMentionsHistoryChart({
   hoverSnapshot,
   payload,
+  showWatermark,
   onHoverSnapshotChange,
 }: BitcoinMentionsHistoryChartProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -359,6 +362,11 @@ export function BitcoinMentionsHistoryChart({
   return (
     <div className="bitcoin-history-layout">
       <div className="chart-stage">
+        {showWatermark ? (
+          <div aria-hidden="true" className="chart-watermark">
+            <span className="chart-watermark-handle">{CHART_WATERMARK_HANDLE}</span>
+          </div>
+        ) : null}
         <div className="tradingview-chart bitcoin-history-chart" ref={containerRef} />
       </div>
 

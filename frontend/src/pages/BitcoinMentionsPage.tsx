@@ -48,11 +48,15 @@ const dateTimeFormatter = new Intl.DateTimeFormat("en-US", {
 
 type BitcoinMentionsPageProps = {
   bitcoinMentions: BitcoinMentionsDefinition;
+  showWatermark: boolean;
 };
 
 const fixedBuyAmountUsd = 10;
 
-export function BitcoinMentionsPage({ bitcoinMentions }: BitcoinMentionsPageProps) {
+export function BitcoinMentionsPage({
+  bitcoinMentions,
+  showWatermark,
+}: BitcoinMentionsPageProps) {
   const [mentionPayload, setMentionPayload] = useState<AuthorBitcoinMentionsResponse | null>(null);
   const [hoverSnapshot, setHoverSnapshot] = useState<HoverSnapshot | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -177,6 +181,7 @@ export function BitcoinMentionsPage({ bitcoinMentions }: BitcoinMentionsPageProp
               <BitcoinMentionsHistoryChart
                 hoverSnapshot={hoverSnapshot}
                 payload={mentionPayload}
+                showWatermark={showWatermark}
                 onHoverSnapshotChange={setHoverSnapshot}
               />
             </div>

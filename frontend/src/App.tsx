@@ -37,7 +37,10 @@ import { BitcoinMentionsPage } from "./pages/BitcoinMentionsPage";
 import { AuthorOverviewPage } from "./pages/MichaelSaylorVsBtcPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { SettingsPage } from "./pages/SettingsPage";
-import { CHART_WATERMARK_STORAGE_KEY } from "./lib/watermark";
+import {
+  ANONYMIZE_USERS_STORAGE_KEY,
+  CHART_WATERMARK_STORAGE_KEY,
+} from "./lib/settings";
 import type { HealthResponse } from "./types/health";
 
 type AppRoute =
@@ -99,6 +102,10 @@ export default function App() {
     const storedValue = window.localStorage.getItem(CHART_WATERMARK_STORAGE_KEY);
     return storedValue === null ? true : storedValue === "true";
   });
+  const [anonymizeUsers, setAnonymizeUsers] = useState(() => {
+    const storedValue = window.localStorage.getItem(ANONYMIZE_USERS_STORAGE_KEY);
+    return storedValue === null ? false : storedValue === "true";
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -146,6 +153,10 @@ export default function App() {
   useEffect(() => {
     window.localStorage.setItem(CHART_WATERMARK_STORAGE_KEY, String(showWatermark));
   }, [showWatermark]);
+
+  useEffect(() => {
+    window.localStorage.setItem(ANONYMIZE_USERS_STORAGE_KEY, String(anonymizeUsers));
+  }, [anonymizeUsers]);
 
   function navigateHome() {
     window.location.hash = "#/";
@@ -269,7 +280,7 @@ export default function App() {
         overviews={overviewDefinitions}
         heatmaps={heatmapDefinitions}
       >
-        <AuthorHeatmapPage heatmap={route.heatmap} />
+        <AuthorHeatmapPage heatmap={route.heatmap} showWatermark={showWatermark} />
       </AppShell>
     );
   }
@@ -295,7 +306,10 @@ export default function App() {
         overviews={overviewDefinitions}
         heatmaps={heatmapDefinitions}
       >
-        <BitcoinMentionsPage bitcoinMentions={route.bitcoinMentions} />
+        <BitcoinMentionsPage
+          bitcoinMentions={route.bitcoinMentions}
+          showWatermark={showWatermark}
+        />
       </AppShell>
     );
   }
@@ -324,6 +338,8 @@ export default function App() {
         <SettingsPage
           showWatermark={showWatermark}
           onShowWatermarkChange={setShowWatermark}
+          anonymizeUsers={anonymizeUsers}
+          onAnonymizeUsersChange={setAnonymizeUsers}
         />
       </AppShell>
     );

@@ -1,5 +1,3 @@
-import { useState } from "react";
-
 type ToggleCardProps = {
   title: string;
   description: string;
@@ -10,6 +8,8 @@ type ToggleCardProps = {
 type SettingsPageProps = {
   showWatermark: boolean;
   onShowWatermarkChange: (value: boolean) => void;
+  anonymizeUsers: boolean;
+  onAnonymizeUsersChange: (value: boolean) => void;
 };
 
 const pendingMoves = [
@@ -22,11 +22,9 @@ const pendingMoves = [
 export function SettingsPage({
   showWatermark,
   onShowWatermarkChange,
+  anonymizeUsers,
+  onAnonymizeUsersChange,
 }: SettingsPageProps) {
-  const [showAnnotations, setShowAnnotations] = useState(true);
-  const [compactCards, setCompactCards] = useState(false);
-  const [autoRefresh, setAutoRefresh] = useState(true);
-
   return (
     <section className="dashboard-page settings-page">
       <div className="content-stack">
@@ -44,7 +42,7 @@ export function SettingsPage({
             <div className="settings-status-card">
               <span className="settings-status-label">Current phase</span>
               <strong>Scaffolded UI</strong>
-              <p>Local-only state, no persistence yet.</p>
+              <p>Browser-persisted settings, backend wiring still pending.</p>
             </div>
           </div>
         </article>
@@ -54,9 +52,8 @@ export function SettingsPage({
             <div className="settings-section-header">
               <div>
                 <p className="chart-control-eyebrow">Display</p>
-                <h2>Interface defaults</h2>
+                <h2>Global Defaults</h2>
               </div>
-              <p className="status-copy">Global settings that affect every dashboard.</p>
             </div>
             <div className="settings-toggle-list">
               <ToggleCard
@@ -65,47 +62,24 @@ export function SettingsPage({
                 value={showWatermark}
                 onChange={() => onShowWatermarkChange(!showWatermark)}
               />
-              <ToggleCard
-                title="Show annotations by default"
-                description="Placeholder for chart notes, event markers, and other overlays."
-                value={showAnnotations}
-                onChange={() => setShowAnnotations((current) => !current)}
-              />
-              <ToggleCard
-                title="Use compact metric cards"
-                description="Reserved for tighter dashboard density once layout preferences move here."
-                value={compactCards}
-                onChange={() => setCompactCards((current) => !current)}
-              />
             </div>
           </article>
 
           <article className="panel settings-section">
             <div className="settings-section-header">
               <div>
-                <p className="chart-control-eyebrow">Data</p>
-                <h2>Refresh and sync</h2>
+                <p className="chart-control-eyebrow">Privacy</p>
+                <h2>Anonymize Users</h2>
               </div>
-              <p className="status-copy">Rough inputs that can later bind to backend config.</p>
             </div>
             <div className="settings-toggle-list">
               <ToggleCard
-                title="Auto-refresh dashboard data"
-                description="Intended home for polling rules, background refresh cadence, and stale-data behavior."
-                value={autoRefresh}
-                onChange={() => setAutoRefresh((current) => !current)}
+                title="Anonymize user names"
+                description="Prepares the dashboard to swap visible accounts for labels like Anonymous 1 and Anonymous 2 when enabled."
+                value={anonymizeUsers}
+                onChange={() => onAnonymizeUsersChange(!anonymizeUsers)}
               />
             </div>
-            <label className="settings-field">
-              <span>Default landing dashboard</span>
-              <select defaultValue="foundation">
-                <option value="foundation">Foundation</option>
-                <option value="bitcoin-mentions">Bitcoin mentions</option>
-                <option value="overviews">Overviews</option>
-                <option value="moods">Moods</option>
-                <option value="heatmaps">Heat maps</option>
-              </select>
-            </label>
           </article>
         </section>
 
@@ -144,7 +118,7 @@ export function SettingsPage({
               </div>
               <div>
                 <dt>State</dt>
-                <dd>Watermark is app-global and persisted in local storage</dd>
+                <dd>Watermark and anonymize-users defaults are app-global and persisted in local storage</dd>
               </div>
               <div>
                 <dt>Next step</dt>
