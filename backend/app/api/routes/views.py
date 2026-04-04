@@ -376,6 +376,37 @@ def michael_sullivan_overview(
     )
 
 
+@router.get("/michael-sullivan-moods")
+def michael_sullivan_moods(
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+) -> dict[str, object]:
+    return _build_overview_view(
+        username="SullyMichaelvan",
+        view_name="michael-sullivan-moods",
+        granularity=granularity,
+        analysis_start="2024-01-01T00:00:00Z",
+    )
+
+
+@router.get("/michael-sullivan-moods/mood-series")
+def michael_sullivan_mood_series(
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+    model_key: str = Query(default=DEFAULT_MOOD_MODEL),
+) -> dict[str, object]:
+    return _build_author_moods(
+        username="SullyMichaelvan",
+        view_name="michael-sullivan-mood-series",
+        granularity=granularity,
+        model_key=model_key,
+        analysis_start="2024-01-01T00:00:00Z",
+    )
+
+
+@router.get("/michael-sullivan-moods/btc-spot")
+def michael_sullivan_moods_btc_spot() -> dict[str, object]:
+    return _build_btc_spot_price()
+
+
 @router.get("/michael-sullivan-overview/top-liked-tweet")
 def michael_sullivan_overview_top_liked_tweet(
     week_start: str = Query(...),

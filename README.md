@@ -32,6 +32,7 @@ After the stack is running:
 - [http://127.0.0.1:5173/#/overviews/michael-sullivan](http://127.0.0.1:5173/#/overviews/michael-sullivan) shows the Michael Sullivan overview
 - [http://127.0.0.1:5173/#/moods/michael-saylor](http://127.0.0.1:5173/#/moods/michael-saylor) shows the Michael Saylor moods page
 - [http://127.0.0.1:5173/#/moods/peter-schiff](http://127.0.0.1:5173/#/moods/peter-schiff) shows the Peter Schiff moods page
+- [http://127.0.0.1:5173/#/moods/michael-sullivan](http://127.0.0.1:5173/#/moods/michael-sullivan) shows the Michael Sullivan moods page
 - [http://127.0.0.1:5173/#/bitcoin-mentions](http://127.0.0.1:5173/#/bitcoin-mentions) shows the Bitcoin mentions timing analysis page
 - [http://127.0.0.1:5173/#/heatmaps/michael-saylor](http://127.0.0.1:5173/#/heatmaps/michael-saylor) shows the Michael Saylor phrase heatmap
 - [http://127.0.0.1:5173/#/heatmaps/michael-sullivan](http://127.0.0.1:5173/#/heatmaps/michael-sullivan) shows the Michael Sullivan phrase heatmap
@@ -276,6 +277,9 @@ The current chart flow uses dedicated overview endpoints:
 /api/views/peter-schiff-moods?granularity=week
 /api/views/peter-schiff-moods/mood-series?granularity=week
 /api/views/peter-schiff-moods/btc-spot
+/api/views/michael-sullivan-moods?granularity=week
+/api/views/michael-sullivan-moods/mood-series?granularity=week
+/api/views/michael-sullivan-moods/btc-spot
 /api/views/michael-sullivan-overview?granularity=week
 /api/views/michael-sullivan-overview/top-liked-tweet?week_start=2024-01-01T00:00:00Z
 /api/views/michael-sullivan-overview/btc-spot
