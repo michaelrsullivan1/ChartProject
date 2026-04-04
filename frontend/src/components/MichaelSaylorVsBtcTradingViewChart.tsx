@@ -27,6 +27,7 @@ import {
   buildSentimentDeviationSeries,
   type SentimentMode,
 } from "../lib/sentiment";
+import { CHART_WATERMARK_HANDLE } from "../lib/watermark";
 
 type MichaelSaylorVsBtcTradingViewChartProps = {
   overview: OverviewDefinition;
@@ -661,7 +662,7 @@ export function MichaelSaylorVsBtcTradingViewChart({
       <div className="chart-stage">
         {showWatermark ? (
           <div aria-hidden="true" className="chart-watermark">
-            <span className="chart-watermark-handle">@SullyMichaelvan</span>
+            <span className="chart-watermark-handle">{CHART_WATERMARK_HANDLE}</span>
           </div>
         ) : null}
         <div className="tradingview-chart" ref={containerRef} />

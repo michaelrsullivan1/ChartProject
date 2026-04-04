@@ -62,7 +62,7 @@ The mood pages currently:
 - request a companion mood series endpoint such as `/api/views/michael-saylor-moods/mood-series?granularity=week`
 - render BTC in the top pane and the selected mood deviation in the bottom pane
 - default to relative-to-baseline mood deviation with the same weighted smoothing modes as the sentiment page
-- expose the current curated mood set from the GoEmotions model: `optimism`, `fear`, `nervousness`, `annoyance`, `excitement`, `confusion`, `anger`, `disapproval`, `curiosity`, `surprise`, `disappointment`, `disgust`, and `embarrassment`
+- expose the full GoEmotions label set currently stored in the database, including `admiration`, `amusement`, `anger`, `annoyance`, `approval`, `caring`, `confusion`, `curiosity`, `desire`, `disappointment`, `disapproval`, `disgust`, `embarrassment`, `excitement`, `fear`, `gratitude`, `grief`, `joy`, `love`, `nervousness`, `neutral`, `optimism`, `pride`, `realization`, `relief`, `remorse`, `sadness`, and `surprise`
 - store absolute per-tweet mood scores in Postgres and compute relative deviation at request time
 
 The Bitcoin mentions page currently:
@@ -612,7 +612,7 @@ The current mood scorer uses [`SamLowe/roberta-base-go_emotions`](https://huggin
 
 It stores one row per `(tweet, model_key, mood_label)` in `tweet_mood_scores`.
 
-It currently powers the `#/moods/michael-saylor` page and stores all labels emitted by the model, even though the UI only exposes a curated subset today.
+It currently powers the `#/moods/*` pages and stores all labels emitted by the model. The UI now exposes the full GoEmotions label set by default.
 
 ```bash
 cd /Users/michaelsullivan/Code/ChartProject

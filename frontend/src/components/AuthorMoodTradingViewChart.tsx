@@ -19,6 +19,7 @@ import {
   type MoodDeviationPoint,
 } from "../lib/moods";
 import type { SentimentMode } from "../lib/sentiment";
+import { CHART_WATERMARK_HANDLE } from "../lib/watermark";
 
 type AuthorMoodTradingViewChartProps = {
   payload: AuthorOverviewResponse;
@@ -376,7 +377,7 @@ export function AuthorMoodTradingViewChart({
       <div className="chart-stage">
         {showWatermark ? (
           <div aria-hidden="true" className="chart-watermark">
-            <span className="chart-watermark-handle">@{payload.subject.username}</span>
+            <span className="chart-watermark-handle">{CHART_WATERMARK_HANDLE}</span>
           </div>
         ) : null}
         <div className="tradingview-chart" ref={containerRef} />
