@@ -10,6 +10,7 @@ import {
 } from "../api/authorOverview";
 import { AuthorMoodTradingViewChart } from "../components/AuthorMoodTradingViewChart";
 import { DashboardLoadingState } from "../components/DashboardLoadingState";
+import { getMoodDescriptionByLabel } from "../config/aggregateMoods";
 import { type MoodDefinition, getMoodLabel } from "../config/moods";
 import { buildMoodDeviationSeries } from "../lib/moods";
 import { type SentimentMode } from "../lib/sentiment";
@@ -166,6 +167,7 @@ function AuthorMoodChartSection({
   const currentMoodDeviation = getCurrentMoodDeviation(moodDeviationSeries, moodPayload.range.end);
   const moodExtremes = getMoodExtremes(moodDeviationSeries, moodPayload.range.end);
   const selectedMoodSummary = moodPayload.summary.moods[selectedMoodLabel];
+  const moodDescription = getMoodDescriptionByLabel(selectedMoodLabel);
 
   return (
     <>
@@ -224,6 +226,7 @@ function AuthorMoodChartSection({
           payload={payload}
           moodPayload={moodPayload}
           showWatermark={showWatermark}
+          moodDefinition={moodDescription}
           selectedMoodLabel={selectedMoodLabel}
           onMoodLabelChange={onMoodLabelChange}
           sentimentMode={sentimentMode}

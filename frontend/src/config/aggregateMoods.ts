@@ -94,9 +94,13 @@ export function getAggregateMoodTitle(definition: AggregateMoodDefinition): stri
   return `Aggregate ${getAggregateMoodLabel(definition)}`;
 }
 
-export function getAggregateMoodDescription(definition: AggregateMoodDefinition): string {
+export function getMoodDescriptionByLabel(moodLabel: string): string {
   return (
-    aggregateMoodDescriptions[definition.moodLabel] ??
+    aggregateMoodDescriptions[moodLabel] ??
     "Emotion label from the GoEmotions taxonomy used by the active model."
   );
+}
+
+export function getAggregateMoodDescription(definition: AggregateMoodDefinition): string {
+  return getMoodDescriptionByLabel(definition.moodLabel);
 }
