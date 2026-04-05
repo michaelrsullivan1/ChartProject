@@ -14,6 +14,12 @@ from app.services.author_bitcoin_mentions_view import (
     build_author_bitcoin_mentions_view,
     build_bitcoin_mentions_leaderboard,
 )
+from app.services.aggregate_mood_view import (
+    AggregateMoodOverviewRequest,
+    AggregateMoodViewRequest,
+    build_aggregate_mood_overview,
+    build_aggregate_mood_view,
+)
 from app.services.author_sentiment_view import (
     AuthorSentimentViewRequest,
     build_author_sentiment_view,
@@ -106,6 +112,40 @@ def _build_author_moods(
     return build_author_mood_view(
         AuthorMoodViewRequest(
             username=username,
+            granularity=granularity,
+            model_key=model_key,
+            view_name=view_name,
+            analysis_start=analysis_start,
+        )
+    )
+
+
+def _build_aggregate_moods_overview(
+    *,
+    view_name: str,
+    granularity: str,
+    model_key: str,
+    analysis_start: str | None = None,
+) -> dict[str, object]:
+    return build_aggregate_mood_overview(
+        AggregateMoodOverviewRequest(
+            granularity=granularity,
+            model_key=model_key,
+            view_name=view_name,
+            analysis_start=analysis_start,
+        )
+    )
+
+
+def _build_aggregate_moods(
+    *,
+    view_name: str,
+    granularity: str,
+    model_key: str,
+    analysis_start: str | None = None,
+) -> dict[str, object]:
+    return build_aggregate_mood_view(
+        AggregateMoodViewRequest(
             granularity=granularity,
             model_key=model_key,
             view_name=view_name,
@@ -312,6 +352,35 @@ def peter_schiff_mood_series(
 
 @router.get("/peter-schiff-moods/btc-spot")
 def peter_schiff_moods_btc_spot() -> dict[str, object]:
+    return _build_btc_spot_price()
+
+
+@router.get("/aggregate-moods")
+def aggregate_moods(
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+    model_key: str = Query(default=DEFAULT_MOOD_MODEL),
+) -> dict[str, object]:
+    return _build_aggregate_moods_overview(
+        view_name="aggregate-moods",
+        granularity=granularity,
+        model_key=model_key,
+    )
+
+
+@router.get("/aggregate-moods/mood-series")
+def aggregate_mood_series(
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+    model_key: str = Query(default=DEFAULT_MOOD_MODEL),
+) -> dict[str, object]:
+    return _build_aggregate_moods(
+        view_name="aggregate-moods-mood-series",
+        granularity=granularity,
+        model_key=model_key,
+    )
+
+
+@router.get("/aggregate-moods/btc-spot")
+def aggregate_moods_btc_spot() -> dict[str, object]:
     return _build_btc_spot_price()
 
 

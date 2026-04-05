@@ -3,6 +3,13 @@ import { useEffect, useState } from "react";
 import { fetchHealth } from "./api/health";
 import { AppShell } from "./components/AppShell";
 import {
+  aggregateMoodDefinitions,
+  findAggregateMoodBySlug,
+  getAggregateMoodHash,
+  getAggregateMoodTitle,
+  type AggregateMoodDefinition,
+} from "./config/aggregateMoods";
+import {
   bitcoinMentionsDefinitions,
   findBitcoinMentionsBySlug,
   getBitcoinMentionsHash,
@@ -33,6 +40,7 @@ import {
 import { HomePage } from "./pages/HomePage";
 import { AuthorHeatmapPage } from "./pages/AuthorHeatmapPage";
 import { AuthorMoodPage } from "./pages/AuthorMoodPage";
+import { AggregateMoodPage } from "./pages/AggregateMoodPage";
 import { BitcoinMentionsPage } from "./pages/BitcoinMentionsPage";
 import { AuthorOverviewPage } from "./pages/MichaelSaylorVsBtcPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
@@ -45,6 +53,7 @@ import type { HealthResponse } from "./types/health";
 
 type AppRoute =
   | { kind: "home" }
+  | { kind: "aggregate-mood"; aggregateMood: AggregateMoodDefinition }
   | { kind: "bitcoin-mentions"; bitcoinMentions: BitcoinMentionsDefinition }
   | { kind: "mood"; mood: MoodDefinition }
   | { kind: "overview"; overview: OverviewDefinition }
@@ -62,10 +71,21 @@ function getRouteFromHash(hash: string): AppRoute {
     return bitcoinMentions ? { kind: "bitcoin-mentions", bitcoinMentions } : { kind: "not-found" };
   }
 
+  if (hash === "#/aggregate-moods") {
+    const aggregateMood = aggregateMoodDefinitions[0];
+    return aggregateMood ? { kind: "aggregate-mood", aggregateMood } : { kind: "not-found" };
+  }
+
   if (hash.startsWith("#/bitcoin-mentions/")) {
     const slug = decodeURIComponent(hash.slice("#/bitcoin-mentions/".length));
     const bitcoinMentions = findBitcoinMentionsBySlug(slug);
     return bitcoinMentions ? { kind: "bitcoin-mentions", bitcoinMentions } : { kind: "not-found" };
+  }
+
+  if (hash.startsWith("#/aggregate-moods/")) {
+    const slug = decodeURIComponent(hash.slice("#/aggregate-moods/".length));
+    const aggregateMood = findAggregateMoodBySlug(slug);
+    return aggregateMood ? { kind: "aggregate-mood", aggregateMood } : { kind: "not-found" };
   }
 
   if (hash.startsWith("#/overviews/")) {
@@ -166,6 +186,10 @@ export default function App() {
     window.location.hash = getOverviewHash(slug);
   }
 
+  function navigateAggregateMood(slug: string) {
+    window.location.hash = getAggregateMoodHash(slug);
+  }
+
   function navigateMood(slug: string) {
     window.location.hash = getMoodHash(slug);
   }
@@ -187,12 +211,15 @@ export default function App() {
       <AppShell
         mode="home"
         activeBitcoinMentionsSlug={null}
+        activeAggregateMoodSlug={null}
         activeMoodSlug={null}
         activeOverviewSlug={null}
         activeHeatmapSlug={null}
+        aggregateMoods={aggregateMoodDefinitions}
         bitcoinMentions={bitcoinMentionsDefinitions}
         moods={moodDefinitions}
         onNavigateHome={navigateHome}
+        onNavigateAggregateMood={navigateAggregateMood}
         onNavigateBitcoinMentions={navigateBitcoinMentions}
         onNavigateMood={navigateMood}
         onNavigateOverview={navigateOverview}
@@ -213,12 +240,15 @@ export default function App() {
         mode="dashboard"
         dashboardTitle={getOverviewTitle(route.overview)}
         activeBitcoinMentionsSlug={null}
+        activeAggregateMoodSlug={null}
         activeMoodSlug={null}
         activeOverviewSlug={route.overview.slug}
         activeHeatmapSlug={null}
+        aggregateMoods={aggregateMoodDefinitions}
         bitcoinMentions={bitcoinMentionsDefinitions}
         moods={moodDefinitions}
         onNavigateHome={navigateHome}
+        onNavigateAggregateMood={navigateAggregateMood}
         onNavigateBitcoinMentions={navigateBitcoinMentions}
         onNavigateMood={navigateMood}
         onNavigateOverview={navigateOverview}
@@ -239,12 +269,15 @@ export default function App() {
         mode="dashboard"
         dashboardTitle={getMoodTitle(route.mood)}
         activeBitcoinMentionsSlug={null}
+        activeAggregateMoodSlug={null}
         activeMoodSlug={route.mood.slug}
         activeOverviewSlug={null}
         activeHeatmapSlug={null}
+        aggregateMoods={aggregateMoodDefinitions}
         bitcoinMentions={bitcoinMentionsDefinitions}
         moods={moodDefinitions}
         onNavigateHome={navigateHome}
+        onNavigateAggregateMood={navigateAggregateMood}
         onNavigateBitcoinMentions={navigateBitcoinMentions}
         onNavigateMood={navigateMood}
         onNavigateOverview={navigateOverview}
@@ -259,18 +292,50 @@ export default function App() {
     );
   }
 
+  if (route.kind === "aggregate-mood") {
+    return (
+      <AppShell
+        mode="dashboard"
+        dashboardTitle={getAggregateMoodTitle(route.aggregateMood)}
+        activeBitcoinMentionsSlug={null}
+        activeAggregateMoodSlug={route.aggregateMood.slug}
+        activeMoodSlug={null}
+        activeOverviewSlug={null}
+        activeHeatmapSlug={null}
+        aggregateMoods={aggregateMoodDefinitions}
+        bitcoinMentions={bitcoinMentionsDefinitions}
+        moods={moodDefinitions}
+        onNavigateHome={navigateHome}
+        onNavigateAggregateMood={navigateAggregateMood}
+        onNavigateBitcoinMentions={navigateBitcoinMentions}
+        onNavigateMood={navigateMood}
+        onNavigateOverview={navigateOverview}
+        onNavigateHeatmap={navigateHeatmap}
+        onNavigateSettings={navigateSettings}
+        isSettingsActive={false}
+        overviews={overviewDefinitions}
+        heatmaps={heatmapDefinitions}
+      >
+        <AggregateMoodPage aggregateMood={route.aggregateMood} showWatermark={showWatermark} />
+      </AppShell>
+    );
+  }
+
   if (route.kind === "heatmap") {
     return (
       <AppShell
         mode="dashboard"
         dashboardTitle={getHeatmapTitle(route.heatmap)}
         activeBitcoinMentionsSlug={null}
+        activeAggregateMoodSlug={null}
         activeMoodSlug={null}
         activeOverviewSlug={null}
         activeHeatmapSlug={route.heatmap.slug}
+        aggregateMoods={aggregateMoodDefinitions}
         bitcoinMentions={bitcoinMentionsDefinitions}
         moods={moodDefinitions}
         onNavigateHome={navigateHome}
+        onNavigateAggregateMood={navigateAggregateMood}
         onNavigateBitcoinMentions={navigateBitcoinMentions}
         onNavigateMood={navigateMood}
         onNavigateOverview={navigateOverview}
@@ -291,12 +356,15 @@ export default function App() {
         mode="dashboard"
         dashboardTitle={getBitcoinMentionsTitle(route.bitcoinMentions)}
         activeBitcoinMentionsSlug={route.bitcoinMentions.slug}
+        activeAggregateMoodSlug={null}
         activeMoodSlug={null}
         activeOverviewSlug={null}
         activeHeatmapSlug={null}
+        aggregateMoods={aggregateMoodDefinitions}
         bitcoinMentions={bitcoinMentionsDefinitions}
         moods={moodDefinitions}
         onNavigateHome={navigateHome}
+        onNavigateAggregateMood={navigateAggregateMood}
         onNavigateBitcoinMentions={navigateBitcoinMentions}
         onNavigateMood={navigateMood}
         onNavigateOverview={navigateOverview}
@@ -320,12 +388,15 @@ export default function App() {
         mode="dashboard"
         dashboardTitle="Settings"
         activeBitcoinMentionsSlug={null}
+        activeAggregateMoodSlug={null}
         activeMoodSlug={null}
         activeOverviewSlug={null}
         activeHeatmapSlug={null}
+        aggregateMoods={aggregateMoodDefinitions}
         bitcoinMentions={bitcoinMentionsDefinitions}
         moods={moodDefinitions}
         onNavigateHome={navigateHome}
+        onNavigateAggregateMood={navigateAggregateMood}
         onNavigateBitcoinMentions={navigateBitcoinMentions}
         onNavigateMood={navigateMood}
         onNavigateOverview={navigateOverview}
@@ -350,12 +421,15 @@ export default function App() {
       mode="dashboard"
       dashboardTitle="Overview Not Found"
       activeBitcoinMentionsSlug={null}
+      activeAggregateMoodSlug={null}
       activeMoodSlug={null}
       activeOverviewSlug={null}
       activeHeatmapSlug={null}
+      aggregateMoods={aggregateMoodDefinitions}
       bitcoinMentions={bitcoinMentionsDefinitions}
       moods={moodDefinitions}
       onNavigateHome={navigateHome}
+      onNavigateAggregateMood={navigateAggregateMood}
       onNavigateBitcoinMentions={navigateBitcoinMentions}
       onNavigateMood={navigateMood}
       onNavigateOverview={navigateOverview}

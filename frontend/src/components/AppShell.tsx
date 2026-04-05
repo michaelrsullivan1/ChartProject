@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import {
+  type AggregateMoodDefinition,
+  getAggregateMoodLabel,
+} from "../config/aggregateMoods";
+import {
   type BitcoinMentionsDefinition,
   getBitcoinMentionsLabel,
 } from "../config/bitcoinMentions";
@@ -21,14 +25,17 @@ type AppShellProps = {
   mode: "home" | "dashboard";
   dashboardTitle?: string;
   activeBitcoinMentionsSlug: string | null;
+  activeAggregateMoodSlug: string | null;
   activeMoodSlug: string | null;
   activeOverviewSlug: string | null;
   activeHeatmapSlug: string | null;
+  aggregateMoods: AggregateMoodDefinition[];
   bitcoinMentions: BitcoinMentionsDefinition[];
   moods: MoodDefinition[];
   overviews: OverviewDefinition[];
   heatmaps: HeatmapDefinition[];
   onNavigateHome: () => void;
+  onNavigateAggregateMood: (slug: string) => void;
   onNavigateBitcoinMentions: (slug: string) => void;
   onNavigateMood: (slug: string) => void;
   onNavigateOverview: (slug: string) => void;
@@ -42,14 +49,17 @@ export function AppShell({
   mode,
   dashboardTitle,
   activeBitcoinMentionsSlug,
+  activeAggregateMoodSlug,
   activeMoodSlug,
   activeOverviewSlug,
   activeHeatmapSlug,
+  aggregateMoods,
   bitcoinMentions,
   moods,
   overviews,
   heatmaps,
   onNavigateHome,
+  onNavigateAggregateMood,
   onNavigateBitcoinMentions,
   onNavigateMood,
   onNavigateOverview,
@@ -58,12 +68,21 @@ export function AppShell({
   isSettingsActive,
   children,
 }: AppShellProps) {
-  const [openMenu, setOpenMenu] = useState<"bitcoin-mentions" | "moods" | "overviews" | "heatmaps" | null>(null);
+  const [openMenu, setOpenMenu] = useState<
+    "aggregate-moods" | "bitcoin-mentions" | "moods" | "overviews" | "heatmaps" | null
+  >(null);
   const navRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     setOpenMenu(null);
-  }, [activeBitcoinMentionsSlug, activeHeatmapSlug, activeMoodSlug, activeOverviewSlug, mode]);
+  }, [
+    activeAggregateMoodSlug,
+    activeBitcoinMentionsSlug,
+    activeHeatmapSlug,
+    activeMoodSlug,
+    activeOverviewSlug,
+    mode,
+  ]);
 
   useEffect(() => {
     function handlePointerDown(event: PointerEvent) {
@@ -125,7 +144,7 @@ export function AppShell({
             onClick={() => setOpenMenu((current) => (current === "moods" ? null : "moods"))}
             type="button"
           >
-            Moods
+            User Moods
           </button>
           {openMenu === "moods" ? (
             <div
@@ -141,6 +160,38 @@ export function AppShell({
                   type="button"
                 >
                   {getMoodLabel(mood)}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
+        <div className="overview-dropdown">
+          <button
+            aria-expanded={openMenu === "aggregate-moods"}
+            className={`page-nav-link${activeAggregateMoodSlug !== null ? " is-active" : ""}`}
+            onClick={() =>
+              setOpenMenu((current) =>
+                current === "aggregate-moods" ? null : "aggregate-moods",
+              )
+            }
+            type="button"
+          >
+            Aggregate Moods
+          </button>
+          {openMenu === "aggregate-moods" ? (
+            <div
+              className={`overview-dropdown-menu${isDashboardNav ? " overview-dropdown-menu-dashboard" : ""}`}
+              role="menu"
+            >
+              {aggregateMoods.map((aggregateMood) => (
+                <button
+                  key={aggregateMood.slug}
+                  className={`overview-dropdown-item${activeAggregateMoodSlug === aggregateMood.slug ? " is-active" : ""}`}
+                  onClick={() => onNavigateAggregateMood(aggregateMood.slug)}
+                  role="menuitem"
+                  type="button"
+                >
+                  {getAggregateMoodLabel(aggregateMood)}
                 </button>
               ))}
             </div>

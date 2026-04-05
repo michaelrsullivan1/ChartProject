@@ -13,14 +13,17 @@ export function buildMoodDeviationSeries(
 ): MoodDeviationPoint[] {
   const baseline = moodPayload.summary.moods[moodLabel]?.average_score ?? 0;
   const weeklyPoints = moodPayload.mood_series;
+  const usesPrecomputedDeviation =
+    weeklyPoints.some((point) => point.moods[moodLabel]?.average_deviation !== undefined) ||
+    moodPayload.summary.moods[moodLabel]?.average_deviation !== undefined;
 
   if (sentimentMode === "raw") {
     return weeklyPoints.map((point) => ({
       periodStart: point.period_start,
       value:
-        point.scored_tweet_count === 0
+        getPointWeight(point) === 0
           ? null
-          : (point.moods[moodLabel]?.average_score ?? 0) - baseline,
+          : getPointMoodDeviation(point, moodLabel, baseline, usesPrecomputedDeviation),
     }));
   }
 
@@ -30,9 +33,16 @@ export function buildMoodDeviationSeries(
   return weeklyPoints.map((point, index) => ({
     periodStart: point.period_start,
     value:
-      point.scored_tweet_count === 0
+      getPointWeight(point) === 0
         ? null
-        : computeWeightedMoodDeviation(weeklyPoints, moodLabel, index, windowSize, baseline),
+        : computeWeightedMoodDeviation(
+            weeklyPoints,
+            moodLabel,
+            index,
+            windowSize,
+            baseline,
+            usesPrecomputedDeviation,
+          ),
   }));
 }
 
@@ -42,6 +52,7 @@ function computeWeightedMoodDeviation(
   endIndex: number,
   windowSize: number,
   baseline: number,
+  usesPrecomputedDeviation: boolean,
 ): number {
   const startIndex = Math.max(0, endIndex - windowSize + 1);
   let weightedSum = 0;
@@ -49,17 +60,39 @@ function computeWeightedMoodDeviation(
 
   for (let index = startIndex; index <= endIndex; index += 1) {
     const point = points[index];
-    if (!point || point.scored_tweet_count === 0) {
+    if (!point) {
       continue;
     }
 
-    weightedSum += (point.moods[moodLabel]?.average_score ?? 0) * point.scored_tweet_count;
-    totalWeight += point.scored_tweet_count;
+    const weight = getPointWeight(point);
+    if (weight === 0) {
+      continue;
+    }
+
+    weightedSum += getPointMoodDeviation(point, moodLabel, baseline, usesPrecomputedDeviation) * weight;
+    totalWeight += weight;
   }
 
   if (totalWeight === 0) {
     return 0;
   }
 
-  return weightedSum / totalWeight - baseline;
+  return usesPrecomputedDeviation ? weightedSum / totalWeight : weightedSum / totalWeight;
+}
+
+function getPointWeight(point: AuthorMoodResponse["mood_series"][number]): number {
+  return point.active_user_count ?? point.scored_tweet_count;
+}
+
+function getPointMoodDeviation(
+  point: AuthorMoodResponse["mood_series"][number],
+  moodLabel: string,
+  baseline: number,
+  usesPrecomputedDeviation: boolean,
+): number {
+  if (usesPrecomputedDeviation) {
+    return point.moods[moodLabel]?.average_deviation ?? 0;
+  }
+
+  return (point.moods[moodLabel]?.average_score ?? 0) - baseline;
 }

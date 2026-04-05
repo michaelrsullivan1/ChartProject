@@ -5,6 +5,10 @@ export type AuthorOverviewResponse = {
     username: string;
     display_name: string | null;
   };
+  cohort?: {
+    user_count: number;
+    usernames: string[];
+  };
   tweet_granularity: string;
   btc_granularity: string;
   mstr_granularity: string;
@@ -98,11 +102,17 @@ export type AuthorMoodResponse = {
     username: string;
     display_name: string | null;
   };
+  cohort?: {
+    user_count: number;
+    usernames: string[];
+  };
   model: {
     model_key: string;
     granularity: string;
     status_filter: string;
     mood_labels: string[];
+    aggregation_mode?: string;
+    baseline_mode?: string;
   };
   range: {
     start: string;
@@ -110,10 +120,12 @@ export type AuthorMoodResponse = {
   };
   summary: {
     scored_tweet_count: number;
+    cohort_user_count?: number;
     moods: Record<
       string,
       {
         average_score: number;
+        average_deviation?: number;
         score_count: number;
       }
     >;
@@ -121,10 +133,12 @@ export type AuthorMoodResponse = {
   mood_series: Array<{
     period_start: string;
     scored_tweet_count: number;
+    active_user_count?: number;
     moods: Record<
       string,
       {
         average_score: number;
+        average_deviation?: number;
         score_count: number;
       }
     >;

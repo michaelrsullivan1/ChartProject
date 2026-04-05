@@ -22,9 +22,11 @@ type AuthorMoodTradingViewChartProps = {
   moodPayload: AuthorMoodResponse;
   selectedMoodLabel: string;
   showWatermark: boolean;
+  showMoodSelector?: boolean;
   isScreenshotMode: boolean;
   onScreenshotModeChange: (enabled: boolean) => void;
   sentimentMode: SentimentMode;
+  smoothingWeightLabel?: string;
   onSentimentModeChange: (mode: SentimentMode) => void;
   onMoodLabelChange: (label: string) => void;
 };
@@ -100,9 +102,11 @@ export function AuthorMoodTradingViewChart({
   moodPayload,
   selectedMoodLabel,
   showWatermark,
+  showMoodSelector = true,
   isScreenshotMode,
   onScreenshotModeChange,
   sentimentMode,
+  smoothingWeightLabel = "scored post count",
   onSentimentModeChange,
   onMoodLabelChange,
 }: AuthorMoodTradingViewChartProps) {
@@ -255,8 +259,8 @@ export function AuthorMoodTradingViewChart({
             ))}
           </div>
           <p className="chart-control-note">
-            Smoothed modes use trailing weekly averages weighted by scored post count, so
-            low-volume weeks carry less influence.
+            Smoothed modes use trailing weekly averages weighted by {smoothingWeightLabel}, so
+            lower-coverage weeks carry less influence.
           </p>
         </div>
 
@@ -293,23 +297,25 @@ export function AuthorMoodTradingViewChart({
         <div className="tradingview-chart" ref={containerRef} />
       </div>
 
-      <aside className="chart-sidebar">
-        <div className="chart-control-card">
-          <p className="chart-control-eyebrow">Mood</p>
-          <div className="chart-toggle-group" role="group" aria-label="Mood label">
-            {moodPayload.model.mood_labels.map((moodLabel) => (
-              <button
-                key={moodLabel}
-                className={`chart-toggle-button${selectedMoodLabel === moodLabel ? " is-active" : ""}`}
-                onClick={() => onMoodLabelChange(moodLabel)}
-                type="button"
-              >
-                {formatMoodLabel(moodLabel)}
-              </button>
-            ))}
+      {showMoodSelector ? (
+        <aside className="chart-sidebar">
+          <div className="chart-control-card">
+            <p className="chart-control-eyebrow">Mood</p>
+            <div className="chart-toggle-group" role="group" aria-label="Mood label">
+              {moodPayload.model.mood_labels.map((moodLabel) => (
+                <button
+                  key={moodLabel}
+                  className={`chart-toggle-button${selectedMoodLabel === moodLabel ? " is-active" : ""}`}
+                  onClick={() => onMoodLabelChange(moodLabel)}
+                  type="button"
+                >
+                  {formatMoodLabel(moodLabel)}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
-      </aside>
+        </aside>
+      ) : null}
     </div>
   );
 }
