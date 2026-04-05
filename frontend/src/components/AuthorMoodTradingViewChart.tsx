@@ -23,6 +23,7 @@ type AuthorMoodTradingViewChartProps = {
   selectedMoodLabel: string;
   showWatermark: boolean;
   showMoodSelector?: boolean;
+  moodDefinition?: string;
   sentimentMode: SentimentMode;
   smoothingWeightLabel?: string;
   onSentimentModeChange: (mode: SentimentMode) => void;
@@ -101,6 +102,7 @@ export function AuthorMoodTradingViewChart({
   selectedMoodLabel,
   showWatermark,
   showMoodSelector = true,
+  moodDefinition,
   sentimentMode,
   smoothingWeightLabel = "scored post count",
   onSentimentModeChange,
@@ -259,6 +261,12 @@ export function AuthorMoodTradingViewChart({
             lower-coverage weeks carry less influence.
           </p>
         </div>
+        {moodDefinition ? (
+          <div className="chart-control-card">
+            <p className="chart-control-eyebrow">Mood Definition</p>
+            <p className="chart-control-note">{moodDefinition}</p>
+          </div>
+        ) : null}
       </aside>
 
       <div className="chart-stage">

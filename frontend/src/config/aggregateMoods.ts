@@ -35,6 +35,37 @@ export type AggregateMoodDefinition = {
   apiBasePath: string;
 };
 
+const aggregateMoodDescriptions: Record<string, string> = {
+  admiration: "Respect, praise, or appreciation directed toward someone or something.",
+  amusement: "A sense of finding something funny, playful, or entertaining.",
+  anger: "Strong displeasure, hostility, or frustration in response to a perceived wrong.",
+  annoyance: "Mild irritation or frustration, usually lower intensity than anger.",
+  approval: "Agreement, endorsement, or positive evaluation of a person, action, or idea.",
+  caring: "Warm concern, support, or protectiveness toward someone else.",
+  confusion: "Uncertainty or difficulty understanding what is happening or being said.",
+  curiosity: "Interest and desire to learn more or explore further details.",
+  desire: "Wanting or longing for an outcome, object, or experience.",
+  disappointment: "Feeling let down when expectations are not met.",
+  disapproval: "Negative judgment or criticism of behavior, decisions, or ideas.",
+  disgust: "Revulsion or strong aversion toward something considered offensive or unpleasant.",
+  embarrassment: "Self-conscious discomfort from perceived social awkwardness or exposure.",
+  excitement: "High-energy anticipation, enthusiasm, or elevated positive arousal.",
+  fear: "Sense of threat, danger, or concern about potential harm or loss.",
+  gratitude: "Thankfulness and appreciation for help, value, or positive outcomes.",
+  grief: "Deep sorrow linked to loss, absence, or emotional pain.",
+  joy: "Strong happiness, delight, or emotional uplift.",
+  love: "Deep affection, attachment, or emotional closeness.",
+  nervousness: "Tension or anxious unease about uncertainty or upcoming events.",
+  neutral: "No strong emotional signal; informational, factual, or emotionally flat language.",
+  optimism: "Expectation that outcomes will improve or turn out well.",
+  pride: "Positive self-regard from achievement, identity, or valued association.",
+  realization: "Recognition or sudden understanding of something previously unclear.",
+  relief: "Release of stress after danger, uncertainty, or pressure passes.",
+  remorse: "Regret and self-blame over a perceived mistake or harm caused.",
+  sadness: "Low-arousal negative affect linked to loss, hurt, or discouragement.",
+  surprise: "Reaction to something unexpected, without fixed positive or negative direction.",
+};
+
 export const aggregateMoodDefinitions: AggregateMoodDefinition[] = aggregateMoodLabels.map(
   (moodLabel) => ({
     slug: moodLabel.replace(/_/g, "-"),
@@ -61,4 +92,11 @@ export function getAggregateMoodLabel(definition: AggregateMoodDefinition): stri
 
 export function getAggregateMoodTitle(definition: AggregateMoodDefinition): string {
   return `Aggregate ${getAggregateMoodLabel(definition)}`;
+}
+
+export function getAggregateMoodDescription(definition: AggregateMoodDefinition): string {
+  return (
+    aggregateMoodDescriptions[definition.moodLabel] ??
+    "Emotion label from the GoEmotions taxonomy used by the active model."
+  );
 }

@@ -12,6 +12,7 @@ import { AuthorMoodTradingViewChart } from "../components/AuthorMoodTradingViewC
 import { DashboardLoadingState } from "../components/DashboardLoadingState";
 import {
   type AggregateMoodDefinition,
+  getAggregateMoodDescription,
   getAggregateMoodLabel,
 } from "../config/aggregateMoods";
 import { buildMoodDeviationSeries } from "../lib/moods";
@@ -52,6 +53,7 @@ export function AggregateMoodPage({ aggregateMood, showWatermark }: AggregateMoo
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const moodLabel = getAggregateMoodLabel(aggregateMood);
+  const moodDescription = getAggregateMoodDescription(aggregateMood);
 
   useEffect(() => {
     let cancelled = false;
@@ -126,6 +128,7 @@ export function AggregateMoodPage({ aggregateMood, showWatermark }: AggregateMoo
             btcSpotPayload={btcSpotPayload}
             showWatermark={showWatermark}
             selectedMoodLabel={aggregateMood.moodLabel}
+            moodDescription={moodDescription}
             sentimentMode={sentimentMode}
             onSentimentModeChange={setSentimentMode}
           />
@@ -141,6 +144,7 @@ function AggregateMoodChartSection({
   btcSpotPayload,
   showWatermark,
   selectedMoodLabel,
+  moodDescription,
   sentimentMode,
   onSentimentModeChange,
 }: {
@@ -149,6 +153,7 @@ function AggregateMoodChartSection({
   btcSpotPayload: BtcSpotPriceResponse | null;
   showWatermark: boolean;
   selectedMoodLabel: string;
+  moodDescription: string;
   sentimentMode: SentimentMode;
   onSentimentModeChange: (mode: SentimentMode) => void;
 }) {
@@ -230,6 +235,7 @@ function AggregateMoodChartSection({
           moodPayload={moodPayload}
           showWatermark={showWatermark}
           showMoodSelector={false}
+          moodDefinition={moodDescription}
           selectedMoodLabel={selectedMoodLabel}
           onMoodLabelChange={() => {}}
           sentimentMode={sentimentMode}
