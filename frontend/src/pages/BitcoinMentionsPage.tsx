@@ -8,6 +8,7 @@ import {
   BitcoinMentionsHistoryChart,
   type HoverSnapshot,
 } from "../components/BitcoinMentionsHistoryChart";
+import { DashboardLoadingState } from "../components/DashboardLoadingState";
 import {
   type BitcoinMentionsDefinition,
 } from "../config/bitcoinMentions";
@@ -104,6 +105,9 @@ export function BitcoinMentionsPage({
     }
 
     setIsLoading(true);
+    setError(null);
+    setMentionPayload(null);
+    setHoverSnapshot(null);
     void load();
 
     return () => {
@@ -113,10 +117,10 @@ export function BitcoinMentionsPage({
 
   return (
     <section className="content-stack bitcoin-mentions-page">
-      {isLoading ? <p className="status-copy">Loading Bitcoin mentions analysis...</p> : null}
-      {error ? <p className="status-copy">{error}</p> : null}
+      {isLoading ? <DashboardLoadingState /> : null}
+      {!isLoading && error ? <p className="status-copy">{error}</p> : null}
 
-      {mentionPayload ? (
+      {!isLoading && mentionPayload ? (
         <>
           <div className="metric-strip">
             <article className="metric-card">

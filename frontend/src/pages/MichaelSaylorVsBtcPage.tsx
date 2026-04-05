@@ -8,6 +8,7 @@ import {
   type BtcSpotPriceResponse,
   type AuthorSentimentResponse,
 } from "../api/authorOverview";
+import { DashboardLoadingState } from "../components/DashboardLoadingState";
 import { type OverviewDefinition, getOverviewLabel } from "../config/overviews";
 import { MichaelSaylorVsBtcTradingViewChart } from "../components/MichaelSaylorVsBtcTradingViewChart";
 import {
@@ -102,6 +103,10 @@ export function AuthorOverviewPage({
     }
 
     setIsLoading(true);
+    setError(null);
+    setPayload(null);
+    setSentimentPayload(null);
+    setBtcSpotPayload(null);
     void loadView();
 
     return () => {
@@ -112,11 +117,13 @@ export function AuthorOverviewPage({
   return (
     <section className="dashboard-page">
       <article className="panel panel-accent dashboard-workspace">
-        <div className="dashboard-workspace-header">
-          {isLoading ? <p className="status-copy">Loading {overviewLabel} view...</p> : null}
-          {error ? <p className="status-copy">{error}</p> : null}
-        </div>
-        {payload && sentimentPayload ? (
+        {isLoading ? <DashboardLoadingState /> : null}
+        {!isLoading && error ? (
+          <div className="dashboard-workspace-header">
+            <p className="status-copy">{error}</p>
+          </div>
+        ) : null}
+        {!isLoading && payload && sentimentPayload ? (
           <AuthorOverviewChartSection
             overview={overview}
             payload={payload}

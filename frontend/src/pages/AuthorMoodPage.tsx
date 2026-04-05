@@ -9,6 +9,7 @@ import {
   type BtcSpotPriceResponse,
 } from "../api/authorOverview";
 import { AuthorMoodTradingViewChart } from "../components/AuthorMoodTradingViewChart";
+import { DashboardLoadingState } from "../components/DashboardLoadingState";
 import { type MoodDefinition, getMoodLabel } from "../config/moods";
 import { buildMoodDeviationSeries } from "../lib/moods";
 import { type SentimentMode } from "../lib/sentiment";
@@ -97,6 +98,10 @@ export function AuthorMoodPage({ mood, showWatermark }: AuthorMoodPageProps) {
     }
 
     setIsLoading(true);
+    setError(null);
+    setPayload(null);
+    setMoodPayload(null);
+    setBtcSpotPayload(null);
     void loadView();
 
     return () => {
@@ -107,11 +112,13 @@ export function AuthorMoodPage({ mood, showWatermark }: AuthorMoodPageProps) {
   return (
     <section className="dashboard-page">
       <article className="panel panel-accent dashboard-workspace">
-        <div className="dashboard-workspace-header">
-          {isLoading ? <p className="status-copy">Loading {moodLabel} moods...</p> : null}
-          {error ? <p className="status-copy">{error}</p> : null}
-        </div>
-        {payload && moodPayload ? (
+        {isLoading ? <DashboardLoadingState /> : null}
+        {!isLoading && error ? (
+          <div className="dashboard-workspace-header">
+            <p className="status-copy">{error}</p>
+          </div>
+        ) : null}
+        {!isLoading && payload && moodPayload ? (
           <AuthorMoodChartSection
             payload={payload}
             moodPayload={moodPayload}

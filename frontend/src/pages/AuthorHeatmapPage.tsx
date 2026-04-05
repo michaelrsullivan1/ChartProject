@@ -17,6 +17,7 @@ import {
   type AuthorKeywordTopTweetsResponse,
   type AuthorKeywordTrendResponse,
 } from "../api/authorHeatmap";
+import { DashboardLoadingState } from "../components/DashboardLoadingState";
 import { TweetPreviewCard } from "../components/TweetPreviewCard";
 import { type HeatmapDefinition } from "../config/heatmaps";
 import { CHART_WATERMARK_HANDLE } from "../lib/watermark";
@@ -132,6 +133,19 @@ export function AuthorHeatmapPage({
   const layoutRef = useRef<HTMLDivElement | null>(null);
   const heatmapPanelRef = useRef<HTMLElement | null>(null);
   const resizeStateRef = useRef<{ startY: number; startHeight: number } | null>(null);
+  const isPageSwitchLoading = isLoadingHeatmap && payload === null;
+
+  useEffect(() => {
+    setPayload(null);
+    setPinnedPhrases([]);
+    setActivePhrase(null);
+    setTrendPayloads({});
+    setTopTweetsPayload(null);
+    setSelectedMonth(null);
+    setError(null);
+    setTweetError(null);
+    setIsLoadingHeatmap(true);
+  }, [heatmap.apiBasePath]);
 
   useEffect(() => {
     let cancelled = false;
@@ -450,6 +464,13 @@ export function AuthorHeatmapPage({
   return (
     <section className="dashboard-page">
       <article className="panel panel-accent dashboard-workspace heatmap-workspace">
+        {isPageSwitchLoading ? <DashboardLoadingState /> : null}
+        {!isPageSwitchLoading && error ? (
+          <div className="dashboard-workspace-header">
+            <p className="status-copy">{error}</p>
+          </div>
+        ) : null}
+        {!isPageSwitchLoading ? (
         <div
           ref={layoutRef}
           className={`heatmap-layout${isResizingLayout ? " is-resizing" : ""}`}
@@ -592,6 +613,7 @@ export function AuthorHeatmapPage({
             />
           </section>
         </div>
+        ) : null}
       </article>
     </section>
   );

@@ -258,7 +258,11 @@ export default function App() {
         overviews={overviewDefinitions}
         heatmaps={heatmapDefinitions}
       >
-        <AuthorOverviewPage overview={route.overview} showWatermark={showWatermark} />
+        <AuthorOverviewPage
+          key={route.overview.slug}
+          overview={route.overview}
+          showWatermark={showWatermark}
+        />
       </AppShell>
     );
   }
@@ -287,7 +291,7 @@ export default function App() {
         overviews={overviewDefinitions}
         heatmaps={heatmapDefinitions}
       >
-        <AuthorMoodPage mood={route.mood} showWatermark={showWatermark} />
+        <AuthorMoodPage key={route.mood.slug} mood={route.mood} showWatermark={showWatermark} />
       </AppShell>
     );
   }
@@ -316,7 +320,11 @@ export default function App() {
         overviews={overviewDefinitions}
         heatmaps={heatmapDefinitions}
       >
-        <AggregateMoodPage aggregateMood={route.aggregateMood} showWatermark={showWatermark} />
+        <AggregateMoodPage
+          key={route.aggregateMood.slug}
+          aggregateMood={route.aggregateMood}
+          showWatermark={showWatermark}
+        />
       </AppShell>
     );
   }
@@ -345,7 +353,11 @@ export default function App() {
         overviews={overviewDefinitions}
         heatmaps={heatmapDefinitions}
       >
-        <AuthorHeatmapPage heatmap={route.heatmap} showWatermark={showWatermark} />
+        <AuthorHeatmapPage
+          key={route.heatmap.slug}
+          heatmap={route.heatmap}
+          showWatermark={showWatermark}
+        />
       </AppShell>
     );
   }
@@ -375,6 +387,7 @@ export default function App() {
         heatmaps={heatmapDefinitions}
       >
         <BitcoinMentionsPage
+          key={route.bitcoinMentions.slug}
           bitcoinMentions={route.bitcoinMentions}
           showWatermark={showWatermark}
         />

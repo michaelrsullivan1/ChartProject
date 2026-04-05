@@ -9,6 +9,7 @@ import {
   type BtcSpotPriceResponse,
 } from "../api/authorOverview";
 import { AuthorMoodTradingViewChart } from "../components/AuthorMoodTradingViewChart";
+import { DashboardLoadingState } from "../components/DashboardLoadingState";
 import {
   type AggregateMoodDefinition,
   getAggregateMoodLabel,
@@ -98,6 +99,10 @@ export function AggregateMoodPage({ aggregateMood, showWatermark }: AggregateMoo
     }
 
     setIsLoading(true);
+    setError(null);
+    setPayload(null);
+    setMoodPayload(null);
+    setBtcSpotPayload(null);
     void loadView();
 
     return () => {
@@ -108,11 +113,13 @@ export function AggregateMoodPage({ aggregateMood, showWatermark }: AggregateMoo
   return (
     <section className="dashboard-page">
       <article className="panel panel-accent dashboard-workspace">
-        <div className="dashboard-workspace-header">
-          {isLoading ? <p className="status-copy">Loading aggregate {moodLabel}...</p> : null}
-          {error ? <p className="status-copy">{error}</p> : null}
-        </div>
-        {payload && moodPayload ? (
+        {isLoading ? <DashboardLoadingState /> : null}
+        {!isLoading && error ? (
+          <div className="dashboard-workspace-header">
+            <p className="status-copy">{error}</p>
+          </div>
+        ) : null}
+        {!isLoading && payload && moodPayload ? (
           <AggregateMoodChartSection
             payload={payload}
             moodPayload={moodPayload}
