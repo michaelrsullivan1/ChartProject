@@ -1711,13 +1711,13 @@ textarea {
   gap: 20px;
 }
 
-.settings-grid-secondary {
-  align-items: start;
-}
-
 .settings-section {
   display: grid;
   gap: 8px;
+}
+
+.settings-section-full {
+  width: 100%;
 }
 
 .settings-section-header {
@@ -1734,6 +1734,11 @@ textarea {
 .settings-toggle-list {
   display: grid;
   gap: 12px;
+}
+
+.settings-mood-placeholder {
+  display: grid;
+  gap: 16px;
 }
 
 .settings-toggle-card {
@@ -1834,12 +1839,26 @@ textarea {
   padding: 12px 14px;
 }
 
-.settings-feature-list {
-  color: var(--muted);
+.settings-mood-placeholder-panel {
+  display: grid;
+  gap: 10px;
+  padding: 18px 20px;
+  border: 1px dashed rgba(255, 245, 220, 0.14);
+  border-radius: 20px;
+  background: rgba(12, 10, 8, 0.18);
 }
 
-.settings-status-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+.settings-mood-placeholder-title {
+  margin: 0;
+  color: #fff2d0;
+  font-size: 1rem;
+}
+
+.settings-mood-placeholder-copy {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.45;
 }
 
 @media (max-width: 1100px) {
@@ -1878,8 +1897,7 @@ textarea {
     grid-template-rows: auto;
   }
 
-  .settings-grid,
-  .settings-status-grid {
+  .settings-grid {
     grid-template-columns: 1fr;
   }
 }
