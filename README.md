@@ -134,9 +134,27 @@ Stop the local Postgres container:
 docker compose down
 ```
 
+Resume the existing local stack after a normal reboot or shutdown:
+
+```bash
+./scripts/dev.sh
+```
+
+If the container runtime is already healthy, this should reuse the existing Postgres container state and named volume rather than creating a fresh database.
+
 ## Local setup details
 
 The local database is intentionally containerized and defined in [compose.yaml](/Users/michaelsullivan/Code/ChartProject/compose.yaml).
+
+The Postgres service stores its data in the named Docker volume `chartproject_postgres_data`.
+
+Normal restarts such as laptop shutdowns, restarts, or `docker compose up -d postgres` should reuse that existing volume and preserve data.
+
+Treat the following as destructive to the local database contents:
+
+- `./scripts/restore-db.sh`
+- `docker compose down -v`
+- deleting the `chartproject_postgres_data` volume from the container runtime UI or CLI
 
 ### Current backend env file
 
@@ -757,6 +775,15 @@ You only need a fresh backfill if:
 
 Common issues during local data work:
 
+- The frontend health card shows `status=degraded` and `database.status=unavailable`
+  The backend is up, but Postgres is not reachable. If the database was already working before a reboot or shutdown, start by bringing the container runtime back and then rerun:
+
+```bash
+cd /Users/michaelsullivan/Code/ChartProject
+./scripts/dev.sh
+curl http://127.0.0.1:8000/api/health
+```
+
 - `ModuleNotFoundError: No module named 'sqlalchemy'`
   Use the project virtualenv and sync backend deps:
 
@@ -773,6 +800,46 @@ pip install -e backend
 cd /Users/michaelsullivan/Code/ChartProject
 ./scripts/setup-db.sh
 source .venv/bin/activate
+```
+
+- Rancher Desktop on macOS reports `vz driver is running but host agent is not`
+  This can happen after an unclean VM shutdown. Confirm the container daemon is actually healthy first:
+
+```bash
+docker info
+```
+
+If `docker info` fails and Rancher Desktop shows that exact `vz driver is running but host agent is not` message, a common cause is a stale runtime file in the Rancher Desktop Lima instance. The safe first response is:
+
+```bash
+osascript -e 'quit app "Rancher Desktop"' || true
+sleep 2
+
+cd "$HOME/Library/Application Support/rancher-desktop/lima/0"
+mkdir -p "$HOME/Desktop/rancher-lima-backup"
+cp -p vz.pid ha.stderr.log ha.stdout.log lima.yaml ssh.config "$HOME/Desktop/rancher-lima-backup/" 2>/dev/null || true
+
+rm -f vz.pid ha.sock default_ep.sock default_fd.sock
+rm -f "$HOME/.rd/docker.sock"
+
+open -a "Rancher Desktop"
+docker info
+```
+
+That cleanup removes stale runtime markers only. It does not remove the VM disk or the Docker volumes.
+
+- Rancher Desktop stopped working after a QEMU upgrade or Rancher Desktop upgrade
+  Verify the local QEMU binary is new enough for the current Rancher Desktop build:
+
+```bash
+/opt/homebrew/bin/qemu-system-aarch64 --version
+```
+
+If Rancher Desktop complains that QEMU is too old, update it with Homebrew before troubleshooting the project itself:
+
+```bash
+sudo xcodebuild -license accept
+brew upgrade qemu || brew reinstall qemu
 ```
 
 - A first ingest window succeeds for user info but returns `0` tweets
