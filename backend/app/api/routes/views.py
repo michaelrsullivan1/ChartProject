@@ -37,6 +37,7 @@ from app.services.sentiment import DEFAULT_SENTIMENT_MODEL
 
 
 router = APIRouter(prefix="/views")
+AGGREGATE_MOODS_ANALYSIS_START = "2016-01-01T00:00:00Z"
 
 
 def _build_overview_view(
@@ -364,6 +365,7 @@ def aggregate_moods(
         view_name="aggregate-moods",
         granularity=granularity,
         model_key=model_key,
+        analysis_start=AGGREGATE_MOODS_ANALYSIS_START,
     )
 
 
@@ -376,6 +378,7 @@ def aggregate_mood_series(
         view_name="aggregate-moods-mood-series",
         granularity=granularity,
         model_key=model_key,
+        analysis_start=AGGREGATE_MOODS_ANALYSIS_START,
     )
 
 
