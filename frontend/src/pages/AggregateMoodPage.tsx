@@ -47,7 +47,6 @@ export function AggregateMoodPage({ aggregateMood, showWatermark }: AggregateMoo
   const [payload, setPayload] = useState<AuthorOverviewResponse | null>(null);
   const [moodPayload, setMoodPayload] = useState<AuthorMoodResponse | null>(null);
   const [btcSpotPayload, setBtcSpotPayload] = useState<BtcSpotPriceResponse | null>(null);
-  const [isScreenshotMode, setIsScreenshotMode] = useState(false);
   const [sentimentMode, setSentimentMode] = useState<SentimentMode>("weighted-8w");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -120,8 +119,6 @@ export function AggregateMoodPage({ aggregateMood, showWatermark }: AggregateMoo
             btcSpotPayload={btcSpotPayload}
             showWatermark={showWatermark}
             selectedMoodLabel={aggregateMood.moodLabel}
-            isScreenshotMode={isScreenshotMode}
-            onScreenshotModeChange={setIsScreenshotMode}
             sentimentMode={sentimentMode}
             onSentimentModeChange={setSentimentMode}
           />
@@ -137,8 +134,6 @@ function AggregateMoodChartSection({
   btcSpotPayload,
   showWatermark,
   selectedMoodLabel,
-  isScreenshotMode,
-  onScreenshotModeChange,
   sentimentMode,
   onSentimentModeChange,
 }: {
@@ -147,8 +142,6 @@ function AggregateMoodChartSection({
   btcSpotPayload: BtcSpotPriceResponse | null;
   showWatermark: boolean;
   selectedMoodLabel: string;
-  isScreenshotMode: boolean;
-  onScreenshotModeChange: (enabled: boolean) => void;
   sentimentMode: SentimentMode;
   onSentimentModeChange: (mode: SentimentMode) => void;
 }) {
@@ -169,9 +162,7 @@ function AggregateMoodChartSection({
 
   return (
     <>
-      <div
-        className={`metric-strip metric-strip-dashboard${isScreenshotMode ? " is-screenshot-mode" : ""}`}
-      >
+      <div className="metric-strip metric-strip-dashboard">
         <article className="metric-card">
           <p className="metric-label">Tracked users</p>
           <p className="metric-value">{integerFormatter.format(cohortUserCount)}</p>
@@ -234,8 +225,6 @@ function AggregateMoodChartSection({
           showMoodSelector={false}
           selectedMoodLabel={selectedMoodLabel}
           onMoodLabelChange={() => {}}
-          isScreenshotMode={isScreenshotMode}
-          onScreenshotModeChange={onScreenshotModeChange}
           sentimentMode={sentimentMode}
           smoothingWeightLabel="active user count"
           onSentimentModeChange={onSentimentModeChange}

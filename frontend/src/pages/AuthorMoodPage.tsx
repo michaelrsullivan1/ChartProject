@@ -45,7 +45,6 @@ export function AuthorMoodPage({ mood, showWatermark }: AuthorMoodPageProps) {
   const [moodPayload, setMoodPayload] = useState<AuthorMoodResponse | null>(null);
   const [btcSpotPayload, setBtcSpotPayload] = useState<BtcSpotPriceResponse | null>(null);
   const [selectedMoodLabel, setSelectedMoodLabel] = useState<string>("optimism");
-  const [isScreenshotMode, setIsScreenshotMode] = useState(false);
   const [sentimentMode, setSentimentMode] = useState<SentimentMode>("weighted-8w");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -120,8 +119,6 @@ export function AuthorMoodPage({ mood, showWatermark }: AuthorMoodPageProps) {
             showWatermark={showWatermark}
             selectedMoodLabel={selectedMoodLabel}
             onMoodLabelChange={setSelectedMoodLabel}
-            isScreenshotMode={isScreenshotMode}
-            onScreenshotModeChange={setIsScreenshotMode}
             sentimentMode={sentimentMode}
             onSentimentModeChange={setSentimentMode}
           />
@@ -138,8 +135,6 @@ function AuthorMoodChartSection({
   showWatermark,
   selectedMoodLabel,
   onMoodLabelChange,
-  isScreenshotMode,
-  onScreenshotModeChange,
   sentimentMode,
   onSentimentModeChange,
 }: {
@@ -149,8 +144,6 @@ function AuthorMoodChartSection({
   showWatermark: boolean;
   selectedMoodLabel: string;
   onMoodLabelChange: (label: string) => void;
-  isScreenshotMode: boolean;
-  onScreenshotModeChange: (enabled: boolean) => void;
   sentimentMode: SentimentMode;
   onSentimentModeChange: (mode: SentimentMode) => void;
 }) {
@@ -169,9 +162,7 @@ function AuthorMoodChartSection({
 
   return (
     <>
-      <div
-        className={`metric-strip metric-strip-dashboard${isScreenshotMode ? " is-screenshot-mode" : ""}`}
-      >
+      <div className="metric-strip metric-strip-dashboard">
         <article className="metric-card">
           <p className="metric-label">Analyzed posts</p>
           <p className="metric-value">
@@ -228,8 +219,6 @@ function AuthorMoodChartSection({
           showWatermark={showWatermark}
           selectedMoodLabel={selectedMoodLabel}
           onMoodLabelChange={onMoodLabelChange}
-          isScreenshotMode={isScreenshotMode}
-          onScreenshotModeChange={onScreenshotModeChange}
           sentimentMode={sentimentMode}
           onSentimentModeChange={onSentimentModeChange}
         />

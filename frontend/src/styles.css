@@ -193,6 +193,11 @@ textarea {
   box-shadow: 0 20px 48px rgba(0, 0, 0, 0.34);
   backdrop-filter: blur(14px);
   z-index: 20;
+  max-height: min(68vh, calc(100vh - 96px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  -webkit-overflow-scrolling: touch;
 }
 
 .overview-dropdown-menu-dashboard {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 
 import {
   BaselineSeries,
@@ -23,8 +23,6 @@ type AuthorMoodTradingViewChartProps = {
   selectedMoodLabel: string;
   showWatermark: boolean;
   showMoodSelector?: boolean;
-  isScreenshotMode: boolean;
-  onScreenshotModeChange: (enabled: boolean) => void;
   sentimentMode: SentimentMode;
   smoothingWeightLabel?: string;
   onSentimentModeChange: (mode: SentimentMode) => void;
@@ -103,8 +101,6 @@ export function AuthorMoodTradingViewChart({
   selectedMoodLabel,
   showWatermark,
   showMoodSelector = true,
-  isScreenshotMode,
-  onScreenshotModeChange,
   sentimentMode,
   smoothingWeightLabel = "scored post count",
   onSentimentModeChange,
@@ -261,29 +257,6 @@ export function AuthorMoodTradingViewChart({
           <p className="chart-control-note">
             Smoothed modes use trailing weekly averages weighted by {smoothingWeightLabel}, so
             lower-coverage weeks carry less influence.
-          </p>
-        </div>
-
-        <div className="chart-control-card">
-          <p className="chart-control-eyebrow">Screenshot Mode</p>
-          <div className="chart-toggle-group chart-toggle-group-compact" role="group" aria-label="Screenshot mode">
-            <button
-              className={`chart-toggle-button${isScreenshotMode ? "" : " is-active"}`}
-              onClick={() => onScreenshotModeChange(false)}
-              type="button"
-            >
-              Off
-            </button>
-            <button
-              className={`chart-toggle-button${isScreenshotMode ? " is-active" : ""}`}
-              onClick={() => onScreenshotModeChange(true)}
-              type="button"
-            >
-              On
-            </button>
-          </div>
-          <p className="chart-control-note">
-            Narrows the top metrics to the chart capture width so you can crop out the sidebars.
           </p>
         </div>
       </aside>
