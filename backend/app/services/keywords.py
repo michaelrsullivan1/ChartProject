@@ -18,6 +18,7 @@ DEFAULT_KEYWORD_EXTRACTOR_KEY = "exact-ngram"
 DEFAULT_KEYWORD_EXTRACTOR_VERSION = "v1"
 DEFAULT_KEYWORD_TYPE = "exact_ngram"
 DEFAULT_KEYWORD_ANALYSIS_START = "2020-08-01T00:00:00Z"
+MAX_KEYWORD_LENGTH = 255
 URL_PATTERN = re.compile(r"https?://\S+|www\.\S+")
 MENTION_PATTERN = re.compile(r"(?<!\w)@\w+")
 HASHTAG_PATTERN = re.compile(r"#(\w+)")
@@ -299,6 +300,8 @@ def extract_keywords_from_text(text: str | None) -> list[str]:
             phrase = " ".join(parts)
             if not _should_keep_phrase(parts, phrase):
                 continue
+            if len(phrase) > MAX_KEYWORD_LENGTH:
+                continue
             phrases.add(phrase)
     return sorted(phrases)
 
@@ -314,6 +317,8 @@ def _tokenize_text(text: str) -> list[str]:
         token = raw_token.strip("'")
         token = token.lstrip("$#")
         if not token or token.isdigit():
+            continue
+        if len(token) > MAX_KEYWORD_LENGTH:
             continue
         tokens.append(token)
     return tokens
