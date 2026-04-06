@@ -9,9 +9,9 @@ The architecture source of truth is [ProjectPlan.md](/Users/michaelsullivan/Code
 One full local flow is working end-to-end:
 
 - containerized Postgres on Docker Compose
-- Alembic migrations through `0006_add_tweet_mood_scores`
-- FastAPI backend with health, overview, mood, and heatmap view routes
-- React frontend with a Foundation page, shared overview pages, shared mood pages, and shared heatmap pages
+- Alembic migrations through `0007_add_user_cohort_tags`
+- FastAPI backend with health, user settings, overview, mood, aggregate mood, Bitcoin mentions, and heatmap view routes
+- React frontend with a Foundation page, shared overview pages, shared mood pages, shared heatmap pages, and a user settings page for cohort management
 - raw-first X/Twitter ingest archived into Postgres via `raw_ingestion_artifacts`
 - canonical normalization and validation for archived `saylor` tweet history
 - raw BTC/USD FRED ingest plus canonical normalization and validation
@@ -19,6 +19,7 @@ One full local flow is working end-to-end:
 - versioned RoBERTa tweet sentiment scoring stored in Postgres
 - versioned RoBERTa multilabel tweet mood scoring stored in Postgres
 - versioned exact phrase extraction stored in Postgres via `tweet_keywords`
+- managed cohort tags stored in Postgres via `cohort_tags` and `user_cohort_tags`
 - a working chart flow from canonical data to backend payloads to frontend rendering
 - click-through drilldown for the top liked tweet in a selected week
 - click-through drilldown for the top liked phrase-matching tweets in a selected month
@@ -36,6 +37,7 @@ After the stack is running:
 - [http://127.0.0.1:5173/#/bitcoin-mentions](http://127.0.0.1:5173/#/bitcoin-mentions) shows the Bitcoin mentions timing analysis page
 - [http://127.0.0.1:5173/#/heatmaps/michael-saylor](http://127.0.0.1:5173/#/heatmaps/michael-saylor) shows the Michael Saylor phrase heatmap
 - [http://127.0.0.1:5173/#/heatmaps/michael-sullivan](http://127.0.0.1:5173/#/heatmaps/michael-sullivan) shows the Michael Sullivan phrase heatmap
+- [http://127.0.0.1:5173/#/settings/user-settings](http://127.0.0.1:5173/#/settings/user-settings) shows the user settings page for cohort tag management
 
 The Foundation page still runs the backend health check and renders the full JSON response.
 
@@ -64,6 +66,40 @@ The mood pages currently:
 - default to relative-to-baseline mood deviation with the same weighted smoothing modes as the sentiment page
 - expose the full GoEmotions label set currently stored in the database, including `admiration`, `amusement`, `anger`, `annoyance`, `approval`, `caring`, `confusion`, `curiosity`, `desire`, `disappointment`, `disapproval`, `disgust`, `embarrassment`, `excitement`, `fear`, `gratitude`, `grief`, `joy`, `love`, `nervousness`, `neutral`, `optimism`, `pride`, `realization`, `relief`, `remorse`, `sadness`, and `surprise`
 - store absolute per-tweet mood scores in Postgres and compute relative deviation at request time
+
+The aggregate mood pages currently:
+
+- request `/api/views/aggregate-moods?granularity=week` for the shared BTC and activity payload
+- request `/api/views/aggregate-moods/mood-series?granularity=week` for the selected aggregate mood series
+- request `/api/views/aggregate-moods/cohorts` to populate the available cohort filters
+- support a single cohort filter at a time via `cohort_tag=<slug>`
+- default to `All tracked users`, which means every eligible user with scored mood data
+- only show cohort tags on the aggregate page when at least one eligible user is assigned to that tag
+- keep overview metrics and mood-series calculations aligned by applying the same filtered user scope to both endpoints
+
+The user settings page currently:
+
+- lists only users with scored mood data for the active/default mood model
+- lets you create centrally managed cohort tags
+- lets you assign or remove those managed tags per eligible user
+- does not support freeform user labels
+- does not yet support tag rename or tag deletion flows
+
+## Cohort tags
+
+Cohort tags are the mechanism used to filter Aggregate Moods by subsets of users.
+
+Current rules:
+
+- cohort tags are stored as managed records in `cohort_tags`
+- user-to-tag assignments are stored in `user_cohort_tags`
+- tag `name` is the readable UI label such as `Bitcoin Treasury Leadership`
+- tag `slug` is the normalized lowercase identifier used by APIs such as `bitcoin-treasury-leadership`
+- eligibility is based on scored mood data for the active/default mood model
+- `All tracked users` includes every eligible user, whether they have tags or not
+- aggregate mood pages only show tags that currently have at least one eligible assigned user
+- aggregate mood filtering is single-select; there is no multi-tag filtering yet
+- the user settings page shows all managed tags, even if none are currently assigned to eligible users
 
 The Bitcoin mentions page currently:
 
@@ -239,6 +275,8 @@ The main runtime data directories currently kept in the repo are:
 ### Core tables currently in use
 
 - `users`
+- `cohort_tags`
+- `user_cohort_tags`
 - `tweets`
 - `tweet_keywords`
 - `tweet_references`
@@ -292,6 +330,11 @@ The current chart flow uses dedicated overview endpoints:
 /api/views/michael-saylor-moods?granularity=week
 /api/views/michael-saylor-moods/mood-series?granularity=week
 /api/views/michael-saylor-moods/btc-spot
+/api/views/aggregate-moods?granularity=week
+/api/views/aggregate-moods?granularity=week&cohort_tag=bitcoin
+/api/views/aggregate-moods/mood-series?granularity=week
+/api/views/aggregate-moods/mood-series?granularity=week&cohort_tag=bitcoin
+/api/views/aggregate-moods/cohorts
 /api/views/peter-schiff-moods?granularity=week
 /api/views/peter-schiff-moods/mood-series?granularity=week
 /api/views/peter-schiff-moods/btc-spot
@@ -307,6 +350,9 @@ The current chart flow uses dedicated overview endpoints:
 /api/views/michael-sullivan-heatmap?mode=common&word_count=all&granularity=month&limit=48
 /api/views/michael-sullivan-heatmap/phrase-trend?phrase=bitcoin&granularity=month
 /api/views/michael-sullivan-heatmap/top-liked-tweets?phrase=bitcoin&month_start=2026-03-01T00:00:00Z&limit=3
+/api/user-settings/cohort-tags
+/api/user-settings/users
+/api/user-settings/users/<user_id>/cohort-tags
 ```
 
 Current behavior:
@@ -324,12 +370,16 @@ Current behavior:
 - the click drilldown ranks tweets within the selected week by `like_count`
 - mood pages currently reuse the overview BTC payload but replace the lower pane with mood deviation
 - mood deviation is computed against the selected author's own historical baseline
+- aggregate mood pages compute mood deviation against each included user's own historical baseline, then average those deviations in a user-balanced way
+- aggregate mood overview and aggregate mood-series endpoints share the same eligible-user cohort filter so tracked users, scored posts, baselines, and plotted mood series stay consistent
+- aggregate mood cohort filtering currently accepts a single `cohort_tag` slug or no tag for the all-users view
 - the current mood UI is curated to six labels, but the scorer stores every label emitted by the configured model
 - heatmap rows are phrase-level exact `1-3` word matches extracted from canonical tweet text
 - heatmap ranking supports `mode=common` and `mode=rising`
 - heatmap rows are zero-filled for a continuous UTC month timeline
 - phrase trends currently use raw monthly matching-tweet counts
 - the heatmap drilldown ranks matching tweets within the selected month by `like_count`
+- user settings cohort tags are intentionally normalized into dedicated tables rather than stored as freeform text on `users`
 
 Current local BTC coverage begins on `2014-12-01T00:00:00Z` because that is where the FRED `CBBTCUSD` series starts.
 
