@@ -32,3 +32,4 @@ class User(TimestampMixin, Base):
 
     tweets: Mapped[list["Tweet"]] = relationship(back_populates="author")
     ingestion_runs: Mapped[list["IngestionRun"]] = relationship(back_populates="target_user")
+    cohort_tag_links: Mapped[list["UserCohortTag"]] = relationship(back_populates="user")

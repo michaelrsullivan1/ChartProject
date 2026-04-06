@@ -15,8 +15,10 @@ from app.services.author_bitcoin_mentions_view import (
     build_bitcoin_mentions_leaderboard,
 )
 from app.services.aggregate_mood_view import (
+    AggregateMoodCohortsRequest,
     AggregateMoodOverviewRequest,
     AggregateMoodViewRequest,
+    build_aggregate_mood_cohorts,
     build_aggregate_mood_overview,
     build_aggregate_mood_view,
 )
@@ -127,6 +129,7 @@ def _build_aggregate_moods_overview(
     granularity: str,
     model_key: str,
     analysis_start: str | None = None,
+    cohort_tag: str | None = None,
 ) -> dict[str, object]:
     return build_aggregate_mood_overview(
         AggregateMoodOverviewRequest(
@@ -134,6 +137,7 @@ def _build_aggregate_moods_overview(
             model_key=model_key,
             view_name=view_name,
             analysis_start=analysis_start,
+            cohort_tag_slug=cohort_tag,
         )
     )
 
@@ -144,6 +148,7 @@ def _build_aggregate_moods(
     granularity: str,
     model_key: str,
     analysis_start: str | None = None,
+    cohort_tag: str | None = None,
 ) -> dict[str, object]:
     return build_aggregate_mood_view(
         AggregateMoodViewRequest(
@@ -151,6 +156,20 @@ def _build_aggregate_moods(
             model_key=model_key,
             view_name=view_name,
             analysis_start=analysis_start,
+            cohort_tag_slug=cohort_tag,
+        )
+    )
+
+
+def _build_aggregate_moods_cohorts(
+    *,
+    view_name: str,
+    model_key: str,
+) -> dict[str, object]:
+    return build_aggregate_mood_cohorts(
+        AggregateMoodCohortsRequest(
+            model_key=model_key,
+            view_name=view_name,
         )
     )
 
@@ -360,12 +379,14 @@ def peter_schiff_moods_btc_spot() -> dict[str, object]:
 def aggregate_moods(
     granularity: str = Query(default="week", pattern="^(day|week)$"),
     model_key: str = Query(default=DEFAULT_MOOD_MODEL),
+    cohort_tag: str | None = Query(default=None),
 ) -> dict[str, object]:
     return _build_aggregate_moods_overview(
         view_name="aggregate-moods",
         granularity=granularity,
         model_key=model_key,
         analysis_start=AGGREGATE_MOODS_ANALYSIS_START,
+        cohort_tag=cohort_tag,
     )
 
 
@@ -373,18 +394,30 @@ def aggregate_moods(
 def aggregate_mood_series(
     granularity: str = Query(default="week", pattern="^(day|week)$"),
     model_key: str = Query(default=DEFAULT_MOOD_MODEL),
+    cohort_tag: str | None = Query(default=None),
 ) -> dict[str, object]:
     return _build_aggregate_moods(
         view_name="aggregate-moods-mood-series",
         granularity=granularity,
         model_key=model_key,
         analysis_start=AGGREGATE_MOODS_ANALYSIS_START,
+        cohort_tag=cohort_tag,
     )
 
 
 @router.get("/aggregate-moods/btc-spot")
 def aggregate_moods_btc_spot() -> dict[str, object]:
     return _build_btc_spot_price()
+
+
+@router.get("/aggregate-moods/cohorts")
+def aggregate_mood_cohorts(
+    model_key: str = Query(default=DEFAULT_MOOD_MODEL),
+) -> dict[str, object]:
+    return _build_aggregate_moods_cohorts(
+        view_name="aggregate-moods-cohorts",
+        model_key=model_key,
+    )
 
 
 @router.get("/michael-saylor-heatmap")

@@ -3,14 +3,16 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.db.session import SessionLocal
+from app.models.cohort_tag import CohortTag
 from app.models.market_price_point import MarketPricePoint
 from app.models.tweet import Tweet
 from app.models.tweet_mood_score import TweetMoodScore
 from app.models.user import User
+from app.models.user_cohort_tag import UserCohortTag
 from app.services.author_sentiment_view import _parse_utc_datetime
 from app.services.market_data import floor_to_day, floor_to_week
 from app.services.moods import DEFAULT_MOOD_MODEL, DEFAULT_VISIBLE_MOOD_LABELS
@@ -22,6 +24,7 @@ class AggregateMoodOverviewRequest:
     model_key: str = DEFAULT_MOOD_MODEL
     view_name: str = "aggregate-moods"
     analysis_start: str | None = None
+    cohort_tag_slug: str | None = None
 
 
 @dataclass(slots=True)
@@ -31,6 +34,13 @@ class AggregateMoodViewRequest:
     mood_labels: tuple[str, ...] = DEFAULT_VISIBLE_MOOD_LABELS
     view_name: str = "aggregate-mood-series"
     analysis_start: str | None = None
+    cohort_tag_slug: str | None = None
+
+
+@dataclass(slots=True)
+class AggregateMoodCohortsRequest:
+    model_key: str = DEFAULT_MOOD_MODEL
+    view_name: str = "aggregate-moods-cohorts"
 
 
 def build_aggregate_mood_overview(
@@ -47,11 +57,18 @@ def build_aggregate_mood_overview(
 
     session = session_factory()
     try:
+        cohort_user_ids, cohort_usernames, cohort_selection = _resolve_aggregate_cohort_user_scope(
+            session,
+            model_key=request.model_key,
+            cohort_tag_slug=request.cohort_tag_slug,
+        )
         scored_tweet_ids = (
             select(TweetMoodScore.tweet_id)
+            .join(Tweet, Tweet.id == TweetMoodScore.tweet_id)
             .where(
                 TweetMoodScore.model_key == request.model_key,
                 TweetMoodScore.status == "scored",
+                Tweet.author_user_id.in_(cohort_user_ids),
             )
             .group_by(TweetMoodScore.tweet_id)
             .subquery()
@@ -75,15 +92,6 @@ def build_aggregate_mood_overview(
             raise RuntimeError(
                 f"No scored tweet mood rows found for aggregate view and model_key={request.model_key!r}."
             )
-
-        cohort_rows = session.execute(
-            select(User.username, User.display_name)
-            .join(Tweet, Tweet.author_user_id == User.id)
-            .where(Tweet.id.in_(select(scored_tweet_ids.c.tweet_id)))
-            .group_by(User.id, User.username, User.display_name)
-            .order_by(User.username.asc())
-        ).all()
-        cohort_usernames = [username for username, _display_name in cohort_rows]
 
         bucket_fn = floor_to_week if granularity == "week" else floor_to_day
         series_start = bucket_fn(analysis_start) if analysis_start is not None else None
@@ -126,6 +134,7 @@ def build_aggregate_mood_overview(
             "cohort": {
                 "user_count": len(cohort_usernames),
                 "usernames": cohort_usernames,
+                "selection": cohort_selection,
             },
             "tweet_granularity": granularity,
             "btc_granularity": "day",
@@ -162,6 +171,11 @@ def build_aggregate_mood_view(
 
     session = session_factory()
     try:
+        cohort_user_ids, cohort_usernames, cohort_selection = _resolve_aggregate_cohort_user_scope(
+            session,
+            model_key=request.model_key,
+            cohort_tag_slug=request.cohort_tag_slug,
+        )
         mood_query = (
             select(
                 Tweet.author_user_id,
@@ -175,6 +189,7 @@ def build_aggregate_mood_view(
                 TweetMoodScore.model_key == request.model_key,
                 TweetMoodScore.status == "scored",
                 TweetMoodScore.mood_label.in_(mood_labels),
+                Tweet.author_user_id.in_(cohort_user_ids),
             )
             .order_by(
                 Tweet.created_at_platform.asc(),
@@ -191,13 +206,6 @@ def build_aggregate_mood_view(
             raise RuntimeError(
                 f"No scored tweet mood rows found for aggregate view and model_key={request.model_key!r}."
             )
-
-        cohort_rows = session.execute(
-            select(User.id, User.username, User.display_name)
-            .where(User.id.in_({int(row.author_user_id) for row in rows}))
-            .order_by(User.username.asc())
-        ).all()
-        cohort_usernames = [username for _user_id, username, _display_name in cohort_rows]
 
         bucket_fn = floor_to_week if granularity == "week" else floor_to_day
         step = timedelta(days=7 if granularity == "week" else 1)
@@ -330,6 +338,7 @@ def build_aggregate_mood_view(
             "cohort": {
                 "user_count": len(cohort_usernames),
                 "usernames": cohort_usernames,
+                "selection": cohort_selection,
             },
             "model": {
                 "model_key": request.model_key,
@@ -349,6 +358,76 @@ def build_aggregate_mood_view(
                 "moods": summary_moods,
             },
             "mood_series": mood_series,
+        }
+    finally:
+        session.close()
+
+
+def build_aggregate_mood_cohorts(
+    request: AggregateMoodCohortsRequest,
+    *,
+    session_factory: sessionmaker[Session] = SessionLocal,
+) -> dict[str, object]:
+    session = session_factory()
+    try:
+        eligible_user_ids = _load_aggregate_eligible_user_ids(session, model_key=request.model_key)
+        if not eligible_user_ids:
+            return {
+                "view": request.view_name,
+                "model": {"model_key": request.model_key},
+                "cohorts": [],
+            }
+
+        rows = session.execute(
+            select(
+                CohortTag.slug,
+                CohortTag.name,
+                User.username,
+                User.id,
+            )
+            .join(UserCohortTag, UserCohortTag.cohort_tag_id == CohortTag.id)
+            .join(User, User.id == UserCohortTag.user_id)
+            .where(User.id.in_(eligible_user_ids))
+            .order_by(
+                func.lower(CohortTag.name).asc(),
+                func.lower(User.username).asc(),
+            )
+        ).all()
+
+        cohorts_by_slug: dict[str, dict[str, object]] = {}
+        for slug, name, username, user_id in rows:
+            cohort = cohorts_by_slug.setdefault(
+                slug,
+                {
+                    "tag_slug": slug,
+                    "tag_name": name,
+                    "usernames": [],
+                    "user_ids": set(),
+                },
+            )
+            if int(user_id) not in cohort["user_ids"]:
+                cohort["user_ids"].add(int(user_id))
+                cohort["usernames"].append(username)
+
+        cohorts = [
+            {
+                "tag_slug": cohort["tag_slug"],
+                "tag_name": cohort["tag_name"],
+                "user_count": len(cohort["user_ids"]),
+                "usernames": cohort["usernames"],
+            }
+            for cohort in cohorts_by_slug.values()
+        ]
+
+        return {
+            "view": request.view_name,
+            "model": {"model_key": request.model_key},
+            "cohorts": cohorts,
+            "default_selection": {
+                "type": "all",
+                "tag_slug": None,
+                "tag_name": "All tracked users",
+            },
         }
     finally:
         session.close()
@@ -424,3 +503,94 @@ def _build_market_series(
         }
         for observed_at, price in rows
     ]
+
+
+def _resolve_aggregate_cohort_user_scope(
+    session: Session,
+    *,
+    model_key: str,
+    cohort_tag_slug: str | None,
+) -> tuple[set[int], list[str], dict[str, object]]:
+    eligible_rows = session.execute(
+        select(User.id, User.username)
+        .join(Tweet, Tweet.author_user_id == User.id)
+        .join(TweetMoodScore, TweetMoodScore.tweet_id == Tweet.id)
+        .where(
+            TweetMoodScore.model_key == model_key,
+            TweetMoodScore.status == "scored",
+        )
+        .group_by(User.id, User.username)
+        .order_by(func.lower(User.username).asc())
+    ).all()
+    if not eligible_rows:
+        raise RuntimeError(
+            f"No users with scored mood rows are available for aggregate view and model_key={model_key!r}."
+        )
+
+    eligible_user_ids = {int(user_id) for user_id, _username in eligible_rows}
+    eligible_usernames = [username for _user_id, username in eligible_rows]
+    if cohort_tag_slug is None:
+        return (
+            eligible_user_ids,
+            eligible_usernames,
+            {
+                "type": "all",
+                "tag_slug": None,
+                "tag_name": "All tracked users",
+            },
+        )
+
+    normalized_slug = cohort_tag_slug.strip().lower()
+    if not normalized_slug:
+        return (
+            eligible_user_ids,
+            eligible_usernames,
+            {
+                "type": "all",
+                "tag_slug": None,
+                "tag_name": "All tracked users",
+            },
+        )
+
+    cohort_tag = session.scalar(select(CohortTag).where(CohortTag.slug == normalized_slug))
+    if cohort_tag is None:
+        raise RuntimeError(f"Unknown aggregate cohort tag slug={normalized_slug!r}.")
+
+    filtered_rows = session.execute(
+        select(User.id, User.username)
+        .join(UserCohortTag, UserCohortTag.user_id == User.id)
+        .where(
+            UserCohortTag.cohort_tag_id == cohort_tag.id,
+            User.id.in_(eligible_user_ids),
+        )
+        .order_by(func.lower(User.username).asc())
+    ).all()
+    filtered_user_ids = {int(user_id) for user_id, _username in filtered_rows}
+    filtered_usernames = [username for _user_id, username in filtered_rows]
+    if not filtered_user_ids:
+        raise RuntimeError(
+            f"No eligible users are assigned to aggregate cohort tag slug={normalized_slug!r}."
+        )
+
+    return (
+        filtered_user_ids,
+        filtered_usernames,
+        {
+            "type": "tag",
+            "tag_slug": cohort_tag.slug,
+            "tag_name": cohort_tag.name,
+        },
+    )
+
+
+def _load_aggregate_eligible_user_ids(session: Session, *, model_key: str) -> set[int]:
+    rows = session.execute(
+        select(Tweet.author_user_id)
+        .join(TweetMoodScore, TweetMoodScore.tweet_id == Tweet.id)
+        .where(
+            TweetMoodScore.model_key == model_key,
+            TweetMoodScore.status == "scored",
+        )
+        .group_by(Tweet.author_user_id)
+    ).all()
+    return {int(row.author_user_id) for row in rows}

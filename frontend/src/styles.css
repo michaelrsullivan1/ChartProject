@@ -639,6 +639,10 @@ textarea {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.chart-toggle-group-vertical {
+  grid-template-columns: 1fr;
+}
+
 .chart-toggle-button {
   border: 1px solid rgba(255, 245, 220, 0.12);
   border-radius: 999px;
@@ -1904,6 +1908,178 @@ textarea {
   line-height: 1.45;
 }
 
+.user-settings-tag-create {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+}
+
+.user-settings-tag-input {
+  width: 100%;
+  border: 1px solid rgba(255, 245, 220, 0.14);
+  border-radius: 14px;
+  background: rgba(12, 10, 8, 0.5);
+  color: #fff2d0;
+  padding: 12px 14px;
+}
+
+.user-settings-tag-button {
+  border: 1px solid rgba(255, 245, 220, 0.16);
+  border-radius: 14px;
+  background: rgba(20, 16, 12, 0.52);
+  color: var(--muted);
+  cursor: pointer;
+  padding: 10px 14px;
+  transition:
+    border-color 120ms ease,
+    background 120ms ease,
+    color 120ms ease,
+    transform 120ms ease;
+}
+
+.user-settings-tag-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.68;
+}
+
+.user-settings-tag-button:not(:disabled):hover {
+  border-color: rgba(255, 178, 64, 0.42);
+  color: #ffe7bf;
+  transform: translateY(-1px);
+}
+
+.user-settings-tag-list {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.user-settings-tag-chip {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 245, 220, 0.1);
+  border-radius: 14px;
+  background: rgba(12, 10, 8, 0.3);
+}
+
+.user-settings-tag-chip strong,
+.user-settings-tag-chip p {
+  display: block;
+}
+
+.user-settings-tag-chip strong {
+  color: #fff2d0;
+  font-size: 0.92rem;
+}
+
+.user-settings-tag-chip p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.user-settings-user-list {
+  display: grid;
+  gap: 12px;
+}
+
+.user-settings-user-card {
+  padding: 14px;
+  border: 1px solid rgba(255, 245, 220, 0.1);
+  border-radius: 16px;
+  background: rgba(12, 10, 8, 0.26);
+}
+
+.user-settings-user-header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.user-settings-user-name,
+.user-settings-user-handle {
+  margin: 0;
+}
+
+.user-settings-user-name {
+  color: #fff2d0;
+  font-size: 0.94rem;
+  font-weight: 600;
+}
+
+.user-settings-user-handle {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.user-settings-user-tags {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.user-settings-user-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(122, 240, 182, 0.35);
+  background: rgba(122, 240, 182, 0.12);
+  color: #dfffe7;
+  font-size: 0.76rem;
+}
+
+.user-settings-user-tag.is-muted {
+  border-color: rgba(255, 245, 220, 0.16);
+  background: rgba(12, 10, 8, 0.26);
+  color: var(--muted);
+}
+
+.user-settings-assignment-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.user-settings-assignment-button {
+  border: 1px solid rgba(255, 245, 220, 0.12);
+  border-radius: 999px;
+  background: rgba(12, 10, 8, 0.5);
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.82rem;
+  padding: 8px 10px;
+  transition:
+    border-color 120ms ease,
+    background 120ms ease,
+    color 120ms ease,
+    transform 120ms ease;
+}
+
+.user-settings-assignment-button:hover {
+  border-color: rgba(255, 178, 64, 0.32);
+  color: #fff2d0;
+  transform: translateY(-1px);
+}
+
+.user-settings-assignment-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.66;
+  transform: none;
+}
+
+.user-settings-assignment-button.is-active {
+  border-color: rgba(122, 240, 182, 0.42);
+  background: rgba(122, 240, 182, 0.12);
+  color: #dfffe7;
+}
+
 @media (max-width: 1100px) {
   .heatmap-toolbar {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1942,6 +2118,11 @@ textarea {
 
   .settings-grid {
     grid-template-columns: 1fr;
+  }
+
+  .user-settings-user-header {
+    flex-direction: column;
+    align-items: stretch;
   }
 }
 
@@ -1987,6 +2168,10 @@ textarea {
   .settings-section-header {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .user-settings-tag-create {
+    grid-template-columns: 1fr;
   }
 
   .hero-nav-row .page-nav {

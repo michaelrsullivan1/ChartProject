@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 
 import {
+  fetchAggregateMoodCohorts,
   fetchAuthorMoods,
   fetchAuthorOverview,
   fetchBtcSpotPrice,
+  type AggregateMoodCohortsResponse,
   type AuthorMoodResponse,
   type AuthorOverviewResponse,
   type BtcSpotPriceResponse,
@@ -13,7 +15,6 @@ import { DashboardLoadingState } from "../components/DashboardLoadingState";
 import {
   type AggregateMoodDefinition,
   getAggregateMoodDescription,
-  getAggregateMoodLabel,
 } from "../config/aggregateMoods";
 import { buildMoodDeviationSeries } from "../lib/moods";
 import { type SentimentMode } from "../lib/sentiment";
@@ -49,10 +50,11 @@ export function AggregateMoodPage({ aggregateMood, showWatermark }: AggregateMoo
   const [payload, setPayload] = useState<AuthorOverviewResponse | null>(null);
   const [moodPayload, setMoodPayload] = useState<AuthorMoodResponse | null>(null);
   const [btcSpotPayload, setBtcSpotPayload] = useState<BtcSpotPriceResponse | null>(null);
+  const [cohortPayload, setCohortPayload] = useState<AggregateMoodCohortsResponse | null>(null);
+  const [selectedCohortTagSlug, setSelectedCohortTagSlug] = useState<string | null>(null);
   const [sentimentMode, setSentimentMode] = useState<SentimentMode>("weighted-8w");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const moodLabel = getAggregateMoodLabel(aggregateMood);
   const moodDescription = getAggregateMoodDescription(aggregateMood);
 
   useEffect(() => {
@@ -60,10 +62,19 @@ export function AggregateMoodPage({ aggregateMood, showWatermark }: AggregateMoo
 
     async function loadView() {
       try {
+        const cohortResponse = await fetchAggregateMoodCohorts(aggregateMood.apiBasePath);
+        const selectedCohortExists = selectedCohortTagSlug
+          ? cohortResponse.cohorts.some((cohort) => cohort.tag_slug === selectedCohortTagSlug)
+          : false;
+        const effectiveCohortTagSlug = selectedCohortExists ? selectedCohortTagSlug : null;
         const [requiredResponses, btcSpotResult] = await Promise.all([
           Promise.all([
-            fetchAuthorOverview(aggregateMood.apiBasePath, "week"),
-            fetchAuthorMoods(aggregateMood.apiBasePath, "week"),
+            fetchAuthorOverview(aggregateMood.apiBasePath, "week", undefined, {
+              cohortTagSlug: effectiveCohortTagSlug,
+            }),
+            fetchAuthorMoods(aggregateMood.apiBasePath, "week", undefined, {
+              cohortTagSlug: effectiveCohortTagSlug,
+            }),
           ]),
           fetchBtcSpotPrice(aggregateMood.apiBasePath)
             .then((response) => ({ ok: true as const, response }))
@@ -75,6 +86,10 @@ export function AggregateMoodPage({ aggregateMood, showWatermark }: AggregateMoo
           setPayload(response);
           setMoodPayload(moodResponse);
           setBtcSpotPayload(btcSpotResult.ok ? btcSpotResult.response : null);
+          setCohortPayload(cohortResponse);
+          if (selectedCohortTagSlug !== effectiveCohortTagSlug) {
+            setSelectedCohortTagSlug(effectiveCohortTagSlug);
+          }
           setError(null);
         }
 
@@ -91,6 +106,7 @@ export function AggregateMoodPage({ aggregateMood, showWatermark }: AggregateMoo
           setPayload(null);
           setMoodPayload(null);
           setBtcSpotPayload(null);
+          setCohortPayload(null);
           setError(loadError instanceof Error ? loadError.message : "Unknown mood fetch failure");
         }
       } finally {
@@ -105,12 +121,13 @@ export function AggregateMoodPage({ aggregateMood, showWatermark }: AggregateMoo
     setPayload(null);
     setMoodPayload(null);
     setBtcSpotPayload(null);
+    setCohortPayload(null);
     void loadView();
 
     return () => {
       cancelled = true;
     };
-  }, [aggregateMood]);
+  }, [aggregateMood, selectedCohortTagSlug]);
 
   return (
     <section className="dashboard-page">
@@ -131,6 +148,9 @@ export function AggregateMoodPage({ aggregateMood, showWatermark }: AggregateMoo
             moodDescription={moodDescription}
             sentimentMode={sentimentMode}
             onSentimentModeChange={setSentimentMode}
+            cohorts={cohortPayload?.cohorts ?? []}
+            selectedCohortTagSlug={selectedCohortTagSlug}
+            onCohortTagSlugChange={setSelectedCohortTagSlug}
           />
         ) : null}
       </article>
@@ -147,6 +167,9 @@ function AggregateMoodChartSection({
   moodDescription,
   sentimentMode,
   onSentimentModeChange,
+  cohorts,
+  selectedCohortTagSlug,
+  onCohortTagSlugChange,
 }: {
   payload: AuthorOverviewResponse;
   moodPayload: AuthorMoodResponse;
@@ -156,6 +179,9 @@ function AggregateMoodChartSection({
   moodDescription: string;
   sentimentMode: SentimentMode;
   onSentimentModeChange: (mode: SentimentMode) => void;
+  cohorts: AggregateMoodCohortsResponse["cohorts"];
+  selectedCohortTagSlug: string | null;
+  onCohortTagSlugChange: (value: string | null) => void;
 }) {
   const latestBtcPoint = payload.btc_series[payload.btc_series.length - 1];
   const latestBtcDailyClose = latestBtcPoint?.price_usd ?? 0;
@@ -171,6 +197,11 @@ function AggregateMoodChartSection({
   const selectedMoodSummary = moodPayload.summary.moods[selectedMoodLabel];
   const cohortUserCount =
     moodPayload.summary.cohort_user_count ?? moodPayload.cohort?.user_count ?? 0;
+  const cohortSelection = moodPayload.cohort?.selection ?? payload.cohort?.selection;
+  const selectedCohortName =
+    cohortSelection?.type === "tag"
+      ? (cohortSelection.tag_name ?? formatMoodLabel(cohortSelection.tag_slug ?? ""))
+      : "All tracked users";
 
   return (
     <>
@@ -178,7 +209,7 @@ function AggregateMoodChartSection({
         <article className="metric-card">
           <p className="metric-label">Tracked users</p>
           <p className="metric-value">{integerFormatter.format(cohortUserCount)}</p>
-          <p className="metric-note">Accounts with stored mood scores</p>
+          <p className="metric-note">{selectedCohortName}</p>
         </article>
         <article className="metric-card">
           <p className="metric-label">Analyzed posts</p>
@@ -241,6 +272,42 @@ function AggregateMoodChartSection({
           sentimentMode={sentimentMode}
           smoothingWeightLabel="active user count"
           onSentimentModeChange={onSentimentModeChange}
+          rightSidebarContent={
+            <>
+              <div className="chart-control-card">
+                <p className="chart-control-eyebrow">User Cohorts</p>
+                <div className="chart-toggle-group chart-toggle-group-vertical" role="group">
+                  <button
+                    className={`chart-toggle-button${selectedCohortTagSlug === null ? " is-active" : ""}`}
+                    onClick={() => onCohortTagSlugChange(null)}
+                    type="button"
+                  >
+                    All tracked users
+                  </button>
+                  {cohorts.map((cohort) => (
+                    <button
+                      key={cohort.tag_slug}
+                      className={`chart-toggle-button${selectedCohortTagSlug === cohort.tag_slug ? " is-active" : ""}`}
+                      onClick={() => onCohortTagSlugChange(cohort.tag_slug)}
+                      type="button"
+                    >
+                      {cohort.tag_name}
+                    </button>
+                  ))}
+                </div>
+                <p className="chart-control-note">
+                  Showing {integerFormatter.format(cohortUserCount)} tracked users in {selectedCohortName}.
+                </p>
+              </div>
+              <div className="chart-control-card">
+                <p className="chart-control-eyebrow">Cohort Coverage</p>
+                <p className="chart-control-note">
+                  Cohort filters only include users with scored mood data, so aggregates stay aligned
+                  with the plotted mood series.
+                </p>
+              </div>
+            </>
+          }
         />
       </div>
 

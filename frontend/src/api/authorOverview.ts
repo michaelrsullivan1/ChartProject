@@ -8,6 +8,11 @@ export type AuthorOverviewResponse = {
   cohort?: {
     user_count: number;
     usernames: string[];
+    selection?: {
+      type: "all" | "tag";
+      tag_slug: string | null;
+      tag_name: string | null;
+    };
   };
   tweet_granularity: string;
   btc_granularity: string;
@@ -105,6 +110,11 @@ export type AuthorMoodResponse = {
   cohort?: {
     user_count: number;
     usernames: string[];
+    selection?: {
+      type: "all" | "tag";
+      tag_slug: string | null;
+      tag_name: string | null;
+    };
   };
   model: {
     model_key: string;
@@ -153,12 +163,41 @@ export type BtcSpotPriceResponse = {
   source_name: string;
 };
 
+export type AggregateMoodCohortsResponse = {
+  view: string;
+  model: {
+    model_key: string;
+  };
+  cohorts: Array<{
+    tag_slug: string;
+    tag_name: string;
+    user_count: number;
+    usernames: string[];
+  }>;
+  default_selection?: {
+    type: "all";
+    tag_slug: null;
+    tag_name: string;
+  };
+};
+
+type AggregateMoodFilterOptions = {
+  cohortTagSlug?: string | null;
+};
+
 export async function fetchAuthorOverview(
   endpointPath: string,
   granularity: "day" | "week" = "week",
   signal?: AbortSignal,
+  options?: AggregateMoodFilterOptions,
 ): Promise<AuthorOverviewResponse> {
-  const response = await fetch(`${endpointPath}?granularity=${granularity}`, { signal });
+  const query = new URLSearchParams({ granularity });
+  const cohortTagSlug = options?.cohortTagSlug?.trim();
+  if (cohortTagSlug) {
+    query.set("cohort_tag", cohortTagSlug);
+  }
+
+  const response = await fetch(`${endpointPath}?${query.toString()}`, { signal });
 
   if (!response.ok) {
     throw new Error(`Overview request failed with status ${response.status}`);
@@ -187,8 +226,15 @@ export async function fetchAuthorMoods(
   endpointPath: string,
   granularity: "day" | "week" = "week",
   signal?: AbortSignal,
+  options?: AggregateMoodFilterOptions,
 ): Promise<AuthorMoodResponse> {
-  const response = await fetch(`${endpointPath}/mood-series?granularity=${granularity}`, {
+  const query = new URLSearchParams({ granularity });
+  const cohortTagSlug = options?.cohortTagSlug?.trim();
+  if (cohortTagSlug) {
+    query.set("cohort_tag", cohortTagSlug);
+  }
+
+  const response = await fetch(`${endpointPath}/mood-series?${query.toString()}`, {
     signal,
   });
 
@@ -227,4 +273,17 @@ export async function fetchBtcSpotPrice(
   }
 
   return (await response.json()) as BtcSpotPriceResponse;
+}
+
+export async function fetchAggregateMoodCohorts(
+  endpointPath: string,
+  signal?: AbortSignal,
+): Promise<AggregateMoodCohortsResponse> {
+  const response = await fetch(`${endpointPath}/cohorts`, { signal });
+
+  if (!response.ok) {
+    throw new Error(`Aggregate cohort request failed with status ${response.status}`);
+  }
+
+  return (await response.json()) as AggregateMoodCohortsResponse;
 }

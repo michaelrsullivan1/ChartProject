@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { type ReactNode, useEffect, useMemo, useRef } from "react";
 
 import {
   BaselineSeries,
@@ -24,6 +24,7 @@ type AuthorMoodTradingViewChartProps = {
   showWatermark: boolean;
   showMoodSelector?: boolean;
   moodDefinition?: string;
+  rightSidebarContent?: ReactNode;
   sentimentMode: SentimentMode;
   smoothingWeightLabel?: string;
   onSentimentModeChange: (mode: SentimentMode) => void;
@@ -103,6 +104,7 @@ export function AuthorMoodTradingViewChart({
   showWatermark,
   showMoodSelector = true,
   moodDefinition,
+  rightSidebarContent,
   sentimentMode,
   smoothingWeightLabel = "scored post count",
   onSentimentModeChange,
@@ -278,23 +280,27 @@ export function AuthorMoodTradingViewChart({
         <div className="tradingview-chart" ref={containerRef} />
       </div>
 
-      {showMoodSelector ? (
+      {showMoodSelector || rightSidebarContent ? (
         <aside className="chart-sidebar">
-          <div className="chart-control-card">
-            <p className="chart-control-eyebrow">Mood</p>
-            <div className="chart-toggle-group" role="group" aria-label="Mood label">
-              {moodPayload.model.mood_labels.map((moodLabel) => (
-                <button
-                  key={moodLabel}
-                  className={`chart-toggle-button${selectedMoodLabel === moodLabel ? " is-active" : ""}`}
-                  onClick={() => onMoodLabelChange(moodLabel)}
-                  type="button"
-                >
-                  {formatMoodLabel(moodLabel)}
-                </button>
-              ))}
+          {showMoodSelector ? (
+            <div className="chart-control-card">
+              <p className="chart-control-eyebrow">Mood</p>
+              <div className="chart-toggle-group" role="group" aria-label="Mood label">
+                {moodPayload.model.mood_labels.map((moodLabel) => (
+                  <button
+                    key={moodLabel}
+                    className={`chart-toggle-button${selectedMoodLabel === moodLabel ? " is-active" : ""}`}
+                    onClick={() => onMoodLabelChange(moodLabel)}
+                    type="button"
+                  >
+                    {formatMoodLabel(moodLabel)}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          ) : (
+            rightSidebarContent
+          )}
         </aside>
       ) : null}
     </div>
