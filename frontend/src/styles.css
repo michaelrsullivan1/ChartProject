@@ -179,6 +179,10 @@ textarea {
   position: relative;
 }
 
+.settings-dropdown {
+  z-index: 60;
+}
+
 .overview-dropdown-menu {
   position: absolute;
   top: calc(100% + 8px);
@@ -203,6 +207,10 @@ textarea {
 .overview-dropdown-menu-dashboard {
   left: auto;
   right: 0;
+}
+
+.settings-dropdown-menu {
+  z-index: 61;
 }
 
 .overview-dropdown-item {

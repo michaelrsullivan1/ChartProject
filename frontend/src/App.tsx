@@ -45,6 +45,7 @@ import { BitcoinMentionsPage } from "./pages/BitcoinMentionsPage";
 import { AuthorOverviewPage } from "./pages/MichaelSaylorVsBtcPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { UserSettingsPage } from "./pages/UserSettingsPage";
 import {
   ANONYMIZE_USERS_STORAGE_KEY,
   CHART_WATERMARK_STORAGE_KEY,
@@ -58,7 +59,7 @@ type AppRoute =
   | { kind: "mood"; mood: MoodDefinition }
   | { kind: "overview"; overview: OverviewDefinition }
   | { kind: "heatmap"; heatmap: HeatmapDefinition }
-  | { kind: "settings" }
+  | { kind: "settings"; section: "global" | "user" }
   | { kind: "not-found" };
 
 function getRouteFromHash(hash: string): AppRoute {
@@ -107,7 +108,15 @@ function getRouteFromHash(hash: string): AppRoute {
   }
 
   if (hash === "#/settings") {
-    return { kind: "settings" };
+    return { kind: "settings", section: "global" };
+  }
+
+  if (hash === "#/settings/global-settings") {
+    return { kind: "settings", section: "global" };
+  }
+
+  if (hash === "#/settings/user-settings") {
+    return { kind: "settings", section: "user" };
   }
 
   return { kind: "not-found" };
@@ -202,8 +211,12 @@ export default function App() {
     window.location.hash = getHeatmapHash(slug);
   }
 
-  function navigateSettings() {
-    window.location.hash = "#/settings";
+  function navigateGlobalSettings() {
+    window.location.hash = "#/settings/global-settings";
+  }
+
+  function navigateUserSettings() {
+    window.location.hash = "#/settings/user-settings";
   }
 
   if (route.kind === "home") {
@@ -215,6 +228,7 @@ export default function App() {
         activeMoodSlug={null}
         activeOverviewSlug={null}
         activeHeatmapSlug={null}
+        activeSettingsSection={null}
         aggregateMoods={aggregateMoodDefinitions}
         bitcoinMentions={bitcoinMentionsDefinitions}
         moods={moodDefinitions}
@@ -224,8 +238,8 @@ export default function App() {
         onNavigateMood={navigateMood}
         onNavigateOverview={navigateOverview}
         onNavigateHeatmap={navigateHeatmap}
-        onNavigateSettings={navigateSettings}
-        isSettingsActive={false}
+        onNavigateGlobalSettings={navigateGlobalSettings}
+        onNavigateUserSettings={navigateUserSettings}
         overviews={overviewDefinitions}
         heatmaps={heatmapDefinitions}
       >
@@ -244,6 +258,7 @@ export default function App() {
         activeMoodSlug={null}
         activeOverviewSlug={route.overview.slug}
         activeHeatmapSlug={null}
+        activeSettingsSection={null}
         aggregateMoods={aggregateMoodDefinitions}
         bitcoinMentions={bitcoinMentionsDefinitions}
         moods={moodDefinitions}
@@ -253,8 +268,8 @@ export default function App() {
         onNavigateMood={navigateMood}
         onNavigateOverview={navigateOverview}
         onNavigateHeatmap={navigateHeatmap}
-        onNavigateSettings={navigateSettings}
-        isSettingsActive={false}
+        onNavigateGlobalSettings={navigateGlobalSettings}
+        onNavigateUserSettings={navigateUserSettings}
         overviews={overviewDefinitions}
         heatmaps={heatmapDefinitions}
       >
@@ -277,6 +292,7 @@ export default function App() {
         activeMoodSlug={route.mood.slug}
         activeOverviewSlug={null}
         activeHeatmapSlug={null}
+        activeSettingsSection={null}
         aggregateMoods={aggregateMoodDefinitions}
         bitcoinMentions={bitcoinMentionsDefinitions}
         moods={moodDefinitions}
@@ -286,8 +302,8 @@ export default function App() {
         onNavigateMood={navigateMood}
         onNavigateOverview={navigateOverview}
         onNavigateHeatmap={navigateHeatmap}
-        onNavigateSettings={navigateSettings}
-        isSettingsActive={false}
+        onNavigateGlobalSettings={navigateGlobalSettings}
+        onNavigateUserSettings={navigateUserSettings}
         overviews={overviewDefinitions}
         heatmaps={heatmapDefinitions}
       >
@@ -306,6 +322,7 @@ export default function App() {
         activeMoodSlug={null}
         activeOverviewSlug={null}
         activeHeatmapSlug={null}
+        activeSettingsSection={null}
         aggregateMoods={aggregateMoodDefinitions}
         bitcoinMentions={bitcoinMentionsDefinitions}
         moods={moodDefinitions}
@@ -315,8 +332,8 @@ export default function App() {
         onNavigateMood={navigateMood}
         onNavigateOverview={navigateOverview}
         onNavigateHeatmap={navigateHeatmap}
-        onNavigateSettings={navigateSettings}
-        isSettingsActive={false}
+        onNavigateGlobalSettings={navigateGlobalSettings}
+        onNavigateUserSettings={navigateUserSettings}
         overviews={overviewDefinitions}
         heatmaps={heatmapDefinitions}
       >
@@ -339,6 +356,7 @@ export default function App() {
         activeMoodSlug={null}
         activeOverviewSlug={null}
         activeHeatmapSlug={route.heatmap.slug}
+        activeSettingsSection={null}
         aggregateMoods={aggregateMoodDefinitions}
         bitcoinMentions={bitcoinMentionsDefinitions}
         moods={moodDefinitions}
@@ -348,8 +366,8 @@ export default function App() {
         onNavigateMood={navigateMood}
         onNavigateOverview={navigateOverview}
         onNavigateHeatmap={navigateHeatmap}
-        onNavigateSettings={navigateSettings}
-        isSettingsActive={false}
+        onNavigateGlobalSettings={navigateGlobalSettings}
+        onNavigateUserSettings={navigateUserSettings}
         overviews={overviewDefinitions}
         heatmaps={heatmapDefinitions}
       >
@@ -372,6 +390,7 @@ export default function App() {
         activeMoodSlug={null}
         activeOverviewSlug={null}
         activeHeatmapSlug={null}
+        activeSettingsSection={null}
         aggregateMoods={aggregateMoodDefinitions}
         bitcoinMentions={bitcoinMentionsDefinitions}
         moods={moodDefinitions}
@@ -381,8 +400,8 @@ export default function App() {
         onNavigateMood={navigateMood}
         onNavigateOverview={navigateOverview}
         onNavigateHeatmap={navigateHeatmap}
-        onNavigateSettings={navigateSettings}
-        isSettingsActive={false}
+        onNavigateGlobalSettings={navigateGlobalSettings}
+        onNavigateUserSettings={navigateUserSettings}
         overviews={overviewDefinitions}
         heatmaps={heatmapDefinitions}
       >
@@ -399,12 +418,13 @@ export default function App() {
     return (
       <AppShell
         mode="dashboard"
-        dashboardTitle="Settings"
+        dashboardTitle={route.section === "global" ? "Global Settings" : "User Settings"}
         activeBitcoinMentionsSlug={null}
         activeAggregateMoodSlug={null}
         activeMoodSlug={null}
         activeOverviewSlug={null}
         activeHeatmapSlug={null}
+        activeSettingsSection={route.section}
         aggregateMoods={aggregateMoodDefinitions}
         bitcoinMentions={bitcoinMentionsDefinitions}
         moods={moodDefinitions}
@@ -414,17 +434,21 @@ export default function App() {
         onNavigateMood={navigateMood}
         onNavigateOverview={navigateOverview}
         onNavigateHeatmap={navigateHeatmap}
-        onNavigateSettings={navigateSettings}
-        isSettingsActive
+        onNavigateGlobalSettings={navigateGlobalSettings}
+        onNavigateUserSettings={navigateUserSettings}
         overviews={overviewDefinitions}
         heatmaps={heatmapDefinitions}
       >
-        <SettingsPage
-          showWatermark={showWatermark}
-          onShowWatermarkChange={setShowWatermark}
-          anonymizeUsers={anonymizeUsers}
-          onAnonymizeUsersChange={setAnonymizeUsers}
-        />
+        {route.section === "global" ? (
+          <SettingsPage
+            showWatermark={showWatermark}
+            onShowWatermarkChange={setShowWatermark}
+            anonymizeUsers={anonymizeUsers}
+            onAnonymizeUsersChange={setAnonymizeUsers}
+          />
+        ) : (
+          <UserSettingsPage />
+        )}
       </AppShell>
     );
   }
@@ -438,6 +462,7 @@ export default function App() {
       activeMoodSlug={null}
       activeOverviewSlug={null}
       activeHeatmapSlug={null}
+      activeSettingsSection={null}
       aggregateMoods={aggregateMoodDefinitions}
       bitcoinMentions={bitcoinMentionsDefinitions}
       moods={moodDefinitions}
@@ -447,8 +472,8 @@ export default function App() {
       onNavigateMood={navigateMood}
       onNavigateOverview={navigateOverview}
       onNavigateHeatmap={navigateHeatmap}
-      onNavigateSettings={navigateSettings}
-      isSettingsActive={false}
+      onNavigateGlobalSettings={navigateGlobalSettings}
+      onNavigateUserSettings={navigateUserSettings}
       overviews={overviewDefinitions}
       heatmaps={heatmapDefinitions}
     >

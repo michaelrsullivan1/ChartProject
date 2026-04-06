@@ -29,6 +29,7 @@ type AppShellProps = {
   activeMoodSlug: string | null;
   activeOverviewSlug: string | null;
   activeHeatmapSlug: string | null;
+  activeSettingsSection: "global" | "user" | null;
   aggregateMoods: AggregateMoodDefinition[];
   bitcoinMentions: BitcoinMentionsDefinition[];
   moods: MoodDefinition[];
@@ -40,8 +41,8 @@ type AppShellProps = {
   onNavigateMood: (slug: string) => void;
   onNavigateOverview: (slug: string) => void;
   onNavigateHeatmap: (slug: string) => void;
-  onNavigateSettings: () => void;
-  isSettingsActive: boolean;
+  onNavigateGlobalSettings: () => void;
+  onNavigateUserSettings: () => void;
   children: ReactNode;
 };
 
@@ -53,6 +54,7 @@ export function AppShell({
   activeMoodSlug,
   activeOverviewSlug,
   activeHeatmapSlug,
+  activeSettingsSection,
   aggregateMoods,
   bitcoinMentions,
   moods,
@@ -64,14 +66,14 @@ export function AppShell({
   onNavigateMood,
   onNavigateOverview,
   onNavigateHeatmap,
-  onNavigateSettings,
-  isSettingsActive,
+  onNavigateGlobalSettings,
+  onNavigateUserSettings,
   children,
 }: AppShellProps) {
   const [openMenu, setOpenMenu] = useState<
-    "aggregate-moods" | "bitcoin-mentions" | "moods" | "overviews" | "heatmaps" | null
+    "aggregate-moods" | "bitcoin-mentions" | "moods" | "overviews" | "heatmaps" | "settings" | null
   >(null);
-  const navRef = useRef<HTMLElement | null>(null);
+  const navRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     setOpenMenu(null);
@@ -81,6 +83,7 @@ export function AppShell({
     activeHeatmapSlug,
     activeMoodSlug,
     activeOverviewSlug,
+    activeSettingsSection,
     mode,
   ]);
 
@@ -96,6 +99,16 @@ export function AppShell({
       window.removeEventListener("pointerdown", handlePointerDown);
     };
   }, []);
+
+  function navigateToGlobalSettings() {
+    setOpenMenu(null);
+    onNavigateGlobalSettings();
+  }
+
+  function navigateToUserSettings() {
+    setOpenMenu(null);
+    onNavigateUserSettings();
+  }
 
   function renderNavigation(isDashboardNav: boolean) {
     return (
@@ -261,6 +274,46 @@ export function AppShell({
     );
   }
 
+  function renderSettingsMenu() {
+    return (
+      <div className="overview-dropdown settings-dropdown">
+        <button
+          aria-expanded={openMenu === "settings"}
+          aria-label="Open settings"
+          className={`page-nav-link page-nav-icon-link${activeSettingsSection !== null ? " is-active" : ""}`}
+          onClick={() => setOpenMenu((current) => (current === "settings" ? null : "settings"))}
+          type="button"
+        >
+          <SettingsIcon />
+        </button>
+        {openMenu === "settings" ? (
+          <div
+            className="overview-dropdown-menu overview-dropdown-menu-dashboard settings-dropdown-menu"
+            onPointerDown={(event) => event.stopPropagation()}
+            role="menu"
+          >
+            <button
+              className={`overview-dropdown-item${activeSettingsSection === "global" ? " is-active" : ""}`}
+              onClick={navigateToGlobalSettings}
+              role="menuitem"
+              type="button"
+            >
+              Global Settings
+            </button>
+            <button
+              className={`overview-dropdown-item${activeSettingsSection === "user" ? " is-active" : ""}`}
+              onClick={navigateToUserSettings}
+              role="menuitem"
+              type="button"
+            >
+              User Settings
+            </button>
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
   if (mode === "dashboard") {
     return (
       <div className="app-dashboard-shell">
@@ -269,18 +322,11 @@ export function AppShell({
             <span className="dashboard-topbar-kicker">Sentiment And Mood Analysis</span>
             <span className="dashboard-topbar-title">{dashboardTitle ?? "Overview"}</span>
           </div>
-          <div className="topbar-actions">
-            <nav className="dashboard-nav" aria-label="Primary" ref={navRef}>
+          <div className="topbar-actions" ref={navRef}>
+            <nav className="dashboard-nav" aria-label="Primary">
               {renderNavigation(true)}
             </nav>
-            <button
-              aria-label="Open settings"
-              className={`page-nav-link page-nav-icon-link${isSettingsActive ? " is-active" : ""}`}
-              onClick={onNavigateSettings}
-              type="button"
-            >
-              <SettingsIcon />
-            </button>
+            {renderSettingsMenu()}
           </div>
         </header>
         <main className="dashboard-main">{children}</main>
@@ -297,18 +343,11 @@ export function AppShell({
           Backend ingestion and archival come first. The frontend stays lean
           until the data layer is trustworthy.
         </p>
-        <div className="hero-nav-row">
-          <nav className="page-nav" aria-label="Primary" ref={navRef}>
+        <div className="hero-nav-row" ref={navRef}>
+          <nav className="page-nav" aria-label="Primary">
             {renderNavigation(false)}
           </nav>
-          <button
-            aria-label="Open settings"
-            className={`page-nav-link page-nav-icon-link${isSettingsActive ? " is-active" : ""}`}
-            onClick={onNavigateSettings}
-            type="button"
-          >
-            <SettingsIcon />
-          </button>
+          {renderSettingsMenu()}
         </div>
       </header>
       <main>{children}</main>
