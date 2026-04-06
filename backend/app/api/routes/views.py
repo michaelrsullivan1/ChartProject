@@ -456,7 +456,7 @@ def walker_america_overview(
         username="WalkerAmerica",
         view_name="walker-america-overview",
         granularity=granularity,
-        analysis_start="2013-01-01T00:00:00Z",
+        analysis_start="2020-01-01T00:00:00Z",
     )
 
 
@@ -481,7 +481,7 @@ def walker_america_overview_sentiment(
         view_name="walker-america-overview-sentiment",
         granularity=granularity,
         model_key=model_key,
-        analysis_start="2013-01-01T00:00:00Z",
+        analysis_start="2020-01-01T00:00:00Z",
     )
 
 
@@ -498,7 +498,7 @@ def walker_america_moods(
         username="WalkerAmerica",
         view_name="walker-america-moods",
         granularity=granularity,
-        analysis_start="2013-01-01T00:00:00Z",
+        analysis_start="2020-01-01T00:00:00Z",
     )
 
 
@@ -512,7 +512,7 @@ def walker_america_mood_series(
         view_name="walker-america-mood-series",
         granularity=granularity,
         model_key=model_key,
-        analysis_start="2013-01-01T00:00:00Z",
+        analysis_start="2020-01-01T00:00:00Z",
     )
 
 
