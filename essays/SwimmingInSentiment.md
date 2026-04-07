@@ -1,84 +1,3 @@
-
-We're all swimming in a sea of sentiment.
-
-Every decision we make, every independent thought we have, every investment decision is influenced by the world we exist in.
-
-I've learned this lesson myself as many of us do... through pain.
-
-We may have regret for these decisions... but this is just the way that the world functions. It's not our own blindness or stupidity (though I certainly have some of that) attracts our attention, but a function of the sentiment that exists in the world.
-
-The more time that's passed the less I blame myself for this. If anything I've come to realize that I had to go through this painful cycle in order to prevent making these mistakes in the future.
-
-Did I buy BTC at the top? Of course, but I learned and kept stacking at the bottom.
-
-Did I buy MSTR under $20. 
-
-Yes... but I also bought it over $450.
-
-Was I thinking rationally?
-
-No.
-
-And I actually now have the data to prove it.
-
-(show my exuberance around MSTR peaking)
-
-I'd been deeply embedded into the MSTR community at this point, I was writing about it and paying attention to it since before the first episodes of True North... but I was also completely and totally wrapped up in the thrill of it.
-
-I was blind to the fact that I was blind.
-
-In the same way that the fish doesn't understand that it's actually swimming in water... I did not understand that I was swimming in a sea of sentiment.
-
-As independantly thinking and early as I thought I was, I didn't recognize the exuberance all around me and I made some poorly timed financial decisions.
-
-(post a poorly timed bullish post or option buy)
-
-Don't get me wrong.
-
-I don't consider myself a trader (and if I am I'm an atrocious one).
-
-I'm still as long term bullish on Bitcoin and the Bitcoin treasury space as I've ever been... this remains completely and totally unchanged. 
-
-But what I did do during this time was learn from my own pain.
-
-This is why I've been obsessively interested in sentiment recently.... both my own and the world around me. 
-
-I love language.
-
-And there's a lot of info that can be derived from the language we use.
-
-Am I acting more confident or euphoric then normal?
-
-Are the people in the Bitcoin space all similarly euphoric?
-
-Well perhaps that is NOT the time to buy a leveraged bitcoin investiment vehicle... might be a better time to just keep on a weekly DCA or buy something like STRC.
-
-The more I've investigated this data the more I've come to understand the mistakes I've made in the past and thing things I can do to prevent them in the future.
-
-Is there some magical market sentiment data that's ever going to magically allow me to buy every bottom and sell every top? Absolutely fucking not.
-
-But I'm certain that it can help me to better recognize and prevent the dumb decisions in the future.
-
-And that's the whole goal isn't it?
-
-Simply having a more accurate worldview and making better decisions over time.
-
-
-( i'm thinking about having a few more charts here. I have stuff like Peter Schiff's optimism levels and putting a couple of these in here too. )
-
-
-
--------
-
-
-Absolutely. Here’s a clean, copy-pasteable outline with no extra fluff.
-
-
----
-
-SENTIMENT ARTICLE OUTLINE
-
-
 We're all swimming in a sea of sentiment.
 
 We like to think of ourselves as independent thinkers, but we're not. 
@@ -112,7 +31,6 @@ Then (comically) when the price of Bitcoin "crashed" down to $92k and MSTR was f
 I couldn't have been much more wrong about the public sentiment data at the time. 
 
 Let's look at December 29th specifically.
-
 
 What we are looking at here is the exact same "excitement" data compared to the MSTR and BTC price... with one minor difference.
 
@@ -166,8 +84,6 @@ If you remember the shape of the chart, you'll note that it almost perfectly map
 (chart-6-options-activity)
 
 
-----
-
 In my defense, I write to learn.
 
 Heck. That's exactly what I'm doing right now. Distilling all that I've been (obsessively/autistically) learning about sentiment and sharing it with you so we can both learn from it.
@@ -179,8 +95,6 @@ People wanted to read my writing about options... not because I was brilliant, b
 I was a symptom of my environment.
 
 As much as I like to think of myself as an independent thinker (which I frankly often am, hell, I wrote a novel because I often have novel ideas to share with the world) I was still completely subjected to the waves of the ocean (market) and pulled out into the riptide.
-
-------
 
 But this isn't a bad thing.
 
