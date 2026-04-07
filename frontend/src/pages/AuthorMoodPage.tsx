@@ -8,7 +8,10 @@ import {
   type AuthorOverviewResponse,
   type BtcSpotPriceResponse,
 } from "../api/authorOverview";
-import { AuthorMoodTradingViewChart } from "../components/AuthorMoodTradingViewChart";
+import {
+  AuthorMoodTradingViewChart,
+  type PriceMode,
+} from "../components/AuthorMoodTradingViewChart";
 import { DashboardLoadingState } from "../components/DashboardLoadingState";
 import { getMoodDescriptionByLabel } from "../config/aggregateMoods";
 import { type MoodDefinition, getMoodLabel } from "../config/moods";
@@ -47,6 +50,7 @@ export function AuthorMoodPage({ mood, showWatermark }: AuthorMoodPageProps) {
   const [moodPayload, setMoodPayload] = useState<AuthorMoodResponse | null>(null);
   const [btcSpotPayload, setBtcSpotPayload] = useState<BtcSpotPriceResponse | null>(null);
   const [selectedMoodLabel, setSelectedMoodLabel] = useState<string>("optimism");
+  const [priceMode, setPriceMode] = useState<PriceMode>("btc");
   const [sentimentMode, setSentimentMode] = useState<SentimentMode>("weighted-8w");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -127,6 +131,8 @@ export function AuthorMoodPage({ mood, showWatermark }: AuthorMoodPageProps) {
             showWatermark={showWatermark}
             selectedMoodLabel={selectedMoodLabel}
             onMoodLabelChange={setSelectedMoodLabel}
+            priceMode={priceMode}
+            onPriceModeChange={setPriceMode}
             sentimentMode={sentimentMode}
             onSentimentModeChange={setSentimentMode}
           />
@@ -143,6 +149,8 @@ function AuthorMoodChartSection({
   showWatermark,
   selectedMoodLabel,
   onMoodLabelChange,
+  priceMode,
+  onPriceModeChange,
   sentimentMode,
   onSentimentModeChange,
 }: {
@@ -152,6 +160,8 @@ function AuthorMoodChartSection({
   showWatermark: boolean;
   selectedMoodLabel: string;
   onMoodLabelChange: (label: string) => void;
+  priceMode: PriceMode;
+  onPriceModeChange: (mode: PriceMode) => void;
   sentimentMode: SentimentMode;
   onSentimentModeChange: (mode: SentimentMode) => void;
 }) {
@@ -229,6 +239,8 @@ function AuthorMoodChartSection({
           moodDefinition={moodDescription}
           selectedMoodLabel={selectedMoodLabel}
           onMoodLabelChange={onMoodLabelChange}
+          priceMode={priceMode}
+          onPriceModeChange={onPriceModeChange}
           sentimentMode={sentimentMode}
           onSentimentModeChange={onSentimentModeChange}
         />
@@ -236,10 +248,18 @@ function AuthorMoodChartSection({
 
       <div className="chart-caption-row chart-caption-row-dashboard">
         <div className="chart-legend" aria-label="Chart legend">
-          <span className="chart-legend-item">
-            <span className="chart-swatch chart-swatch-btc" />
-            BTC/USD line
-          </span>
+          {priceMode !== "mstr" ? (
+            <span className="chart-legend-item">
+              <span className="chart-swatch chart-swatch-btc" />
+              BTC/USD line
+            </span>
+          ) : null}
+          {priceMode !== "btc" ? (
+            <span className="chart-legend-item">
+              <span className="chart-swatch chart-swatch-mstr" />
+              MSTR line
+            </span>
+          ) : null}
           <span className="chart-legend-item">
             <span className="chart-swatch chart-swatch-sentiment" />
             {formatMoodLabel(selectedMoodLabel)} deviation

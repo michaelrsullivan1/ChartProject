@@ -10,7 +10,10 @@ import {
   type AuthorOverviewResponse,
   type BtcSpotPriceResponse,
 } from "../api/authorOverview";
-import { AuthorMoodTradingViewChart } from "../components/AuthorMoodTradingViewChart";
+import {
+  AuthorMoodTradingViewChart,
+  type PriceMode,
+} from "../components/AuthorMoodTradingViewChart";
 import { DashboardLoadingState } from "../components/DashboardLoadingState";
 import {
   type AggregateMoodDefinition,
@@ -52,6 +55,7 @@ export function AggregateMoodPage({ aggregateMood, showWatermark }: AggregateMoo
   const [btcSpotPayload, setBtcSpotPayload] = useState<BtcSpotPriceResponse | null>(null);
   const [cohortPayload, setCohortPayload] = useState<AggregateMoodCohortsResponse | null>(null);
   const [selectedCohortTagSlug, setSelectedCohortTagSlug] = useState<string | null>(null);
+  const [priceMode, setPriceMode] = useState<PriceMode>("btc");
   const [sentimentMode, setSentimentMode] = useState<SentimentMode>("weighted-8w");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -146,6 +150,8 @@ export function AggregateMoodPage({ aggregateMood, showWatermark }: AggregateMoo
             showWatermark={showWatermark}
             selectedMoodLabel={aggregateMood.moodLabel}
             moodDescription={moodDescription}
+            priceMode={priceMode}
+            onPriceModeChange={setPriceMode}
             sentimentMode={sentimentMode}
             onSentimentModeChange={setSentimentMode}
             cohorts={cohortPayload?.cohorts ?? []}
@@ -165,6 +171,8 @@ function AggregateMoodChartSection({
   showWatermark,
   selectedMoodLabel,
   moodDescription,
+  priceMode,
+  onPriceModeChange,
   sentimentMode,
   onSentimentModeChange,
   cohorts,
@@ -177,6 +185,8 @@ function AggregateMoodChartSection({
   showWatermark: boolean;
   selectedMoodLabel: string;
   moodDescription: string;
+  priceMode: PriceMode;
+  onPriceModeChange: (mode: PriceMode) => void;
   sentimentMode: SentimentMode;
   onSentimentModeChange: (mode: SentimentMode) => void;
   cohorts: AggregateMoodCohortsResponse["cohorts"];
@@ -269,6 +279,8 @@ function AggregateMoodChartSection({
           moodDefinition={moodDescription}
           selectedMoodLabel={selectedMoodLabel}
           onMoodLabelChange={() => {}}
+          priceMode={priceMode}
+          onPriceModeChange={onPriceModeChange}
           sentimentMode={sentimentMode}
           smoothingWeightLabel="active user count"
           onSentimentModeChange={onSentimentModeChange}
@@ -313,10 +325,18 @@ function AggregateMoodChartSection({
 
       <div className="chart-caption-row chart-caption-row-dashboard">
         <div className="chart-legend" aria-label="Chart legend">
-          <span className="chart-legend-item">
-            <span className="chart-swatch chart-swatch-btc" />
-            BTC/USD line
-          </span>
+          {priceMode !== "mstr" ? (
+            <span className="chart-legend-item">
+              <span className="chart-swatch chart-swatch-btc" />
+              BTC/USD line
+            </span>
+          ) : null}
+          {priceMode !== "btc" ? (
+            <span className="chart-legend-item">
+              <span className="chart-swatch chart-swatch-mstr" />
+              MSTR line
+            </span>
+          ) : null}
           <span className="chart-legend-item">
             <span className="chart-swatch chart-swatch-sentiment" />
             Aggregate {formatMoodLabel(selectedMoodLabel)} deviation

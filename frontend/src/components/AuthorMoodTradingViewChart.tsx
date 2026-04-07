@@ -21,16 +21,19 @@ type AuthorMoodTradingViewChartProps = {
   payload: AuthorOverviewResponse;
   moodPayload: AuthorMoodResponse;
   selectedMoodLabel: string;
+  priceMode: PriceMode;
   showWatermark: boolean;
   showMoodSelector?: boolean;
   moodDefinition?: string;
   rightSidebarContent?: ReactNode;
   sentimentMode: SentimentMode;
   smoothingWeightLabel?: string;
+  onPriceModeChange: (mode: PriceMode) => void;
   onSentimentModeChange: (mode: SentimentMode) => void;
   onMoodLabelChange: (label: string) => void;
 };
 
+export type PriceMode = "btc" | "mstr" | "both";
 type MoodSeriesPoint = BaselineData<Time> | WhitespaceData<Time>;
 
 const chartOptions = {
@@ -101,17 +104,20 @@ export function AuthorMoodTradingViewChart({
   payload,
   moodPayload,
   selectedMoodLabel,
+  priceMode,
   showWatermark,
   showMoodSelector = true,
   moodDefinition,
   rightSidebarContent,
   sentimentMode,
   smoothingWeightLabel = "scored post count",
+  onPriceModeChange,
   onSentimentModeChange,
   onMoodLabelChange,
 }: AuthorMoodTradingViewChartProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const btcSeriesData = useMemo(() => buildBtcSeries(payload), [payload]);
+  const mstrSeriesData = useMemo(() => buildMstrSeries(payload), [payload]);
   const moodSeriesData = useMemo<MoodSeriesPoint[]>(
     () =>
       buildMoodDeviationSeries(moodPayload, selectedMoodLabel, sentimentMode).map((point) => {
@@ -142,6 +148,14 @@ export function AuthorMoodTradingViewChart({
       ...chartOptions,
       width: container.clientWidth,
       height: container.clientHeight,
+      leftPriceScale: {
+        visible: priceMode === "mstr" || priceMode === "both",
+        borderVisible: false,
+      },
+      rightPriceScale: {
+        visible: priceMode === "btc" || priceMode === "both",
+        borderVisible: false,
+      },
     });
 
     const btcSeries = chart.addSeries(LineSeries, {
@@ -194,11 +208,43 @@ export function AuthorMoodTradingViewChart({
       1,
     );
 
+    const mstrSeries = chart.addSeries(LineSeries, {
+      title: "",
+      color: "#ff6c8b",
+      lineWidth: 2,
+      crosshairMarkerVisible: true,
+      crosshairMarkerRadius: 5,
+      crosshairMarkerBorderWidth: 2,
+      crosshairMarkerBorderColor: "#ff6c8b",
+      crosshairMarkerBackgroundColor: "#17130f",
+      lastValueVisible: false,
+      priceLineVisible: false,
+      priceLineColor: "#ff6c8b",
+      priceFormat: {
+        type: "price",
+        precision: 2,
+        minMove: 0.01,
+      },
+      priceScaleId: "left",
+    });
+
     chart.priceScale("right", 0).applyOptions({
       scaleMargins: {
         top: 0.12,
         bottom: 0.08,
       },
+    });
+    chart.priceScale("left", 0).applyOptions({
+      visible: priceMode === "mstr" || priceMode === "both",
+      borderVisible: false,
+      scaleMargins: {
+        top: 0.12,
+        bottom: 0.08,
+      },
+    });
+    chart.priceScale("right", 0).applyOptions({
+      visible: priceMode === "btc" || priceMode === "both",
+      borderVisible: false,
     });
 
     chart.priceScale("right", 1).applyOptions({
@@ -208,7 +254,8 @@ export function AuthorMoodTradingViewChart({
       },
     });
 
-    btcSeries.setData(btcSeriesData);
+    btcSeries.setData(priceMode === "mstr" ? [] : btcSeriesData);
+    mstrSeries.setData(priceMode === "btc" ? [] : mstrSeriesData);
     moodSeries.setData(moodSeriesData);
 
     const panes = chart.panes();
@@ -232,11 +279,33 @@ export function AuthorMoodTradingViewChart({
       resizeObserver.disconnect();
       chart.remove();
     };
-  }, [btcSeriesData, moodSeriesData, moodRange]);
+  }, [btcSeriesData, moodSeriesData, moodRange, mstrSeriesData, priceMode]);
 
   return (
     <div className="tradingview-chart-shell">
       <aside className="chart-sidebar chart-sidebar-left">
+        <div className="chart-control-card">
+          <p className="chart-control-eyebrow">Top Pane</p>
+          <div className="chart-toggle-group chart-toggle-group-compact" role="group" aria-label="Top pane asset">
+            {(
+              [
+                ["btc", "BTC"],
+                ["mstr", "MSTR"],
+                ["both", "Both"],
+              ] as const
+            ).map(([mode, label]) => (
+              <button
+                key={mode}
+                className={`chart-toggle-button${priceMode === mode ? " is-active" : ""}`}
+                onClick={() => onPriceModeChange(mode)}
+                type="button"
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="chart-control-card">
           <p className="chart-control-eyebrow">Mood Mode</p>
           <div className="chart-toggle-group" role="group" aria-label="Mood smoothing mode">
@@ -309,6 +378,13 @@ export function AuthorMoodTradingViewChart({
 
 function buildBtcSeries(payload: AuthorOverviewResponse): LineData<Time>[] {
   return payload.btc_series.map((point) => ({
+    time: toBusinessDay(point.timestamp),
+    value: point.price_usd,
+  }));
+}
+
+function buildMstrSeries(payload: AuthorOverviewResponse): LineData<Time>[] {
+  return payload.mstr_series.map((point) => ({
     time: toBusinessDay(point.timestamp),
     value: point.price_usd,
   }));
