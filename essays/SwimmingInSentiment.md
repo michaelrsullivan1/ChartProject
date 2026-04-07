@@ -1,20 +1,28 @@
 We're all swimming in a sea of sentiment.
 
-We like to think of ourselves as independent thinkers, but we're not. 
+You like to think of yourself as an independent thinker, but you're not. 
 
-In many ways we make predictable poor decisions.
+Humans predictably make poor decisions.
 
-I know this deeply because I did it.
+I know this deeply because I've done it repeatedly.
 
-How did I first come to Bitcoin? By buying the top.
+How did I first come to Bitcoin? By buying the top in 2021.
 
-I'm quite proud of myself for buying MSTR at $17 in 2022... but you know what else I'm less proud of? 
+I'm quite proud of myself for buying MSTR at $17 in 2022... but you know what else I did? 
 
-Buying MSTR over $450.
+Bought MSTR over $450.
 
-So let's delve into some data so you can see just how heavily impacted I was by the euphoric sentiment surrounding me.
+Honestly kind of impressive.
 
-I ran every single one of my tweets through sentiment analysis and looked for language indictive of "excitement". I've then mapped this against my baseline tweet and plotted it against the MSTR price. Guess what? You can quite clearly see that these levels were I was using the most enthusiastic language were specifically around these tops. 
+And what's more... it's quite predictable, I just didn't know it yet.
+
+Let's delve into some data and see just how heavily impacted I was by the euphoric sentiment surrounding me.
+
+I ran every single one of my tweets through sentiment analysis and looked for language indictive of "excitement". I've then mapped this against my baseline tweet and plotted it against the MSTR price. 
+
+Guess what? 
+
+You can quite clearly see that these levels were I was using the most enthusiastic language were specifically around these tops. 
 
 You can literally see how much the market influence my own personal mood.
 
@@ -154,6 +162,7 @@ I'm not a trader, I'm not looking to time tops and I'm sure as hell stacking dur
 
 We can't escape from sentiment, but we can get better at recognizing when we are inside of it.
 
-I'm going to learn from my mistakes.
 
-And if I do it right, I might be able to share a few lessons I learn along the way.
+-----
+
+another options one if needed: https://x.com/SullyMichaelvan/status/1882164875440615713
