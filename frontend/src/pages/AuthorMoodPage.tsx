@@ -10,6 +10,7 @@ import {
 } from "../api/authorOverview";
 import {
   AuthorMoodTradingViewChart,
+  type MoodVisualMode,
   type PriceMode,
 } from "../components/AuthorMoodTradingViewChart";
 import { DashboardLoadingState } from "../components/DashboardLoadingState";
@@ -51,6 +52,7 @@ export function AuthorMoodPage({ mood, showWatermark }: AuthorMoodPageProps) {
   const [btcSpotPayload, setBtcSpotPayload] = useState<BtcSpotPriceResponse | null>(null);
   const [selectedMoodLabel, setSelectedMoodLabel] = useState<string>("optimism");
   const [priceMode, setPriceMode] = useState<PriceMode>("btc");
+  const [moodVisualMode, setMoodVisualMode] = useState<MoodVisualMode>("line");
   const [sentimentMode, setSentimentMode] = useState<SentimentMode>("weighted-8w");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -133,6 +135,8 @@ export function AuthorMoodPage({ mood, showWatermark }: AuthorMoodPageProps) {
             onMoodLabelChange={setSelectedMoodLabel}
             priceMode={priceMode}
             onPriceModeChange={setPriceMode}
+            moodVisualMode={moodVisualMode}
+            onMoodVisualModeChange={setMoodVisualMode}
             sentimentMode={sentimentMode}
             onSentimentModeChange={setSentimentMode}
           />
@@ -151,6 +155,8 @@ function AuthorMoodChartSection({
   onMoodLabelChange,
   priceMode,
   onPriceModeChange,
+  moodVisualMode,
+  onMoodVisualModeChange,
   sentimentMode,
   onSentimentModeChange,
 }: {
@@ -162,6 +168,8 @@ function AuthorMoodChartSection({
   onMoodLabelChange: (label: string) => void;
   priceMode: PriceMode;
   onPriceModeChange: (mode: PriceMode) => void;
+  moodVisualMode: MoodVisualMode;
+  onMoodVisualModeChange: (mode: MoodVisualMode) => void;
   sentimentMode: SentimentMode;
   onSentimentModeChange: (mode: SentimentMode) => void;
 }) {
@@ -241,6 +249,8 @@ function AuthorMoodChartSection({
           onMoodLabelChange={onMoodLabelChange}
           priceMode={priceMode}
           onPriceModeChange={onPriceModeChange}
+          moodVisualMode={moodVisualMode}
+          onMoodVisualModeChange={onMoodVisualModeChange}
           sentimentMode={sentimentMode}
           onSentimentModeChange={onSentimentModeChange}
         />

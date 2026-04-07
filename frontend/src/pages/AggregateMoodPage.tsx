@@ -12,6 +12,7 @@ import {
 } from "../api/authorOverview";
 import {
   AuthorMoodTradingViewChart,
+  type MoodVisualMode,
   type PriceMode,
 } from "../components/AuthorMoodTradingViewChart";
 import { DashboardLoadingState } from "../components/DashboardLoadingState";
@@ -56,6 +57,7 @@ export function AggregateMoodPage({ aggregateMood, showWatermark }: AggregateMoo
   const [cohortPayload, setCohortPayload] = useState<AggregateMoodCohortsResponse | null>(null);
   const [selectedCohortTagSlug, setSelectedCohortTagSlug] = useState<string | null>(null);
   const [priceMode, setPriceMode] = useState<PriceMode>("btc");
+  const [moodVisualMode, setMoodVisualMode] = useState<MoodVisualMode>("line");
   const [sentimentMode, setSentimentMode] = useState<SentimentMode>("weighted-8w");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -152,6 +154,8 @@ export function AggregateMoodPage({ aggregateMood, showWatermark }: AggregateMoo
             moodDescription={moodDescription}
             priceMode={priceMode}
             onPriceModeChange={setPriceMode}
+            moodVisualMode={moodVisualMode}
+            onMoodVisualModeChange={setMoodVisualMode}
             sentimentMode={sentimentMode}
             onSentimentModeChange={setSentimentMode}
             cohorts={cohortPayload?.cohorts ?? []}
@@ -173,6 +177,8 @@ function AggregateMoodChartSection({
   moodDescription,
   priceMode,
   onPriceModeChange,
+  moodVisualMode,
+  onMoodVisualModeChange,
   sentimentMode,
   onSentimentModeChange,
   cohorts,
@@ -187,6 +193,8 @@ function AggregateMoodChartSection({
   moodDescription: string;
   priceMode: PriceMode;
   onPriceModeChange: (mode: PriceMode) => void;
+  moodVisualMode: MoodVisualMode;
+  onMoodVisualModeChange: (mode: MoodVisualMode) => void;
   sentimentMode: SentimentMode;
   onSentimentModeChange: (mode: SentimentMode) => void;
   cohorts: AggregateMoodCohortsResponse["cohorts"];
@@ -281,6 +289,8 @@ function AggregateMoodChartSection({
           onMoodLabelChange={() => {}}
           priceMode={priceMode}
           onPriceModeChange={onPriceModeChange}
+          moodVisualMode={moodVisualMode}
+          onMoodVisualModeChange={onMoodVisualModeChange}
           sentimentMode={sentimentMode}
           smoothingWeightLabel="active user count"
           onSentimentModeChange={onSentimentModeChange}

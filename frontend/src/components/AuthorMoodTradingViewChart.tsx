@@ -3,10 +3,12 @@ import { type ReactNode, useEffect, useMemo, useRef } from "react";
 import {
   BaselineSeries,
   ColorType,
+  HistogramSeries,
   LineSeries,
   LineType,
   createChart,
   type BaselineData,
+  type HistogramData,
   type LineData,
   type Time,
   type WhitespaceData,
@@ -22,6 +24,7 @@ type AuthorMoodTradingViewChartProps = {
   moodPayload: AuthorMoodResponse;
   selectedMoodLabel: string;
   priceMode: PriceMode;
+  moodVisualMode: MoodVisualMode;
   showWatermark: boolean;
   showMoodSelector?: boolean;
   moodDefinition?: string;
@@ -29,12 +32,15 @@ type AuthorMoodTradingViewChartProps = {
   sentimentMode: SentimentMode;
   smoothingWeightLabel?: string;
   onPriceModeChange: (mode: PriceMode) => void;
+  onMoodVisualModeChange: (mode: MoodVisualMode) => void;
   onSentimentModeChange: (mode: SentimentMode) => void;
   onMoodLabelChange: (label: string) => void;
 };
 
 export type PriceMode = "btc" | "mstr" | "both";
+export type MoodVisualMode = "line" | "bars";
 type MoodSeriesPoint = BaselineData<Time> | WhitespaceData<Time>;
+type MoodHistogramPoint = HistogramData<Time> | WhitespaceData<Time>;
 
 const chartOptions = {
   layout: {
@@ -105,6 +111,7 @@ export function AuthorMoodTradingViewChart({
   moodPayload,
   selectedMoodLabel,
   priceMode,
+  moodVisualMode,
   showWatermark,
   showMoodSelector = true,
   moodDefinition,
@@ -112,15 +119,24 @@ export function AuthorMoodTradingViewChart({
   sentimentMode,
   smoothingWeightLabel = "scored post count",
   onPriceModeChange,
+  onMoodVisualModeChange,
   onSentimentModeChange,
   onMoodLabelChange,
 }: AuthorMoodTradingViewChartProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const btcSeriesData = useMemo(() => buildBtcSeries(payload), [payload]);
   const mstrSeriesData = useMemo(() => buildMstrSeries(payload), [payload]);
+  const moodDeviationSeries = useMemo(
+    () => buildMoodDeviationSeries(moodPayload, selectedMoodLabel, sentimentMode),
+    [moodPayload, selectedMoodLabel, sentimentMode],
+  );
   const moodSeriesData = useMemo<MoodSeriesPoint[]>(
+    () => moodDeviationSeries.map((point) => buildMoodSeriesPoint(point.periodStart, point.value)),
+    [moodDeviationSeries],
+  );
+  const moodHistogramData = useMemo<MoodHistogramPoint[]>(
     () =>
-      buildMoodDeviationSeries(moodPayload, selectedMoodLabel, sentimentMode).map((point) => {
+      moodDeviationSeries.map((point) => {
         const time = toBusinessDay(point.periodStart);
         if (point.value === null) {
           return { time };
@@ -129,9 +145,10 @@ export function AuthorMoodTradingViewChart({
         return {
           time,
           value: point.value,
+          color: point.value > 0 ? "rgba(122, 240, 182, 0.72)" : "rgba(255, 108, 108, 0.72)",
         };
       }),
-    [moodPayload, selectedMoodLabel, sentimentMode],
+    [moodDeviationSeries],
   );
   const moodRange = useMemo(
     () => buildSymmetricMoodRange(moodSeriesData, sentimentMode),
@@ -177,36 +194,59 @@ export function AuthorMoodTradingViewChart({
       },
     });
 
-    const moodSeries = chart.addSeries(
-      BaselineSeries,
-      {
-        title: "",
-        baseValue: {
-          type: "price",
-          price: 0,
+    if (moodVisualMode === "bars") {
+      const moodBarsSeries = chart.addSeries(
+        HistogramSeries,
+        {
+          title: "",
+          base: 0,
+          lastValueVisible: false,
+          priceLineVisible: false,
+          priceFormat: {
+            type: "custom",
+            minMove: 0.001,
+            formatter: formatSignedMoodPercent,
+          },
+          autoscaleInfoProvider: () => ({
+            priceRange: moodRange,
+          }),
         },
-        topLineColor: "#7af0b6",
-        topFillColor1: "rgba(122, 240, 182, 0.26)",
-        topFillColor2: "rgba(122, 240, 182, 0.04)",
-        bottomLineColor: "#ff6c6c",
-        bottomFillColor1: "rgba(255, 108, 108, 0.24)",
-        bottomFillColor2: "rgba(255, 108, 108, 0.04)",
-        lineWidth: 3,
-        lineType: LineType.Curved,
-        lastValueVisible: false,
-        priceLineVisible: false,
-        crosshairMarkerVisible: false,
-        priceFormat: {
-          type: "custom",
-          minMove: 0.001,
-          formatter: formatSignedMoodPercent,
+        1,
+      );
+      moodBarsSeries.setData(moodHistogramData);
+    } else {
+      const moodSeries = chart.addSeries(
+        BaselineSeries,
+        {
+          title: "",
+          baseValue: {
+            type: "price",
+            price: 0,
+          },
+          topLineColor: "#7af0b6",
+          topFillColor1: "rgba(122, 240, 182, 0.26)",
+          topFillColor2: "rgba(122, 240, 182, 0.04)",
+          bottomLineColor: "#ff6c6c",
+          bottomFillColor1: "rgba(255, 108, 108, 0.24)",
+          bottomFillColor2: "rgba(255, 108, 108, 0.04)",
+          lineWidth: 3,
+          lineType: LineType.Curved,
+          lastValueVisible: false,
+          priceLineVisible: false,
+          crosshairMarkerVisible: false,
+          priceFormat: {
+            type: "custom",
+            minMove: 0.001,
+            formatter: formatSignedMoodPercent,
+          },
+          autoscaleInfoProvider: () => ({
+            priceRange: moodRange,
+          }),
         },
-        autoscaleInfoProvider: () => ({
-          priceRange: moodRange,
-        }),
-      },
-      1,
-    );
+        1,
+      );
+      moodSeries.setData(moodSeriesData);
+    }
 
     const mstrSeries = chart.addSeries(LineSeries, {
       title: "",
@@ -256,7 +296,6 @@ export function AuthorMoodTradingViewChart({
 
     btcSeries.setData(priceMode === "mstr" ? [] : btcSeriesData);
     mstrSeries.setData(priceMode === "btc" ? [] : mstrSeriesData);
-    moodSeries.setData(moodSeriesData);
 
     const panes = chart.panes();
     panes[0]?.setHeight(320);
@@ -279,7 +318,15 @@ export function AuthorMoodTradingViewChart({
       resizeObserver.disconnect();
       chart.remove();
     };
-  }, [btcSeriesData, moodSeriesData, moodRange, mstrSeriesData, priceMode]);
+  }, [
+    btcSeriesData,
+    moodHistogramData,
+    moodRange,
+    moodSeriesData,
+    moodVisualMode,
+    mstrSeriesData,
+    priceMode,
+  ]);
 
   return (
     <div className="tradingview-chart-shell">
@@ -298,6 +345,27 @@ export function AuthorMoodTradingViewChart({
                 key={mode}
                 className={`chart-toggle-button${priceMode === mode ? " is-active" : ""}`}
                 onClick={() => onPriceModeChange(mode)}
+                type="button"
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="chart-control-card">
+          <p className="chart-control-eyebrow">Mood View</p>
+          <div className="chart-toggle-group chart-toggle-group-compact" role="group" aria-label="Mood view">
+            {(
+              [
+                ["line", "Line"],
+                ["bars", "Bars"],
+              ] as const
+            ).map(([mode, label]) => (
+              <button
+                key={mode}
+                className={`chart-toggle-button${moodVisualMode === mode ? " is-active" : ""}`}
+                onClick={() => onMoodVisualModeChange(mode)}
                 type="button"
               >
                 {label}
@@ -388,6 +456,18 @@ function buildMstrSeries(payload: AuthorOverviewResponse): LineData<Time>[] {
     time: toBusinessDay(point.timestamp),
     value: point.price_usd,
   }));
+}
+
+function buildMoodSeriesPoint(periodStart: string, value: number | null): MoodSeriesPoint {
+  const time = toBusinessDay(periodStart);
+  if (value === null) {
+    return { time };
+  }
+
+  return {
+    time,
+    value,
+  };
 }
 
 function buildSymmetricMoodRange(
