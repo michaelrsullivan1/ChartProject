@@ -1,13 +1,23 @@
 export const themeDefinitions = [
   {
-    slug: "slate",
-    label: "Slate Blue",
-    description: "Crisp navy surfaces with cool blue highlights.",
+    slug: "obsidian",
+    label: "Obsidian Cyan",
+    description: "High-contrast blackened graphite with precise cyan accents.",
   },
   {
     slug: "graphite",
     label: "Graphite Ice",
     description: "Neutral graphite base with restrained steel-blue accents.",
+  },
+  {
+    slug: "slate",
+    label: "Slate Blue",
+    description: "Crisp navy surfaces with cool blue highlights.",
+  },
+  {
+    slug: "midnight",
+    label: "Midnight Cobalt",
+    description: "Dense midnight surfaces with premium cobalt highlights.",
   },
   {
     slug: "evergreen",
