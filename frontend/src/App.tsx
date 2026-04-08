@@ -49,7 +49,9 @@ import { UserSettingsPage } from "./pages/UserSettingsPage";
 import {
   ANONYMIZE_USERS_STORAGE_KEY,
   CHART_WATERMARK_STORAGE_KEY,
+  THEME_STORAGE_KEY,
 } from "./lib/settings";
+import { isThemeSlug, type ThemeSlug } from "./lib/themes";
 import type { HealthResponse } from "./types/health";
 
 type AppRoute =
@@ -135,6 +137,12 @@ export default function App() {
     const storedValue = window.localStorage.getItem(ANONYMIZE_USERS_STORAGE_KEY);
     return storedValue === null ? false : storedValue === "true";
   });
+  const [theme, setTheme] = useState<ThemeSlug>(() => {
+    const storedValue = window.localStorage.getItem(THEME_STORAGE_KEY);
+    const resolvedTheme = storedValue !== null && isThemeSlug(storedValue) ? storedValue : "slate";
+    document.documentElement.dataset.theme = resolvedTheme;
+    return resolvedTheme;
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -186,6 +194,11 @@ export default function App() {
   useEffect(() => {
     window.localStorage.setItem(ANONYMIZE_USERS_STORAGE_KEY, String(anonymizeUsers));
   }, [anonymizeUsers]);
+
+  useEffect(() => {
+    window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+    document.documentElement.dataset.theme = theme;
+  }, [theme]);
 
   function navigateHome() {
     window.location.hash = "#/";
@@ -441,6 +454,8 @@ export default function App() {
       >
         {route.section === "global" ? (
           <SettingsPage
+            theme={theme}
+            onThemeChange={setTheme}
             showWatermark={showWatermark}
             onShowWatermarkChange={setShowWatermark}
             anonymizeUsers={anonymizeUsers}

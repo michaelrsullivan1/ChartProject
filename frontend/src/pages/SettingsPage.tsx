@@ -1,3 +1,5 @@
+import { themeDefinitions, type ThemeSlug } from "../lib/themes";
+
 type ToggleCardProps = {
   title: string;
   description: string;
@@ -6,6 +8,8 @@ type ToggleCardProps = {
 };
 
 type SettingsPageProps = {
+  theme: ThemeSlug;
+  onThemeChange: (theme: ThemeSlug) => void;
   showWatermark: boolean;
   onShowWatermarkChange: (value: boolean) => void;
   anonymizeUsers: boolean;
@@ -13,6 +17,8 @@ type SettingsPageProps = {
 };
 
 export function SettingsPage({
+  theme,
+  onThemeChange,
   showWatermark,
   onShowWatermarkChange,
   anonymizeUsers,
@@ -27,15 +33,14 @@ export function SettingsPage({
             <div>
               <h1 className="settings-title">Settings and configuration</h1>
               <p className="status-copy settings-subtitle">
-                Rough shell for controls that don&apos;t belong inside each dashboard. The
-                switches below are placeholders for now, but the page structure is ready
-                for real behavior to move in.
+                Configure global presentation and privacy defaults for every dashboard
+                view in this workspace.
               </p>
             </div>
             <div className="settings-status-card">
-              <span className="settings-status-label">Current phase</span>
-              <strong>Scaffolded UI</strong>
-              <p>Browser-persisted settings, backend wiring still pending.</p>
+              <span className="settings-status-label">Theme profile</span>
+              <strong>{themeDefinitions.find((item) => item.slug === theme)?.label ?? "Slate Blue"}</strong>
+              <p>All theme choices persist in local storage and apply instantly.</p>
             </div>
           </div>
         </article>
@@ -47,6 +52,24 @@ export function SettingsPage({
                 <p className="chart-control-eyebrow">Display</p>
                 <h2>Global Defaults</h2>
               </div>
+            </div>
+            <div className="settings-theme-grid" role="radiogroup" aria-label="Theme">
+              {themeDefinitions.map((themeOption) => {
+                const isActive = themeOption.slug === theme;
+                return (
+                  <button
+                    key={themeOption.slug}
+                    aria-checked={isActive}
+                    className={`settings-theme-card${isActive ? " is-active" : ""}`}
+                    onClick={() => onThemeChange(themeOption.slug)}
+                    role="radio"
+                    type="button"
+                  >
+                    <span className="settings-theme-name">{themeOption.label}</span>
+                    <span className="settings-theme-description">{themeOption.description}</span>
+                  </button>
+                );
+              })}
             </div>
             <div className="settings-toggle-list">
               <ToggleCard
