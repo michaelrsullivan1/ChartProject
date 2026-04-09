@@ -3,6 +3,7 @@ from collections.abc import Iterable
 from datetime import UTC, datetime
 from pathlib import Path
 from pprint import pprint
+import time
 import sys
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
@@ -71,6 +72,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Show which snapshot keys would be rebuilt without writing them.",
     )
+    parser.add_argument(
+        "--no-bell",
+        action="store_true",
+        help="Do not emit a terminal bell when the rebuild finishes.",
+    )
     return parser.parse_args()
 
 
@@ -107,81 +113,46 @@ def main() -> None:
             available_cohort_slugs,
         )
     )
+    task_specs = _build_task_specs(
+        requested_views=requested_views,
+        requested_cohorts=requested_cohorts,
+        granularity=args.granularity,
+        model_key=args.model_key,
+        generated_at=generated_at,
+        cohort_payload=cohort_payload,
+    )
 
-    if AGGREGATE_COHORTS_VIEW_TYPE in requested_views:
-        rebuilt_cache_keys.append(
-            _write_snapshot(
-                dry_run=args.dry_run,
-                view_type=AGGREGATE_COHORTS_VIEW_TYPE,
-                cohort_tag_slug="all",
-                granularity=args.granularity,
-                model_key=args.model_key,
-                payload=cohort_payload,
-                generated_at=generated_at,
-                build_meta={
-                    "cohort_count": len(cohort_payload.get("cohorts", [])),
-                    "rebuilt_at": generated_at.isoformat().replace("+00:00", "Z"),
-                },
-            )
+    print(
+        (
+            f"Starting aggregate snapshot rebuild: {len(task_specs)} snapshot task(s), "
+            f"model_key={args.model_key}, granularity={args.granularity}, "
+            f"dry_run={args.dry_run}"
+        ),
+        flush=True,
+    )
+
+    for index, task_spec in enumerate(task_specs, start=1):
+        task_started_at = time.perf_counter()
+        percent_complete = (index - 1) / len(task_specs) * 100 if task_specs else 100.0
+        print(
+            f"[{index}/{len(task_specs)}] {percent_complete:5.1f}% starting "
+            f"{task_spec['view_type']} ({task_spec['cohort_tag_slug']})",
+            flush=True,
         )
-
-    for cohort_slug in requested_cohorts:
-        request_cohort_slug = None if cohort_slug == "all" else cohort_slug
-        if AGGREGATE_OVERVIEW_VIEW_TYPE in requested_views:
-            overview_payload = build_aggregate_mood_overview(
-                AggregateMoodOverviewRequest(
-                    granularity=args.granularity,
-                    model_key=args.model_key,
-                    view_name="aggregate-moods",
-                    analysis_start="2016-01-01T00:00:00Z",
-                    cohort_tag_slug=request_cohort_slug,
-                )
-            )
-            rebuilt_cache_keys.append(
-                _write_snapshot(
-                    dry_run=args.dry_run,
-                    view_type=AGGREGATE_OVERVIEW_VIEW_TYPE,
-                    cohort_tag_slug=cohort_slug,
-                    granularity=args.granularity,
-                    model_key=args.model_key,
-                    payload=overview_payload,
-                    generated_at=generated_at,
-                    build_meta={
-                        "cohort_user_count": overview_payload["cohort"]["user_count"],
-                        "rebuilt_at": generated_at.isoformat().replace("+00:00", "Z"),
-                    },
-                )
-            )
-
-        if AGGREGATE_MOOD_SERIES_VIEW_TYPE in requested_views:
-            mood_payload = build_aggregate_mood_view(
-                AggregateMoodViewRequest(
-                    granularity=args.granularity,
-                    model_key=args.model_key,
-                    view_name="aggregate-moods-mood-series",
-                    analysis_start="2016-01-01T00:00:00Z",
-                    cohort_tag_slug=request_cohort_slug,
-                )
-            )
-            rebuilt_cache_keys.append(
-                _write_snapshot(
-                    dry_run=args.dry_run,
-                    view_type=AGGREGATE_MOOD_SERIES_VIEW_TYPE,
-                    cohort_tag_slug=cohort_slug,
-                    granularity=args.granularity,
-                    model_key=args.model_key,
-                    payload=mood_payload,
-                    generated_at=generated_at,
-                    build_meta={
-                        "cohort_user_count": mood_payload["summary"]["cohort_user_count"],
-                        "scored_tweet_count": mood_payload["summary"]["scored_tweet_count"],
-                        "rebuilt_at": generated_at.isoformat().replace("+00:00", "Z"),
-                    },
-                )
-            )
+        cache_key = _execute_task(task_spec=task_spec, dry_run=args.dry_run)
+        rebuilt_cache_keys.append(cache_key)
+        task_duration_seconds = time.perf_counter() - task_started_at
+        completed_percent = index / len(task_specs) * 100 if task_specs else 100.0
+        print(
+            f"[{index}/{len(task_specs)}] {completed_percent:5.1f}% finished "
+            f"{task_spec['view_type']} ({task_spec['cohort_tag_slug']}) in "
+            f"{task_duration_seconds:.2f}s",
+            flush=True,
+        )
 
     deleted_rows = 0
     if args.delete_stale and not args.dry_run:
+        print("Deleting stale aggregate snapshot rows...", flush=True)
         deleted_rows = delete_stale_aggregate_snapshots(
             model_key=args.model_key,
             granularity=args.granularity,
@@ -202,6 +173,9 @@ def main() -> None:
             "duration_seconds": round((datetime.now(UTC) - started_at).total_seconds(), 3),
         }
     )
+    if not args.no_bell:
+        sys.stdout.write("\a")
+        sys.stdout.flush()
 
 
 def _normalize_requested_cohorts(
@@ -214,6 +188,106 @@ def _normalize_requested_cohorts(
     if invalid:
         raise RuntimeError(f"Unknown cohort slug(s) requested for snapshot rebuild: {invalid!r}.")
     return normalized_requested
+
+
+def _build_task_specs(
+    *,
+    requested_views: tuple[str, ...],
+    requested_cohorts: list[str],
+    granularity: str,
+    model_key: str,
+    generated_at: datetime,
+    cohort_payload: dict[str, object],
+) -> list[dict[str, object]]:
+    task_specs: list[dict[str, object]] = []
+
+    if AGGREGATE_COHORTS_VIEW_TYPE in requested_views:
+        task_specs.append(
+            {
+                "view_type": AGGREGATE_COHORTS_VIEW_TYPE,
+                "cohort_tag_slug": "all",
+                "granularity": granularity,
+                "model_key": model_key,
+                "payload_builder": lambda: cohort_payload,
+                "build_meta_builder": lambda payload: {
+                    "cohort_count": len(payload.get("cohorts", [])),
+                    "rebuilt_at": generated_at.isoformat().replace("+00:00", "Z"),
+                },
+                "generated_at": generated_at,
+            }
+        )
+
+    for cohort_slug in requested_cohorts:
+        request_cohort_slug = None if cohort_slug == "all" else cohort_slug
+        if AGGREGATE_OVERVIEW_VIEW_TYPE in requested_views:
+            task_specs.append(
+                {
+                    "view_type": AGGREGATE_OVERVIEW_VIEW_TYPE,
+                    "cohort_tag_slug": cohort_slug,
+                    "granularity": granularity,
+                    "model_key": model_key,
+                    "payload_builder": lambda request_cohort_slug=request_cohort_slug: build_aggregate_mood_overview(
+                        AggregateMoodOverviewRequest(
+                            granularity=granularity,
+                            model_key=model_key,
+                            view_name="aggregate-moods",
+                            analysis_start="2016-01-01T00:00:00Z",
+                            cohort_tag_slug=request_cohort_slug,
+                        )
+                    ),
+                    "build_meta_builder": lambda payload: {
+                        "cohort_user_count": payload["cohort"]["user_count"],
+                        "rebuilt_at": generated_at.isoformat().replace("+00:00", "Z"),
+                    },
+                    "generated_at": generated_at,
+                }
+            )
+
+        if AGGREGATE_MOOD_SERIES_VIEW_TYPE in requested_views:
+            task_specs.append(
+                {
+                    "view_type": AGGREGATE_MOOD_SERIES_VIEW_TYPE,
+                    "cohort_tag_slug": cohort_slug,
+                    "granularity": granularity,
+                    "model_key": model_key,
+                    "payload_builder": lambda request_cohort_slug=request_cohort_slug: build_aggregate_mood_view(
+                        AggregateMoodViewRequest(
+                            granularity=granularity,
+                            model_key=model_key,
+                            view_name="aggregate-moods-mood-series",
+                            analysis_start="2016-01-01T00:00:00Z",
+                            cohort_tag_slug=request_cohort_slug,
+                        )
+                    ),
+                    "build_meta_builder": lambda payload: {
+                        "cohort_user_count": payload["summary"]["cohort_user_count"],
+                        "scored_tweet_count": payload["summary"]["scored_tweet_count"],
+                        "rebuilt_at": generated_at.isoformat().replace("+00:00", "Z"),
+                    },
+                    "generated_at": generated_at,
+                }
+            )
+
+    return task_specs
+
+
+def _execute_task(
+    *,
+    task_spec: dict[str, object],
+    dry_run: bool,
+) -> str:
+    payload = task_spec["payload_builder"]()
+    build_meta = task_spec["build_meta_builder"](payload)
+    return _write_snapshot(
+        dry_run=dry_run,
+        view_type=task_spec["view_type"],
+        cohort_tag_slug=task_spec["cohort_tag_slug"],
+        granularity=task_spec["granularity"],
+        model_key=task_spec["model_key"],
+        payload=payload,
+        generated_at=task_spec["generated_at"],
+        build_meta=build_meta,
+    )
 
 
 def _write_snapshot(
