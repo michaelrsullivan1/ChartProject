@@ -124,6 +124,188 @@
   --success-text: #d5fbe3;
 }
 
+:root[data-theme="vibes"] {
+  background:
+    radial-gradient(circle at 18% -10%, rgba(245, 148, 74, 0.78), rgba(245, 148, 74, 0) 34%),
+    radial-gradient(circle at 84% -22%, rgba(221, 101, 40, 0.62), rgba(221, 101, 40, 0) 40%),
+    linear-gradient(160deg, #10345f 0%, #1d5688 44%, #2a76a6 100%);
+  --bg-glow-rgb: 244, 136, 56;
+  --bg-gradient-start: #10345f;
+  --bg-gradient-mid: #1d5688;
+  --bg-gradient-end: #2a76a6;
+  --line-rgb: 243, 170, 108;
+  --surface-0-rgb: 28, 68, 108;
+  --surface-1-rgb: 38, 83, 126;
+  --surface-2-rgb: 50, 100, 146;
+  --surface-3-rgb: 66, 121, 170;
+  --accent-rgb: 246, 140, 72;
+  --success-rgb: 248, 156, 92;
+  --text-base: #edf6ff;
+  --text-primary: #fffaf3;
+  --text-primary-rgb: 255, 250, 243;
+  --text-emphasis: #ffe2bf;
+  --text-accent-strong: #ffc083;
+  --muted: #d3e6ff;
+  --accent: #f68c48;
+  --success-text: #ffe8cd;
+  --vibes-cyan-rgb: 92, 205, 211;
+  --vibes-blue-rgb: 47, 124, 174;
+  --vibes-orange-rgb: 248, 147, 84;
+}
+
+:root[data-theme="vibes"] .dashboard-topbar {
+  border-color: rgba(var(--vibes-orange-rgb), 0.86);
+  border-width: 1.5px;
+  background:
+    linear-gradient(
+      130deg,
+      rgba(23, 74, 127, 0.97) 0%,
+      rgba(var(--vibes-blue-rgb), 0.94) 55%,
+      rgba(30, 90, 146, 0.97) 100%
+    );
+  box-shadow:
+    0 0 0 1px rgba(var(--vibes-orange-rgb), 0.34),
+    0 16px 34px rgba(var(--vibes-blue-rgb), 0.32),
+    0 0 46px rgba(var(--vibes-orange-rgb), 0.3);
+}
+
+:root[data-theme="vibes"] .dashboard-topbar-kicker {
+  color: rgba(255, 246, 232, 0.94);
+}
+
+:root[data-theme="vibes"] .dashboard-topbar-title {
+  color: #ffffff;
+}
+
+:root[data-theme="vibes"] .dashboard-nav .page-nav-link,
+:root[data-theme="vibes"] .page-nav-link.page-nav-icon-link {
+  border-color: rgba(var(--vibes-orange-rgb), 0.78);
+  border-width: 1.5px;
+  background: rgba(var(--vibes-blue-rgb), 0.8);
+  color: #fefcff;
+  box-shadow: 0 0 24px rgba(var(--vibes-orange-rgb), 0.2);
+}
+
+:root[data-theme="vibes"] .dashboard-nav .page-nav-link:hover,
+:root[data-theme="vibes"] .page-nav-link.page-nav-icon-link:hover {
+  border-color: rgba(var(--vibes-orange-rgb), 0.98);
+  background: rgba(var(--vibes-orange-rgb), 0.4);
+  color: #fff5e7;
+  box-shadow:
+    0 0 0 1px rgba(var(--vibes-orange-rgb), 0.34),
+    0 0 30px rgba(var(--vibes-orange-rgb), 0.36);
+}
+
+:root[data-theme="vibes"] .dashboard-nav .page-nav-link.is-active,
+:root[data-theme="vibes"] .page-nav-link.page-nav-icon-link.is-active {
+  border-color: rgba(var(--vibes-orange-rgb), 0.98);
+  background:
+    linear-gradient(
+      135deg,
+      rgba(var(--vibes-orange-rgb), 0.56) 0%,
+      rgba(var(--vibes-orange-rgb), 0.34) 100%
+    );
+  color: #fff8ef;
+  box-shadow:
+    0 0 0 1px rgba(var(--vibes-orange-rgb), 0.3),
+    0 0 34px rgba(var(--vibes-orange-rgb), 0.36);
+}
+
+:root[data-theme="vibes"] .overview-dropdown-menu {
+  border-color: rgba(var(--vibes-orange-rgb), 0.72);
+  border-width: 1.5px;
+  background: rgba(24, 49, 91, 0.97);
+  box-shadow:
+    0 22px 48px rgba(0, 0, 0, 0.4),
+    0 0 30px rgba(var(--vibes-orange-rgb), 0.18);
+}
+
+:root[data-theme="vibes"] .overview-dropdown-item {
+  border-color: rgba(var(--vibes-orange-rgb), 0.5);
+  border-width: 1.5px;
+  background: rgba(var(--vibes-blue-rgb), 0.84);
+  color: #f7fbff;
+}
+
+:root[data-theme="vibes"] .overview-dropdown-item:hover,
+:root[data-theme="vibes"] .overview-dropdown-item.is-active {
+  border-color: rgba(var(--vibes-orange-rgb), 0.85);
+  background: rgba(var(--vibes-orange-rgb), 0.24);
+  color: #fff3df;
+}
+
+:root[data-theme="vibes"] .hero,
+:root[data-theme="vibes"] .panel,
+:root[data-theme="vibes"] .panel-accent,
+:root[data-theme="vibes"] .metric-card,
+:root[data-theme="vibes"] .chart-shell,
+:root[data-theme="vibes"] .chart-control-card,
+:root[data-theme="vibes"] .chart-hover-item,
+:root[data-theme="vibes"] .top-tweet-card,
+:root[data-theme="vibes"] .bitcoin-mini-card,
+:root[data-theme="vibes"] .settings-toggle-card,
+:root[data-theme="vibes"] .settings-status-card,
+:root[data-theme="vibes"] .settings-mood-placeholder-panel {
+  border-color: rgba(var(--vibes-orange-rgb), 0.65);
+  border-width: 1.5px;
+  background: rgba(var(--vibes-blue-rgb), 0.9);
+  box-shadow:
+    0 0 0 1px rgba(var(--vibes-orange-rgb), 0.16),
+    0 0 24px rgba(var(--vibes-orange-rgb), 0.14);
+}
+
+:root[data-theme="vibes"] .chart-shell.chart-shell-dashboard {
+  background: rgba(var(--vibes-blue-rgb), 0.9);
+}
+
+:root[data-theme="vibes"] .json-panel {
+  background: rgba(var(--vibes-blue-rgb), 0.9);
+  border: 1.5px solid rgba(var(--vibes-orange-rgb), 0.62);
+}
+
+:root[data-theme="vibes"] .chart-watermark-handle {
+  color: rgba(var(--vibes-orange-rgb), 0.3);
+}
+
+:root[data-theme="vibes"] .chart-toggle-button,
+:root[data-theme="vibes"] .user-settings-assignment-button,
+:root[data-theme="vibes"] .settings-theme-card {
+  border-color: rgba(var(--vibes-orange-rgb), 0.62);
+  border-width: 1.5px;
+  background: rgba(var(--vibes-blue-rgb), 0.8);
+}
+
+:root[data-theme="vibes"] .chart-toggle-button:hover,
+:root[data-theme="vibes"] .user-settings-assignment-button:hover,
+:root[data-theme="vibes"] .settings-theme-card:hover {
+  border-color: rgba(var(--vibes-orange-rgb), 0.98);
+  background: rgba(var(--vibes-orange-rgb), 0.32);
+  color: #fff4e4;
+}
+
+:root[data-theme="vibes"] .chart-toggle-button.is-active,
+:root[data-theme="vibes"] .user-settings-assignment-button.is-active,
+:root[data-theme="vibes"] .settings-theme-card.is-active {
+  border-color: rgba(var(--vibes-orange-rgb), 1);
+  background: rgba(var(--vibes-orange-rgb), 0.42);
+  color: #fff5e7;
+  box-shadow:
+    0 0 0 1px rgba(var(--vibes-orange-rgb), 0.28),
+    0 0 26px rgba(var(--vibes-orange-rgb), 0.28);
+}
+
+:root[data-theme="vibes"] .settings-toggle-switch,
+:root[data-theme="vibes"] .settings-toggle-switch.is-active {
+  border-color: rgba(var(--vibes-orange-rgb), 0.88);
+  border-width: 1.5px;
+  background: rgba(var(--vibes-orange-rgb), 0.32);
+}
+
+:root[data-theme="vibes"] .heatmap-strip-row.is-selected,
+:root[data-theme="vibes"] .bitcoin-table tbody tr.is-active {
+  background: rgba(var(--vibes-orange-rgb), 0.28);
+}
+
 * {
   box-sizing: border-box;
 }
