@@ -517,6 +517,18 @@ def richard_byworth_overview(
     )
 
 
+@router.get("/andrew-webley-overview")
+def andrew_webley_overview(
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+) -> dict[str, object]:
+    return _build_overview_view(
+        username="asjwebley",
+        view_name="andrew-webley-overview",
+        granularity=granularity,
+        analysis_start="2018-04-17T00:00:00Z",
+    )
+
+
 @router.get("/walker-america-overview/top-liked-tweet")
 def walker_america_overview_top_liked_tweet(
     week_start: str = Query(...),
@@ -546,6 +558,17 @@ def richard_byworth_overview_top_liked_tweet(
     return _build_overview_top_liked_tweet(
         username="RichardByworth",
         view_name="richard-byworth-overview-top-liked-tweet",
+        week_start=week_start,
+    )
+
+
+@router.get("/andrew-webley-overview/top-liked-tweet")
+def andrew_webley_overview_top_liked_tweet(
+    week_start: str = Query(...),
+) -> dict[str, object]:
+    return _build_overview_top_liked_tweet(
+        username="asjwebley",
+        view_name="andrew-webley-overview-top-liked-tweet",
         week_start=week_start,
     )
 
@@ -592,6 +615,20 @@ def richard_byworth_overview_sentiment(
     )
 
 
+@router.get("/andrew-webley-overview/sentiment")
+def andrew_webley_overview_sentiment(
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+    model_key: str = Query(default=DEFAULT_SENTIMENT_MODEL),
+) -> dict[str, object]:
+    return _build_overview_sentiment(
+        username="asjwebley",
+        view_name="andrew-webley-overview-sentiment",
+        granularity=granularity,
+        model_key=model_key,
+        analysis_start="2018-04-17T00:00:00Z",
+    )
+
+
 @router.get("/walker-america-overview/btc-spot")
 def walker_america_overview_btc_spot() -> dict[str, object]:
     return _build_btc_spot_price()
@@ -604,6 +641,11 @@ def chris_millas_overview_btc_spot() -> dict[str, object]:
 
 @router.get("/richard-byworth-overview/btc-spot")
 def richard_byworth_overview_btc_spot() -> dict[str, object]:
+    return _build_btc_spot_price()
+
+
+@router.get("/andrew-webley-overview/btc-spot")
+def andrew_webley_overview_btc_spot() -> dict[str, object]:
     return _build_btc_spot_price()
 
 
@@ -640,6 +682,18 @@ def richard_byworth_moods(
         view_name="richard-byworth-moods",
         granularity=granularity,
         analysis_start="2019-03-01T00:00:00Z",
+    )
+
+
+@router.get("/andrew-webley-moods")
+def andrew_webley_moods(
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+) -> dict[str, object]:
+    return _build_overview_view(
+        username="asjwebley",
+        view_name="andrew-webley-moods",
+        granularity=granularity,
+        analysis_start="2018-04-17T00:00:00Z",
     )
 
 
@@ -685,6 +739,20 @@ def richard_byworth_mood_series(
     )
 
 
+@router.get("/andrew-webley-moods/mood-series")
+def andrew_webley_mood_series(
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+    model_key: str = Query(default=DEFAULT_MOOD_MODEL),
+) -> dict[str, object]:
+    return _build_author_moods(
+        username="asjwebley",
+        view_name="andrew-webley-mood-series",
+        granularity=granularity,
+        model_key=model_key,
+        analysis_start="2018-04-17T00:00:00Z",
+    )
+
+
 @router.get("/walker-america-moods/btc-spot")
 def walker_america_moods_btc_spot() -> dict[str, object]:
     return _build_btc_spot_price()
@@ -697,6 +765,11 @@ def chris_millas_moods_btc_spot() -> dict[str, object]:
 
 @router.get("/richard-byworth-moods/btc-spot")
 def richard_byworth_moods_btc_spot() -> dict[str, object]:
+    return _build_btc_spot_price()
+
+
+@router.get("/andrew-webley-moods/btc-spot")
+def andrew_webley_moods_btc_spot() -> dict[str, object]:
     return _build_btc_spot_price()
 
 
@@ -760,6 +833,26 @@ def richard_byworth_heatmap(
     )
 
 
+@router.get("/andrew-webley-heatmap")
+def andrew_webley_heatmap(
+    mode: str = Query(default="common", pattern="^(all|common|rising)$"),
+    word_count: str = Query(default="all", pattern="^(all|1|2|3)$"),
+    granularity: str = Query(default="month", pattern="^(month)$"),
+    limit: int = Query(default=48, ge=1, le=120),
+    phrase_query: str | None = Query(default=None),
+) -> dict[str, object]:
+    return _build_author_keyword_heatmap(
+        username="asjwebley",
+        view_name="andrew-webley-heatmap",
+        mode=mode,
+        word_count=word_count,
+        granularity=granularity,
+        limit=limit,
+        phrase_query=phrase_query,
+        analysis_start="2018-04-17T00:00:00Z",
+    )
+
+
 @router.get("/walker-america-heatmap/phrase-trend")
 def walker_america_heatmap_phrase_trend(
     phrase: str = Query(...),
@@ -802,6 +895,20 @@ def richard_byworth_heatmap_phrase_trend(
     )
 
 
+@router.get("/andrew-webley-heatmap/phrase-trend")
+def andrew_webley_heatmap_phrase_trend(
+    phrase: str = Query(...),
+    granularity: str = Query(default="month", pattern="^(month)$"),
+) -> dict[str, object]:
+    return _build_author_keyword_trend(
+        username="asjwebley",
+        view_name="andrew-webley-heatmap-phrase-trend",
+        phrase=phrase,
+        granularity=granularity,
+        analysis_start="2018-04-17T00:00:00Z",
+    )
+
+
 @router.get("/walker-america-heatmap/top-liked-tweets")
 def walker_america_heatmap_top_liked_tweets(
     phrase: str = Query(...),
@@ -841,6 +948,21 @@ def richard_byworth_heatmap_top_liked_tweets(
     return _build_author_keyword_top_tweets(
         username="RichardByworth",
         view_name="richard-byworth-heatmap-top-liked-tweets",
+        phrase=phrase,
+        month_start=month_start,
+        limit=limit,
+    )
+
+
+@router.get("/andrew-webley-heatmap/top-liked-tweets")
+def andrew_webley_heatmap_top_liked_tweets(
+    phrase: str = Query(...),
+    month_start: str = Query(...),
+    limit: int = Query(default=3, ge=1, le=10),
+) -> dict[str, object]:
+    return _build_author_keyword_top_tweets(
+        username="asjwebley",
+        view_name="andrew-webley-heatmap-top-liked-tweets",
         phrase=phrase,
         month_start=month_start,
         limit=limit,

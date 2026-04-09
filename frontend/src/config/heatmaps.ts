@@ -26,6 +26,11 @@ export const heatmapDefinitions: HeatmapDefinition[] = [
     apiBasePath: "/api/views/richard-byworth-heatmap",
   },
   {
+    slug: "andrew-webley",
+    username: "asjwebley",
+    apiBasePath: "/api/views/andrew-webley-heatmap",
+  },
+  {
     slug: "michael-sullivan",
     username: "SullyMichaelvan",
     apiBasePath: "/api/views/michael-sullivan-heatmap",
