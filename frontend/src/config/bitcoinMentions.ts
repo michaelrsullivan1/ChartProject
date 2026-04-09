@@ -13,6 +13,10 @@ export const bitcoinMentionsDefinitions: BitcoinMentionsDefinition[] = [
     username: "WalkerAmerica",
   },
   {
+    slug: "chris-millas",
+    username: "ChrisMMillas",
+  },
+  {
     slug: "michael-sullivan",
     username: "SullyMichaelvan",
   },

@@ -16,6 +16,11 @@ export const overviewDefinitions: OverviewDefinition[] = [
     apiBasePath: "/api/views/walker-america-overview",
   },
   {
+    slug: "chris-millas",
+    username: "ChrisMMillas",
+    apiBasePath: "/api/views/chris-millas-overview",
+  },
+  {
     slug: "michael-sullivan",
     username: "SullyMichaelvan",
     apiBasePath: "/api/views/michael-sullivan-overview",

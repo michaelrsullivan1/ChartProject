@@ -387,6 +387,8 @@ Current local BTC coverage begins on `2014-12-01T00:00:00Z` because that is wher
 
 The raw ingest scripts live under [backend/scripts/ingest](/Users/michaelsullivan/Code/ChartProject/backend/scripts/ingest).
 
+For the current one-command-at-a-time operator workflow for ingesting a single user, see [TweetIngestionRunbook.md](/Users/michaelsullivan/Code/ChartProject/TweetIngestionRunbook.md).
+
 Before running any ingest, normalization, validation, or enrichment command:
 
 - run `./scripts/setup-db.sh` at least once for the current machine/session
@@ -527,7 +529,6 @@ Useful options:
 - `--page-delay-seconds 0.5`
 - `--max-retries 3`
 - `--retry-backoff-seconds 1.0`
-- `--resume-run-id <id>`
 - `--query-fragment "<extra advanced search terms>"`
 - `--window-months 1`
 

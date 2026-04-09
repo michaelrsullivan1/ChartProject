@@ -493,6 +493,18 @@ def walker_america_overview(
     )
 
 
+@router.get("/chris-millas-overview")
+def chris_millas_overview(
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+) -> dict[str, object]:
+    return _build_overview_view(
+        username="ChrisMMillas",
+        view_name="chris-millas-overview",
+        granularity=granularity,
+        analysis_start="2024-09-09T00:00:00Z",
+    )
+
+
 @router.get("/walker-america-overview/top-liked-tweet")
 def walker_america_overview_top_liked_tweet(
     week_start: str = Query(...),
@@ -500,6 +512,17 @@ def walker_america_overview_top_liked_tweet(
     return _build_overview_top_liked_tweet(
         username="WalkerAmerica",
         view_name="walker-america-overview-top-liked-tweet",
+        week_start=week_start,
+    )
+
+
+@router.get("/chris-millas-overview/top-liked-tweet")
+def chris_millas_overview_top_liked_tweet(
+    week_start: str = Query(...),
+) -> dict[str, object]:
+    return _build_overview_top_liked_tweet(
+        username="ChrisMMillas",
+        view_name="chris-millas-overview-top-liked-tweet",
         week_start=week_start,
     )
 
@@ -518,8 +541,27 @@ def walker_america_overview_sentiment(
     )
 
 
+@router.get("/chris-millas-overview/sentiment")
+def chris_millas_overview_sentiment(
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+    model_key: str = Query(default=DEFAULT_SENTIMENT_MODEL),
+) -> dict[str, object]:
+    return _build_overview_sentiment(
+        username="ChrisMMillas",
+        view_name="chris-millas-overview-sentiment",
+        granularity=granularity,
+        model_key=model_key,
+        analysis_start="2024-09-09T00:00:00Z",
+    )
+
+
 @router.get("/walker-america-overview/btc-spot")
 def walker_america_overview_btc_spot() -> dict[str, object]:
+    return _build_btc_spot_price()
+
+
+@router.get("/chris-millas-overview/btc-spot")
+def chris_millas_overview_btc_spot() -> dict[str, object]:
     return _build_btc_spot_price()
 
 
@@ -532,6 +574,18 @@ def walker_america_moods(
         view_name="walker-america-moods",
         granularity=granularity,
         analysis_start="2020-01-01T00:00:00Z",
+    )
+
+
+@router.get("/chris-millas-moods")
+def chris_millas_moods(
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+) -> dict[str, object]:
+    return _build_overview_view(
+        username="ChrisMMillas",
+        view_name="chris-millas-moods",
+        granularity=granularity,
+        analysis_start="2024-09-09T00:00:00Z",
     )
 
 
@@ -549,8 +603,27 @@ def walker_america_mood_series(
     )
 
 
+@router.get("/chris-millas-moods/mood-series")
+def chris_millas_mood_series(
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+    model_key: str = Query(default=DEFAULT_MOOD_MODEL),
+) -> dict[str, object]:
+    return _build_author_moods(
+        username="ChrisMMillas",
+        view_name="chris-millas-mood-series",
+        granularity=granularity,
+        model_key=model_key,
+        analysis_start="2024-09-09T00:00:00Z",
+    )
+
+
 @router.get("/walker-america-moods/btc-spot")
 def walker_america_moods_btc_spot() -> dict[str, object]:
+    return _build_btc_spot_price()
+
+
+@router.get("/chris-millas-moods/btc-spot")
+def chris_millas_moods_btc_spot() -> dict[str, object]:
     return _build_btc_spot_price()
 
 
@@ -574,6 +647,26 @@ def walker_america_heatmap(
     )
 
 
+@router.get("/chris-millas-heatmap")
+def chris_millas_heatmap(
+    mode: str = Query(default="common", pattern="^(all|common|rising)$"),
+    word_count: str = Query(default="all", pattern="^(all|1|2|3)$"),
+    granularity: str = Query(default="month", pattern="^(month)$"),
+    limit: int = Query(default=48, ge=1, le=120),
+    phrase_query: str | None = Query(default=None),
+) -> dict[str, object]:
+    return _build_author_keyword_heatmap(
+        username="ChrisMMillas",
+        view_name="chris-millas-heatmap",
+        mode=mode,
+        word_count=word_count,
+        granularity=granularity,
+        limit=limit,
+        phrase_query=phrase_query,
+        analysis_start="2024-09-09T00:00:00Z",
+    )
+
+
 @router.get("/walker-america-heatmap/phrase-trend")
 def walker_america_heatmap_phrase_trend(
     phrase: str = Query(...),
@@ -588,6 +681,20 @@ def walker_america_heatmap_phrase_trend(
     )
 
 
+@router.get("/chris-millas-heatmap/phrase-trend")
+def chris_millas_heatmap_phrase_trend(
+    phrase: str = Query(...),
+    granularity: str = Query(default="month", pattern="^(month)$"),
+) -> dict[str, object]:
+    return _build_author_keyword_trend(
+        username="ChrisMMillas",
+        view_name="chris-millas-heatmap-phrase-trend",
+        phrase=phrase,
+        granularity=granularity,
+        analysis_start="2024-09-09T00:00:00Z",
+    )
+
+
 @router.get("/walker-america-heatmap/top-liked-tweets")
 def walker_america_heatmap_top_liked_tweets(
     phrase: str = Query(...),
@@ -597,6 +704,21 @@ def walker_america_heatmap_top_liked_tweets(
     return _build_author_keyword_top_tweets(
         username="WalkerAmerica",
         view_name="walker-america-heatmap-top-liked-tweets",
+        phrase=phrase,
+        month_start=month_start,
+        limit=limit,
+    )
+
+
+@router.get("/chris-millas-heatmap/top-liked-tweets")
+def chris_millas_heatmap_top_liked_tweets(
+    phrase: str = Query(...),
+    month_start: str = Query(...),
+    limit: int = Query(default=3, ge=1, le=10),
+) -> dict[str, object]:
+    return _build_author_keyword_top_tweets(
+        username="ChrisMMillas",
+        view_name="chris-millas-heatmap-top-liked-tweets",
         phrase=phrase,
         month_start=month_start,
         limit=limit,
