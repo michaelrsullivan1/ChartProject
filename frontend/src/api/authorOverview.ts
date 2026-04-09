@@ -38,6 +38,37 @@ export type AuthorOverviewResponse = {
   }>;
 };
 
+export type AggregateOverviewResponse = {
+  view: string;
+  generated_at?: string;
+  subject: {
+    platform_user_id: string;
+    username: string;
+    display_name: string | null;
+  };
+  cohort?: {
+    user_count: number;
+    usernames: string[];
+    selection?: {
+      type: "all" | "tag";
+      tag_slug: string | null;
+      tag_name: string | null;
+    };
+  };
+  tweet_granularity: string;
+  range: {
+    start: string;
+    end: string;
+  };
+  tweet_series: Array<{
+    period_start: string;
+    tweet_count: number;
+    like_count: number;
+    bookmark_count: number;
+    impression_count: number;
+  }>;
+};
+
 export type AuthorSentimentResponse = {
   view: string;
   subject: {
@@ -165,6 +196,7 @@ export type BtcSpotPriceResponse = {
 
 export type AggregateMoodCohortsResponse = {
   view: string;
+  generated_at?: string;
   model: {
     model_key: string;
   };
@@ -179,6 +211,24 @@ export type AggregateMoodCohortsResponse = {
     tag_slug: null;
     tag_name: string;
   };
+};
+
+export type AggregateMarketSeriesResponse = {
+  view: string;
+  btc_granularity: string;
+  mstr_granularity: string;
+  range: {
+    start: string;
+    end: string;
+  };
+  btc_series: Array<{
+    timestamp: string;
+    price_usd: number;
+  }>;
+  mstr_series: Array<{
+    timestamp: string;
+    price_usd: number;
+  }>;
 };
 
 type AggregateMoodFilterOptions = {
@@ -204,6 +254,27 @@ export async function fetchAuthorOverview(
   }
 
   return (await response.json()) as AuthorOverviewResponse;
+}
+
+export async function fetchAggregateOverview(
+  endpointPath: string,
+  granularity: "day" | "week" = "week",
+  signal?: AbortSignal,
+  options?: AggregateMoodFilterOptions,
+): Promise<AggregateOverviewResponse> {
+  const query = new URLSearchParams({ granularity });
+  const cohortTagSlug = options?.cohortTagSlug?.trim();
+  if (cohortTagSlug) {
+    query.set("cohort_tag", cohortTagSlug);
+  }
+
+  const response = await fetch(`${endpointPath}?${query.toString()}`, { signal });
+
+  if (!response.ok) {
+    throw new Error(`Aggregate overview request failed with status ${response.status}`);
+  }
+
+  return (await response.json()) as AggregateOverviewResponse;
 }
 
 export async function fetchAuthorSentiment(
@@ -286,4 +357,23 @@ export async function fetchAggregateMoodCohorts(
   }
 
   return (await response.json()) as AggregateMoodCohortsResponse;
+}
+
+export async function fetchAggregateMarketSeries(
+  endpointPath: string,
+  rangeStart: string,
+  rangeEnd: string,
+  signal?: AbortSignal,
+): Promise<AggregateMarketSeriesResponse> {
+  const query = new URLSearchParams({
+    range_start: rangeStart,
+    range_end: rangeEnd,
+  });
+  const response = await fetch(`${endpointPath}/market-series?${query.toString()}`, { signal });
+
+  if (!response.ok) {
+    throw new Error(`Aggregate market series request failed with status ${response.status}`);
+  }
+
+  return (await response.json()) as AggregateMarketSeriesResponse;
 }

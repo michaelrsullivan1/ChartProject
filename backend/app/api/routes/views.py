@@ -16,11 +16,13 @@ from app.services.author_bitcoin_mentions_view import (
 )
 from app.services.aggregate_mood_view import (
     AggregateMoodCohortsRequest,
+    AggregateMoodMarketSeriesRequest,
     AggregateMoodOverviewRequest,
     AggregateMoodViewRequest,
-    build_aggregate_mood_cohorts,
-    build_aggregate_mood_overview,
-    build_aggregate_mood_view,
+    build_aggregate_market_series,
+    build_cached_aggregate_mood_cohorts,
+    build_cached_aggregate_mood_overview,
+    build_cached_aggregate_mood_view,
 )
 from app.services.author_sentiment_view import (
     AuthorSentimentViewRequest,
@@ -131,7 +133,7 @@ def _build_aggregate_moods_overview(
     analysis_start: str | None = None,
     cohort_tag: str | None = None,
 ) -> dict[str, object]:
-    return build_aggregate_mood_overview(
+    return build_cached_aggregate_mood_overview(
         AggregateMoodOverviewRequest(
             granularity=granularity,
             model_key=model_key,
@@ -150,7 +152,7 @@ def _build_aggregate_moods(
     analysis_start: str | None = None,
     cohort_tag: str | None = None,
 ) -> dict[str, object]:
-    return build_aggregate_mood_view(
+    return build_cached_aggregate_mood_view(
         AggregateMoodViewRequest(
             granularity=granularity,
             model_key=model_key,
@@ -166,9 +168,24 @@ def _build_aggregate_moods_cohorts(
     view_name: str,
     model_key: str,
 ) -> dict[str, object]:
-    return build_aggregate_mood_cohorts(
+    return build_cached_aggregate_mood_cohorts(
         AggregateMoodCohortsRequest(
             model_key=model_key,
+            view_name=view_name,
+        )
+    )
+
+
+def _build_aggregate_market_series(
+    *,
+    view_name: str,
+    range_start: str,
+    range_end: str,
+) -> dict[str, object]:
+    return build_aggregate_market_series(
+        AggregateMoodMarketSeriesRequest(
+            range_start=range_start,
+            range_end=range_end,
             view_name=view_name,
         )
     )
@@ -408,6 +425,18 @@ def aggregate_mood_series(
 @router.get("/aggregate-moods/btc-spot")
 def aggregate_moods_btc_spot() -> dict[str, object]:
     return _build_btc_spot_price()
+
+
+@router.get("/aggregate-moods/market-series")
+def aggregate_moods_market_series(
+    range_start: str = Query(...),
+    range_end: str = Query(...),
+) -> dict[str, object]:
+    return _build_aggregate_market_series(
+        view_name="aggregate-moods-market-series",
+        range_start=range_start,
+        range_end=range_end,
+    )
 
 
 @router.get("/aggregate-moods/cohorts")

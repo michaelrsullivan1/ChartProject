@@ -1,13 +1,15 @@
 import { useEffect, useState } from "react";
 
 import {
+  fetchAggregateMarketSeries,
   fetchAggregateMoodCohorts,
+  fetchAggregateOverview,
   fetchAuthorMoods,
-  fetchAuthorOverview,
   fetchBtcSpotPrice,
+  type AggregateMarketSeriesResponse,
   type AggregateMoodCohortsResponse,
+  type AggregateOverviewResponse,
   type AuthorMoodResponse,
-  type AuthorOverviewResponse,
   type BtcSpotPriceResponse,
 } from "../api/authorOverview";
 import {
@@ -51,8 +53,9 @@ type AggregateMoodPageProps = {
 };
 
 export function AggregateMoodPage({ aggregateMood, showWatermark }: AggregateMoodPageProps) {
-  const [payload, setPayload] = useState<AuthorOverviewResponse | null>(null);
+  const [payload, setPayload] = useState<AggregateOverviewResponse | null>(null);
   const [moodPayload, setMoodPayload] = useState<AuthorMoodResponse | null>(null);
+  const [marketPayload, setMarketPayload] = useState<AggregateMarketSeriesResponse | null>(null);
   const [btcSpotPayload, setBtcSpotPayload] = useState<BtcSpotPriceResponse | null>(null);
   const [cohortPayload, setCohortPayload] = useState<AggregateMoodCohortsResponse | null>(null);
   const [selectedCohortTagSlug, setSelectedCohortTagSlug] = useState<string | null>(null);
@@ -73,11 +76,22 @@ export function AggregateMoodPage({ aggregateMood, showWatermark }: AggregateMoo
           ? cohortResponse.cohorts.some((cohort) => cohort.tag_slug === selectedCohortTagSlug)
           : false;
         const effectiveCohortTagSlug = selectedCohortExists ? selectedCohortTagSlug : null;
-        const [requiredResponses, btcSpotResult] = await Promise.all([
+        const overviewPromise = fetchAggregateOverview(aggregateMood.apiBasePath, "week", undefined, {
+          cohortTagSlug: effectiveCohortTagSlug,
+        });
+        const marketPromise = overviewPromise
+          .then((response) =>
+            fetchAggregateMarketSeries(
+              aggregateMood.apiBasePath,
+              response.range.start,
+              response.range.end,
+            ),
+          )
+          .then((response) => ({ ok: true as const, response }))
+          .catch((marketError: unknown) => ({ ok: false as const, marketError }));
+        const [requiredResponses, btcSpotResult, marketResult] = await Promise.all([
           Promise.all([
-            fetchAuthorOverview(aggregateMood.apiBasePath, "week", undefined, {
-              cohortTagSlug: effectiveCohortTagSlug,
-            }),
+            overviewPromise,
             fetchAuthorMoods(aggregateMood.apiBasePath, "week", undefined, {
               cohortTagSlug: effectiveCohortTagSlug,
             }),
@@ -85,12 +99,14 @@ export function AggregateMoodPage({ aggregateMood, showWatermark }: AggregateMoo
           fetchBtcSpotPrice(aggregateMood.apiBasePath)
             .then((response) => ({ ok: true as const, response }))
             .catch((spotError: unknown) => ({ ok: false as const, spotError })),
+          marketPromise,
         ]);
         const [response, moodResponse] = requiredResponses;
 
         if (!cancelled) {
           setPayload(response);
           setMoodPayload(moodResponse);
+          setMarketPayload(marketResult.ok ? marketResult.response : null);
           setBtcSpotPayload(btcSpotResult.ok ? btcSpotResult.response : null);
           setCohortPayload(cohortResponse);
           if (selectedCohortTagSlug !== effectiveCohortTagSlug) {
@@ -106,13 +122,16 @@ export function AggregateMoodPage({ aggregateMood, showWatermark }: AggregateMoo
             btcSpotResult.spotError,
           );
         }
+        if (!marketResult.ok) {
+          console.warn(
+            "ChartProject aggregate market series request failed",
+            aggregateMood.slug,
+            marketResult.marketError,
+          );
+        }
       } catch (loadError) {
         console.error("ChartProject aggregate mood request failed", aggregateMood.slug, loadError);
         if (!cancelled) {
-          setPayload(null);
-          setMoodPayload(null);
-          setBtcSpotPayload(null);
-          setCohortPayload(null);
           setError(loadError instanceof Error ? loadError.message : "Unknown mood fetch failure");
         }
       } finally {
@@ -124,30 +143,27 @@ export function AggregateMoodPage({ aggregateMood, showWatermark }: AggregateMoo
 
     setIsLoading(true);
     setError(null);
-    setPayload(null);
-    setMoodPayload(null);
-    setBtcSpotPayload(null);
-    setCohortPayload(null);
     void loadView();
 
     return () => {
       cancelled = true;
     };
-  }, [aggregateMood, selectedCohortTagSlug]);
+  }, [aggregateMood.apiBasePath, selectedCohortTagSlug]);
 
   return (
     <section className="dashboard-page">
       <article className="panel panel-accent dashboard-workspace">
         {isLoading ? <DashboardLoadingState /> : null}
-        {!isLoading && error ? (
+        {!payload || !moodPayload ? !isLoading && error ? (
           <div className="dashboard-workspace-header">
             <p className="status-copy">{error}</p>
           </div>
-        ) : null}
-        {!isLoading && payload && moodPayload ? (
+        ) : null : null}
+        {payload && moodPayload ? (
           <AggregateMoodChartSection
             payload={payload}
             moodPayload={moodPayload}
+            marketPayload={marketPayload}
             btcSpotPayload={btcSpotPayload}
             showWatermark={showWatermark}
             selectedMoodLabel={aggregateMood.moodLabel}
@@ -171,6 +187,7 @@ export function AggregateMoodPage({ aggregateMood, showWatermark }: AggregateMoo
 function AggregateMoodChartSection({
   payload,
   moodPayload,
+  marketPayload,
   btcSpotPayload,
   showWatermark,
   selectedMoodLabel,
@@ -185,8 +202,9 @@ function AggregateMoodChartSection({
   selectedCohortTagSlug,
   onCohortTagSlugChange,
 }: {
-  payload: AuthorOverviewResponse;
+  payload: AggregateOverviewResponse;
   moodPayload: AuthorMoodResponse;
+  marketPayload: AggregateMarketSeriesResponse | null;
   btcSpotPayload: BtcSpotPriceResponse | null;
   showWatermark: boolean;
   selectedMoodLabel: string;
@@ -201,7 +219,14 @@ function AggregateMoodChartSection({
   selectedCohortTagSlug: string | null;
   onCohortTagSlugChange: (value: string | null) => void;
 }) {
-  const latestBtcPoint = payload.btc_series[payload.btc_series.length - 1];
+  const chartPayload = {
+    ...payload,
+    btc_granularity: marketPayload?.btc_granularity ?? "day",
+    mstr_granularity: marketPayload?.mstr_granularity ?? "day",
+    btc_series: marketPayload?.btc_series ?? [],
+    mstr_series: marketPayload?.mstr_series ?? [],
+  };
+  const latestBtcPoint = chartPayload.btc_series[chartPayload.btc_series.length - 1];
   const latestBtcDailyClose = latestBtcPoint?.price_usd ?? 0;
   const btcLastIso = latestBtcPoint?.timestamp ?? payload.range.end;
   const latestBtc = btcSpotPayload?.price_usd ?? latestBtcDailyClose;
@@ -280,7 +305,7 @@ function AggregateMoodChartSection({
 
       <div className="chart-shell chart-shell-dashboard">
         <AuthorMoodTradingViewChart
-          payload={payload}
+          payload={chartPayload}
           moodPayload={moodPayload}
           showWatermark={showWatermark}
           showMoodSelector={false}

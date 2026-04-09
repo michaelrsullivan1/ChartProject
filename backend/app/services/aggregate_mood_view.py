@@ -13,6 +13,13 @@ from app.models.tweet import Tweet
 from app.models.tweet_mood_score import TweetMoodScore
 from app.models.user import User
 from app.models.user_cohort_tag import UserCohortTag
+from app.services.aggregate_snapshot_cache import (
+    AGGREGATE_COHORTS_VIEW_TYPE,
+    AGGREGATE_MOOD_SERIES_VIEW_TYPE,
+    AGGREGATE_OVERVIEW_VIEW_TYPE,
+    attach_generated_at,
+    get_aggregate_snapshot,
+)
 from app.services.author_sentiment_view import _parse_utc_datetime
 from app.services.market_data import floor_to_day, floor_to_week
 from app.services.moods import DEFAULT_MOOD_MODEL, DEFAULT_VISIBLE_MOOD_LABELS
@@ -41,6 +48,13 @@ class AggregateMoodViewRequest:
 class AggregateMoodCohortsRequest:
     model_key: str = DEFAULT_MOOD_MODEL
     view_name: str = "aggregate-moods-cohorts"
+
+
+@dataclass(slots=True)
+class AggregateMoodMarketSeriesRequest:
+    range_start: str
+    range_end: str
+    view_name: str = "aggregate-moods-market-series"
 
 
 def build_aggregate_mood_overview(
@@ -102,28 +116,6 @@ def build_aggregate_mood_overview(
             range_start=series_start,
         )
 
-        range_start = tweet_series[0]["period_start"]
-        range_end = tweet_series[-1]["period_start"]
-        range_start_dt = datetime.fromisoformat(range_start.replace("Z", "+00:00"))
-        range_end_dt = datetime.fromisoformat(range_end.replace("Z", "+00:00")) + timedelta(
-            days=7 if granularity == "week" else 1
-        )
-
-        btc_series = _build_market_series(
-            session,
-            asset_symbol="BTC",
-            quote_currency="USD",
-            range_start=range_start_dt,
-            range_end=range_end_dt,
-        )
-        mstr_series = _build_market_series(
-            session,
-            asset_symbol="MSTR",
-            quote_currency="USD",
-            range_start=range_start_dt,
-            range_end=range_end_dt,
-        )
-
         return {
             "view": request.view_name,
             "subject": {
@@ -137,15 +129,11 @@ def build_aggregate_mood_overview(
                 "selection": cohort_selection,
             },
             "tweet_granularity": granularity,
-            "btc_granularity": "day",
-            "mstr_granularity": "day",
             "range": {
                 "start": tweet_series[0]["period_start"],
                 "end": tweet_series[-1]["period_start"],
             },
             "tweet_series": tweet_series,
-            "btc_series": btc_series,
-            "mstr_series": mstr_series,
         }
     finally:
         session.close()
@@ -428,6 +416,105 @@ def build_aggregate_mood_cohorts(
                 "tag_slug": None,
                 "tag_name": "All tracked users",
             },
+        }
+    finally:
+        session.close()
+
+
+def build_cached_aggregate_mood_overview(
+    request: AggregateMoodOverviewRequest,
+    *,
+    session_factory: sessionmaker[Session] = SessionLocal,
+) -> dict[str, object]:
+    granularity = request.granularity.strip().lower()
+    if granularity == "week":
+        snapshot = get_aggregate_snapshot(
+            view_type=AGGREGATE_OVERVIEW_VIEW_TYPE,
+            cohort_tag_slug=request.cohort_tag_slug,
+            granularity=granularity,
+            model_key=request.model_key,
+            session_factory=session_factory,
+        )
+        if snapshot is not None:
+            return snapshot
+
+    return attach_generated_at(
+        build_aggregate_mood_overview(request, session_factory=session_factory)
+    )
+
+
+def build_cached_aggregate_mood_view(
+    request: AggregateMoodViewRequest,
+    *,
+    session_factory: sessionmaker[Session] = SessionLocal,
+) -> dict[str, object]:
+    granularity = request.granularity.strip().lower()
+    if granularity == "week":
+        snapshot = get_aggregate_snapshot(
+            view_type=AGGREGATE_MOOD_SERIES_VIEW_TYPE,
+            cohort_tag_slug=request.cohort_tag_slug,
+            granularity=granularity,
+            model_key=request.model_key,
+            session_factory=session_factory,
+        )
+        if snapshot is not None:
+            return snapshot
+
+    return attach_generated_at(build_aggregate_mood_view(request, session_factory=session_factory))
+
+
+def build_cached_aggregate_mood_cohorts(
+    request: AggregateMoodCohortsRequest,
+    *,
+    session_factory: sessionmaker[Session] = SessionLocal,
+) -> dict[str, object]:
+    snapshot = get_aggregate_snapshot(
+        view_type=AGGREGATE_COHORTS_VIEW_TYPE,
+        cohort_tag_slug=None,
+        granularity="week",
+        model_key=request.model_key,
+        session_factory=session_factory,
+    )
+    if snapshot is not None:
+        return snapshot
+
+    return attach_generated_at(build_aggregate_mood_cohorts(request, session_factory=session_factory))
+
+
+def build_aggregate_market_series(
+    request: AggregateMoodMarketSeriesRequest,
+    *,
+    session_factory: sessionmaker[Session] = SessionLocal,
+) -> dict[str, object]:
+    range_start_dt = _parse_utc_datetime(request.range_start)
+    range_end_dt = _parse_utc_datetime(request.range_end) + timedelta(days=7)
+
+    session = session_factory()
+    try:
+        btc_series = _build_market_series(
+            session,
+            asset_symbol="BTC",
+            quote_currency="USD",
+            range_start=range_start_dt,
+            range_end=range_end_dt,
+        )
+        mstr_series = _build_market_series(
+            session,
+            asset_symbol="MSTR",
+            quote_currency="USD",
+            range_start=range_start_dt,
+            range_end=range_end_dt,
+        )
+        return {
+            "view": request.view_name,
+            "btc_granularity": "day",
+            "mstr_granularity": "day",
+            "range": {
+                "start": request.range_start,
+                "end": request.range_end,
+            },
+            "btc_series": btc_series,
+            "mstr_series": mstr_series,
         }
     finally:
         session.close()
