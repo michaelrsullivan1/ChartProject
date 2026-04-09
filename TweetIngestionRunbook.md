@@ -208,6 +208,24 @@ Recommendation:
 - set `--analysis-start` to the first date you want included in phrase analysis
 - using the user's first normalized tweet date is a good default
 
+### 7. Rebuild aggregate snapshots
+
+What it does:
+
+- rebuilds the precomputed aggregate mood payloads stored in `aggregate_view_snapshots`
+- ensures Aggregate Moods reflects the latest scored users and cohort assignments
+
+Command:
+
+```bash
+cd /Users/michaelsullivan/Code/ChartProject/backend
+python3 scripts/cache/rebuild_aggregate_snapshots.py --delete-stale
+```
+
+Important downstream effect:
+
+- this is the command that makes newly scored users and updated cohort assignments show up correctly in Aggregate Moods without waiting for request-time recomputation
+
 ## Copy/Paste Example
 
 This is the full sequence in the preferred order:
@@ -232,6 +250,9 @@ python3 backend/scripts/enrich/score_tweet_moods.py --username <USERNAME>
 python3 backend/scripts/enrich/extract_tweet_keywords.py \
   --username <USERNAME> \
   --analysis-start <KEYWORD_ANALYSIS_START_UTC>
+cd backend
+python3 scripts/cache/rebuild_aggregate_snapshots.py --delete-stale
+cd ..
 ```
 
 ## What Success Looks Like
@@ -242,6 +263,7 @@ After the full sequence succeeds:
 - the user's tweets exist in canonical `tweets`
 - sentiment rows exist for the user
 - mood rows exist for the user
+- aggregate snapshot rows were rebuilt after the mood changes
 - keyword rows exist for the user
 - the user should appear in [user settings](http://127.0.0.1:5173/#/settings/user-settings) once the app is running
 
@@ -258,6 +280,7 @@ Then verify:
 
 - [http://127.0.0.1:5173/#/settings/user-settings](http://127.0.0.1:5173/#/settings/user-settings) shows the user
 - the user can be assigned to cohort tags there if needed
+- if cohort assignments were changed, rerun `python3 scripts/cache/rebuild_aggregate_snapshots.py --delete-stale` from `backend/`
 
 ## Add The User To Local Pages
 
@@ -274,7 +297,7 @@ This is usually part of the same unit of work as ingesting the user.
 
 Use this sequence every time:
 
-1. Finish ingest, normalization, validation, sentiment, moods, and keywords.
+1. Finish ingest, normalization, validation, sentiment, moods, aggregate snapshot rebuild, and keywords.
 2. Choose the final slug for the user.
 3. Decide the `analysis_start` timestamp.
 4. Add the dedicated backend routes in [backend/app/api/routes/views.py](/Users/michaelsullivan/Code/ChartProject/backend/app/api/routes/views.py).

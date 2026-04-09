@@ -9,7 +9,7 @@ The architecture source of truth is [ProjectPlan.md](/Users/michaelsullivan/Code
 One full local flow is working end-to-end:
 
 - containerized Postgres on Docker Compose
-- Alembic migrations through `0007_add_user_cohort_tags`
+- Alembic migrations through `0008_agg_view_snapshots`
 - FastAPI backend with health, user settings, overview, mood, aggregate mood, Bitcoin mentions, and heatmap view routes
 - React frontend with a Foundation page, shared overview pages, shared mood pages, shared heatmap pages, and a user settings page for cohort management
 - raw-first X/Twitter ingest archived into Postgres via `raw_ingestion_artifacts`
@@ -20,6 +20,7 @@ One full local flow is working end-to-end:
 - versioned RoBERTa multilabel tweet mood scoring stored in Postgres
 - versioned exact phrase extraction stored in Postgres via `tweet_keywords`
 - managed cohort tags stored in Postgres via `cohort_tags` and `user_cohort_tags`
+- precomputed aggregate mood snapshots stored in Postgres via `aggregate_view_snapshots`
 - a working chart flow from canonical data to backend payloads to frontend rendering
 - click-through drilldown for the top liked tweet in a selected week
 - click-through drilldown for the top liked phrase-matching tweets in a selected month
@@ -69,13 +70,15 @@ The mood pages currently:
 
 The aggregate mood pages currently:
 
-- request `/api/views/aggregate-moods?granularity=week` for the shared BTC and activity payload
-- request `/api/views/aggregate-moods/mood-series?granularity=week` for the selected aggregate mood series
+- request `/api/views/aggregate-moods?granularity=week` for the cached aggregate activity payload
+- request `/api/views/aggregate-moods/mood-series?granularity=week` for the cached aggregate mood-series payload
+- request `/api/views/aggregate-moods/market-series?range_start=<iso>&range_end=<iso>` for BTC and MSTR history
 - request `/api/views/aggregate-moods/cohorts` to populate the available cohort filters
 - support a single cohort filter at a time via `cohort_tag=<slug>`
 - default to `All tracked users`, which means every eligible user with scored mood data
 - only show cohort tags on the aggregate page when at least one eligible user is assigned to that tag
-- keep overview metrics and mood-series calculations aligned by applying the same filtered user scope to both endpoints
+- keep overview metrics and mood-series calculations aligned by applying the same filtered user scope to both cached endpoints
+- store one current snapshot per aggregate view/cohort/model combination instead of rebuilding aggregate payloads on every page load
 
 The user settings page currently:
 
@@ -156,6 +159,13 @@ Restore the database from the most recent backup:
 
 ```bash
 ./scripts/restore-db.sh
+```
+
+Rebuild aggregate mood snapshots after mood scoring, new-user onboarding, or cohort changes:
+
+```bash
+cd backend
+python3 scripts/cache/rebuild_aggregate_snapshots.py --delete-stale
 ```
 
 Check the Postgres container:
@@ -281,6 +291,7 @@ The main runtime data directories currently kept in the repo are:
 - `tweet_keywords`
 - `tweet_references`
 - `market_price_points`
+- `aggregate_view_snapshots`
 - `tweet_mood_scores`
 - `tweet_sentiment_scores`
 - `ingestion_runs`
@@ -294,8 +305,9 @@ The main runtime data directories currently kept in the repo are:
 4. Enrich canonical tweets with versioned sentiment scores.
 5. Enrich canonical tweets with versioned multilabel mood scores.
 6. Enrich canonical tweets with versioned exact phrase rows in `tweet_keywords`.
-7. Build request-time backend view payloads from canonical tables.
-8. Render the current frontend chart pages from those backend view payloads.
+7. Rebuild aggregate mood snapshots when aggregate mood inputs change.
+8. Build request-time backend view payloads from canonical tables for the remaining live endpoints.
+9. Render the current frontend chart pages from those backend view payloads.
 
 No live provider calls are required for normalization, validation, the overview pages, the heatmap pages, or their tweet drilldowns.
 
@@ -334,6 +346,7 @@ The current chart flow uses dedicated overview endpoints:
 /api/views/aggregate-moods?granularity=week&cohort_tag=bitcoin
 /api/views/aggregate-moods/mood-series?granularity=week
 /api/views/aggregate-moods/mood-series?granularity=week&cohort_tag=bitcoin
+/api/views/aggregate-moods/market-series?range_start=2016-01-04T00:00:00Z&range_end=2026-04-06T00:00:00Z
 /api/views/aggregate-moods/cohorts
 /api/views/peter-schiff-moods?granularity=week
 /api/views/peter-schiff-moods/mood-series?granularity=week
@@ -371,8 +384,10 @@ Current behavior:
 - mood pages currently reuse the overview BTC payload but replace the lower pane with mood deviation
 - mood deviation is computed against the selected author's own historical baseline
 - aggregate mood pages compute mood deviation against each included user's own historical baseline, then average those deviations in a user-balanced way
+- aggregate mood overview and aggregate mood-series payloads are precomputed into `aggregate_view_snapshots`
 - aggregate mood overview and aggregate mood-series endpoints share the same eligible-user cohort filter so tracked users, scored posts, baselines, and plotted mood series stay consistent
 - aggregate mood cohort filtering currently accepts a single `cohort_tag` slug or no tag for the all-users view
+- aggregate market history is fetched separately so BTC and MSTR updates do not require rebuilding aggregate mood snapshots
 - the current mood UI is curated to six labels, but the scorer stores every label emitted by the configured model
 - heatmap rows are phrase-level exact `1-3` word matches extracted from canonical tweet text
 - heatmap ranking supports `mode=common` and `mode=rising`
@@ -468,7 +483,92 @@ python3 backend/scripts/enrich/extract_tweet_keywords.py \
   --analysis-start 2020-08-01T00:00:00Z
 ```
 
-9. Confirm the dedicated overview endpoints, mood endpoints, heatmap endpoints, and frontend pages render correctly.
+9. Rebuild aggregate mood snapshots so Aggregate Moods includes the latest scored/cohort data:
+
+```bash
+python3 backend/scripts/cache/rebuild_aggregate_snapshots.py --delete-stale
+```
+
+10. Confirm the dedicated overview endpoints, mood endpoints, aggregate mood endpoints, heatmap endpoints, and frontend pages render correctly.
+
+## Aggregate snapshot workflow
+
+Aggregate Moods now uses precomputed snapshot payloads stored in `aggregate_view_snapshots`.
+
+Snapshot rows exist for:
+
+- `aggregate-cohorts`
+- `aggregate-overview`
+- `aggregate-mood-series`
+
+Each row is keyed by:
+
+- view type
+- cohort slug
+- granularity
+- mood model key
+- cache version
+
+The expensive aggregate mood payloads are meant to be rebuilt intentionally, while BTC and MSTR market history is fetched separately.
+
+### When to rebuild aggregate snapshots
+
+Run the rebuild after any change that affects aggregate mood outputs:
+
+- after scoring moods for a newly onboarded or updated user
+- after rescoring moods for an existing user
+- after changing user cohort assignments
+- after creating, deleting, or renaming cohort tags in a way that changes aggregate cohort membership or available cohort filters
+- after adding or removing a tracked user from the aggregate set
+- after changing aggregate mood response logic
+- after changing the active mood model used for aggregate views
+
+Practical operator rule:
+
+- if you changed anything that affects `tweet_mood_scores`, aggregate-user eligibility, `cohort_tags`, or `user_cohort_tags`, rerun the snapshot rebuild
+
+Common examples that should trigger a rebuild:
+
+- you ingested one additional user and then scored moods for that user
+- you changed cohort assignments from the user settings page
+- you rescored mood rows with `--overwrite-existing`
+- you changed which cohort tags exist or which users belong to them
+
+You do not need to rebuild aggregate snapshots just because BTC or MSTR market data changed.
+
+You also do not need to rebuild them for:
+
+- frontend-only changes
+- sentiment-only changes
+- keyword-only changes
+- heatmap-only changes
+- overview page changes that do not alter aggregate mood payload logic
+
+### Rebuild command
+
+From the repo root:
+
+```bash
+cd backend
+python3 scripts/cache/rebuild_aggregate_snapshots.py --delete-stale
+```
+
+What this does:
+
+- rebuilds the `aggregate-cohorts` snapshot
+- rebuilds `aggregate-overview` for `all` and every eligible cohort
+- rebuilds `aggregate-mood-series` for `all` and every eligible cohort
+- upserts the latest snapshot rows into Postgres
+- removes stale snapshot rows for the same model/granularity when `--delete-stale` is used
+
+Useful variants:
+
+```bash
+cd backend
+python3 scripts/cache/rebuild_aggregate_snapshots.py --dry-run
+python3 scripts/cache/rebuild_aggregate_snapshots.py --cohort mstr
+python3 scripts/cache/rebuild_aggregate_snapshots.py --view aggregate-mood-series
+```
 
 ### Preflight checklist
 
