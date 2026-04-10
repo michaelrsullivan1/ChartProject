@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 
 import {
+  fetchAggregateMoodCohorts,
   fetchAuthorMoods,
   fetchAuthorOverview,
   fetchBtcSpotPrice,
+  type AggregateMoodCohortsResponse,
   type AuthorMoodResponse,
   type AuthorOverviewResponse,
   type BtcSpotPriceResponse,
@@ -15,7 +17,7 @@ import {
 } from "../components/AuthorMoodTradingViewChart";
 import { DashboardLoadingState } from "../components/DashboardLoadingState";
 import { getMoodDescriptionByLabel } from "../config/aggregateMoods";
-import { type MoodDefinition, getMoodLabel } from "../config/moods";
+import { type MoodDefinition } from "../config/moods";
 import { buildMoodDeviationSeries } from "../lib/moods";
 import { type SentimentMode } from "../lib/sentiment";
 
@@ -41,6 +43,16 @@ const compactDateFormatter = new Intl.DateTimeFormat("en-US", {
   timeZone: "UTC",
 });
 
+const AGGREGATE_MOODS_API_BASE_PATH = "/api/views/aggregate-moods";
+const NO_AGGREGATE_COMPARISON_KEY = "__no_aggregate_comparison__";
+const ALL_AGGREGATE_COHORT_KEY = "__all_aggregate_users__";
+const AGGREGATE_COMPARISON_COLOR = "rgba(198, 191, 180, 0.8)";
+
+type AggregateComparisonOption = {
+  key: string;
+  label: string;
+};
+
 type AuthorMoodPageProps = {
   mood: MoodDefinition;
   showWatermark: boolean;
@@ -49,51 +61,108 @@ type AuthorMoodPageProps = {
 export function AuthorMoodPage({ mood, showWatermark }: AuthorMoodPageProps) {
   const [payload, setPayload] = useState<AuthorOverviewResponse | null>(null);
   const [moodPayload, setMoodPayload] = useState<AuthorMoodResponse | null>(null);
+  const [aggregateComparisonPayload, setAggregateComparisonPayload] = useState<AuthorMoodResponse | null>(
+    null,
+  );
   const [btcSpotPayload, setBtcSpotPayload] = useState<BtcSpotPriceResponse | null>(null);
-  const [selectedMoodLabel, setSelectedMoodLabel] = useState<string>("optimism");
+  const [aggregateCohortPayload, setAggregateCohortPayload] =
+    useState<AggregateMoodCohortsResponse | null>(null);
+  const [selectedMoodLabel, setSelectedMoodLabel] = useState<string>("");
+  const [selectedAggregateComparisonKey, setSelectedAggregateComparisonKey] =
+    useState<string>(NO_AGGREGATE_COMPARISON_KEY);
   const [priceMode, setPriceMode] = useState<PriceMode>("btc");
   const [moodVisualMode, setMoodVisualMode] = useState<MoodVisualMode>("line");
   const [sentimentMode, setSentimentMode] = useState<SentimentMode>("weighted-8w");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const moodLabel = getMoodLabel(mood);
+
+  useEffect(() => {
+    setSelectedAggregateComparisonKey(NO_AGGREGATE_COMPARISON_KEY);
+  }, [mood.slug]);
 
   useEffect(() => {
     let cancelled = false;
 
     async function loadView() {
       try {
-        const [requiredResponses, btcSpotResult] = await Promise.all([
-          Promise.all([
-            fetchAuthorOverview(mood.apiBasePath, "week"),
-            fetchAuthorMoods(mood.apiBasePath, "week"),
-          ]),
-          fetchBtcSpotPrice(mood.apiBasePath)
-            .then((response) => ({ ok: true as const, response }))
-            .catch((spotError: unknown) => ({ ok: false as const, spotError })),
-        ]);
+        const [requiredResponses, btcSpotResult, aggregateCohortsResult, comparisonResult] =
+          await Promise.all([
+            Promise.all([
+              fetchAuthorOverview(mood.apiBasePath, "week"),
+              fetchAuthorMoods(mood.apiBasePath, "week"),
+            ]),
+            fetchBtcSpotPrice(mood.apiBasePath)
+              .then((response) => ({ ok: true as const, response }))
+              .catch((spotError: unknown) => ({ ok: false as const, spotError })),
+            fetchAggregateMoodCohorts(AGGREGATE_MOODS_API_BASE_PATH)
+              .then((response) => ({ ok: true as const, response }))
+              .catch((cohortError: unknown) => ({ ok: false as const, cohortError })),
+            selectedAggregateComparisonKey === NO_AGGREGATE_COMPARISON_KEY
+              ? Promise.resolve({ ok: true as const, response: null })
+              : fetchAuthorMoods(AGGREGATE_MOODS_API_BASE_PATH, "week", undefined, {
+                  cohortTagSlug: aggregateComparisonKeyToTagSlug(selectedAggregateComparisonKey),
+                })
+                  .then((response) => ({ ok: true as const, response }))
+                  .catch((comparisonError: unknown) => ({
+                    ok: false as const,
+                    comparisonError,
+                  })),
+          ]);
         const [response, moodResponse] = requiredResponses;
+        const aggregateOptions = buildAggregateComparisonOptions(
+          aggregateCohortsResult.ok ? aggregateCohortsResult.response.cohorts : [],
+        );
+        const effectiveAggregateComparisonKey = aggregateOptions.some(
+          (option) => option.key === selectedAggregateComparisonKey,
+        )
+          ? selectedAggregateComparisonKey
+          : NO_AGGREGATE_COMPARISON_KEY;
 
         if (!cancelled) {
           setPayload(response);
           setMoodPayload(moodResponse);
           setBtcSpotPayload(btcSpotResult.ok ? btcSpotResult.response : null);
+          setAggregateCohortPayload(aggregateCohortsResult.ok ? aggregateCohortsResult.response : null);
+          setAggregateComparisonPayload(
+            comparisonResult.ok && effectiveAggregateComparisonKey !== NO_AGGREGATE_COMPARISON_KEY
+              ? comparisonResult.response
+              : null,
+          );
           setSelectedMoodLabel((current) =>
-            moodResponse.model.mood_labels.includes(current)
+            current && moodResponse.model.mood_labels.includes(current)
               ? current
               : (moodResponse.model.mood_labels[0] ?? "optimism"),
           );
+          if (selectedAggregateComparisonKey !== effectiveAggregateComparisonKey) {
+            setSelectedAggregateComparisonKey(effectiveAggregateComparisonKey);
+          }
           setError(null);
         }
 
         if (!btcSpotResult.ok) {
           console.warn("ChartProject BTC spot request failed", mood.slug, btcSpotResult.spotError);
         }
+        if (!aggregateCohortsResult.ok) {
+          console.warn(
+            "ChartProject aggregate cohorts request failed",
+            mood.slug,
+            aggregateCohortsResult.cohortError,
+          );
+        }
+        if (!comparisonResult.ok) {
+          console.warn(
+            "ChartProject aggregate mood comparison request failed",
+            mood.slug,
+            comparisonResult.comparisonError,
+          );
+        }
       } catch (loadError) {
         console.error("ChartProject mood request failed", mood.slug, loadError);
         if (!cancelled) {
           setPayload(null);
           setMoodPayload(null);
+          setAggregateComparisonPayload(null);
+          setAggregateCohortPayload(null);
           setBtcSpotPayload(null);
           setError(loadError instanceof Error ? loadError.message : "Unknown mood fetch failure");
         }
@@ -108,13 +177,15 @@ export function AuthorMoodPage({ mood, showWatermark }: AuthorMoodPageProps) {
     setError(null);
     setPayload(null);
     setMoodPayload(null);
+    setAggregateComparisonPayload(null);
+    setAggregateCohortPayload(null);
     setBtcSpotPayload(null);
     void loadView();
 
     return () => {
       cancelled = true;
     };
-  }, [mood]);
+  }, [mood, selectedAggregateComparisonKey]);
 
   return (
     <section className="dashboard-page">
@@ -129,6 +200,12 @@ export function AuthorMoodPage({ mood, showWatermark }: AuthorMoodPageProps) {
           <AuthorMoodChartSection
             payload={payload}
             moodPayload={moodPayload}
+            aggregateComparisonPayload={aggregateComparisonPayload}
+            aggregateComparisonOptions={buildAggregateComparisonOptions(
+              aggregateCohortPayload?.cohorts ?? [],
+            )}
+            selectedAggregateComparisonKey={selectedAggregateComparisonKey}
+            onAggregateComparisonKeyChange={setSelectedAggregateComparisonKey}
             btcSpotPayload={btcSpotPayload}
             showWatermark={showWatermark}
             selectedMoodLabel={selectedMoodLabel}
@@ -149,6 +226,10 @@ export function AuthorMoodPage({ mood, showWatermark }: AuthorMoodPageProps) {
 function AuthorMoodChartSection({
   payload,
   moodPayload,
+  aggregateComparisonPayload,
+  aggregateComparisonOptions,
+  selectedAggregateComparisonKey,
+  onAggregateComparisonKeyChange,
   btcSpotPayload,
   showWatermark,
   selectedMoodLabel,
@@ -162,6 +243,10 @@ function AuthorMoodChartSection({
 }: {
   payload: AuthorOverviewResponse;
   moodPayload: AuthorMoodResponse;
+  aggregateComparisonPayload: AuthorMoodResponse | null;
+  aggregateComparisonOptions: AggregateComparisonOption[];
+  selectedAggregateComparisonKey: string;
+  onAggregateComparisonKeyChange: (key: string) => void;
   btcSpotPayload: BtcSpotPriceResponse | null;
   showWatermark: boolean;
   selectedMoodLabel: string;
@@ -186,6 +271,14 @@ function AuthorMoodChartSection({
   const moodExtremes = getMoodExtremes(moodDeviationSeries, moodPayload.range.end);
   const selectedMoodSummary = moodPayload.summary.moods[selectedMoodLabel];
   const moodDescription = getMoodDescriptionByLabel(selectedMoodLabel);
+  const selectedAggregateComparison =
+    aggregateComparisonOptions.find((option) => option.key === selectedAggregateComparisonKey) ?? null;
+  const aggregateComparisonLabel =
+    aggregateComparisonPayload &&
+    selectedAggregateComparison &&
+    selectedAggregateComparison.key !== NO_AGGREGATE_COMPARISON_KEY
+      ? selectedAggregateComparison.label
+      : null;
 
   return (
     <>
@@ -243,7 +336,11 @@ function AuthorMoodChartSection({
         <AuthorMoodTradingViewChart
           payload={payload}
           moodPayload={moodPayload}
+          comparisonMoodPayload={aggregateComparisonPayload}
+          comparisonMoodLabel={aggregateComparisonLabel}
+          comparisonMoodColor={AGGREGATE_COMPARISON_COLOR}
           showWatermark={showWatermark}
+          moodSelectorVariant="select"
           moodDefinition={moodDescription}
           selectedMoodLabel={selectedMoodLabel}
           onMoodLabelChange={onMoodLabelChange}
@@ -253,6 +350,34 @@ function AuthorMoodChartSection({
           onMoodVisualModeChange={onMoodVisualModeChange}
           sentimentMode={sentimentMode}
           onSentimentModeChange={onSentimentModeChange}
+          rightSidebarSupplementalContent={
+            <div className="chart-control-card">
+              <p className="chart-control-eyebrow">Aggregate Comparison</p>
+              <label className="chart-control-field">
+                <span className="sr-only">Aggregate cohort comparison</span>
+                <select
+                  aria-label="Aggregate cohort comparison"
+                  className="chart-control-select"
+                  onChange={(event) => onAggregateComparisonKeyChange(event.target.value)}
+                  value={selectedAggregateComparisonKey}
+                >
+                  {aggregateComparisonOptions.map((option) => (
+                    <option key={option.key} value={option.key}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <p className="chart-control-note">
+                Uses the same selected mood and smoothing mode, overlaid as a muted aggregate line.
+              </p>
+              {aggregateComparisonLabel ? (
+                <p className="chart-control-note">
+                  Comparing against aggregate {aggregateComparisonLabel}.
+                </p>
+              ) : null}
+            </div>
+          }
         />
       </div>
 
@@ -274,10 +399,39 @@ function AuthorMoodChartSection({
             <span className="chart-swatch chart-swatch-sentiment" />
             {formatMoodLabel(selectedMoodLabel)} deviation
           </span>
+          {aggregateComparisonLabel ? (
+            <span className="chart-legend-item">
+              <span className="chart-swatch chart-swatch-sentiment-comparison" />
+              Aggregate {aggregateComparisonLabel}
+            </span>
+          ) : null}
         </div>
       </div>
     </>
   );
+}
+
+function buildAggregateComparisonOptions(
+  cohorts: AggregateMoodCohortsResponse["cohorts"],
+): AggregateComparisonOption[] {
+  return [
+    {
+      key: NO_AGGREGATE_COMPARISON_KEY,
+      label: "No aggregate comparison",
+    },
+    {
+      key: ALL_AGGREGATE_COHORT_KEY,
+      label: "All tracked users",
+    },
+    ...cohorts.map((cohort) => ({
+      key: cohort.tag_slug,
+      label: cohort.tag_name,
+    })),
+  ];
+}
+
+function aggregateComparisonKeyToTagSlug(value: string): string | null {
+  return value === ALL_AGGREGATE_COHORT_KEY || value === NO_AGGREGATE_COMPARISON_KEY ? null : value;
 }
 
 function formatFullDate(value: string | number): string {

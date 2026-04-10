@@ -994,6 +994,41 @@ textarea {
   font-size: 0.82rem;
 }
 
+.chart-control-field {
+  display: block;
+  margin-top: 10px;
+}
+
+.chart-control-select {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  border: 1px solid rgba(var(--line-rgb), 0.14);
+  border-radius: 14px;
+  background:
+    linear-gradient(45deg, transparent 50%, rgba(var(--accent-rgb), 0.78) 50%) calc(100% - 18px) calc(50% - 2px) / 7px 7px
+      no-repeat,
+    linear-gradient(135deg, rgba(var(--accent-rgb), 0.78) 50%, transparent 50%) calc(100% - 13px) calc(50% - 2px) / 7px 7px
+      no-repeat,
+    rgba(var(--surface-0-rgb), 0.56);
+  color: var(--text-primary);
+  padding: 11px 38px 11px 14px;
+  outline: none;
+  transition:
+    border-color 120ms ease,
+    box-shadow 120ms ease,
+    background 120ms ease;
+}
+
+.chart-control-select:hover {
+  border-color: rgba(var(--accent-rgb), 0.28);
+}
+
+.chart-control-select:focus {
+  border-color: rgba(var(--accent-rgb), 0.4);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.12);
+}
+
 .chart-hover-strip {
   display: grid;
   grid-template-columns: 1fr;

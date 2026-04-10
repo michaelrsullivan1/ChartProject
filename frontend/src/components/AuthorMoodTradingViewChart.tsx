@@ -30,7 +30,9 @@ type AuthorMoodTradingViewChartProps = {
   moodVisualMode: MoodVisualMode;
   showWatermark: boolean;
   showMoodSelector?: boolean;
+  moodSelectorVariant?: "buttons" | "select";
   moodDefinition?: string;
+  rightSidebarSupplementalContent?: ReactNode;
   rightSidebarContent?: ReactNode;
   sentimentMode: SentimentMode;
   smoothingWeightLabel?: string;
@@ -120,7 +122,9 @@ export function AuthorMoodTradingViewChart({
   moodVisualMode,
   showWatermark,
   showMoodSelector = true,
+  moodSelectorVariant = "buttons",
   moodDefinition,
+  rightSidebarSupplementalContent,
   rightSidebarContent,
   sentimentMode,
   smoothingWeightLabel = "scored post count",
@@ -463,24 +467,45 @@ export function AuthorMoodTradingViewChart({
         <div className="tradingview-chart" ref={containerRef} />
       </div>
 
-      {showMoodSelector || rightSidebarContent ? (
+      {showMoodSelector || rightSidebarSupplementalContent || rightSidebarContent ? (
         <aside className="chart-sidebar">
           {showMoodSelector ? (
-            <div className="chart-control-card">
-              <p className="chart-control-eyebrow">Mood</p>
-              <div className="chart-toggle-group" role="group" aria-label="Mood label">
-                {moodPayload.model.mood_labels.map((moodLabel) => (
-                  <button
-                    key={moodLabel}
-                    className={`chart-toggle-button${selectedMoodLabel === moodLabel ? " is-active" : ""}`}
-                    onClick={() => onMoodLabelChange(moodLabel)}
-                    type="button"
-                  >
-                    {formatMoodLabel(moodLabel)}
-                  </button>
-                ))}
+            <>
+              <div className="chart-control-card">
+                <p className="chart-control-eyebrow">Mood</p>
+                {moodSelectorVariant === "select" ? (
+                  <label className="chart-control-field">
+                    <span className="sr-only">Mood label</span>
+                    <select
+                      aria-label="Mood label"
+                      className="chart-control-select"
+                      onChange={(event) => onMoodLabelChange(event.target.value)}
+                      value={selectedMoodLabel}
+                    >
+                      {moodPayload.model.mood_labels.map((moodLabel) => (
+                        <option key={moodLabel} value={moodLabel}>
+                          {formatMoodLabel(moodLabel)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : (
+                  <div className="chart-toggle-group" role="group" aria-label="Mood label">
+                    {moodPayload.model.mood_labels.map((moodLabel) => (
+                      <button
+                        key={moodLabel}
+                        className={`chart-toggle-button${selectedMoodLabel === moodLabel ? " is-active" : ""}`}
+                        onClick={() => onMoodLabelChange(moodLabel)}
+                        type="button"
+                      >
+                        {formatMoodLabel(moodLabel)}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
-            </div>
+              {rightSidebarSupplementalContent}
+            </>
           ) : (
             rightSidebarContent
           )}
