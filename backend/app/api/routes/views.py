@@ -582,6 +582,18 @@ def stack_hodler_overview(
     )
 
 
+@router.get("/isabella-overview")
+def isabella_overview(
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+) -> dict[str, object]:
+    return _build_overview_view(
+        username="isabellasg3",
+        view_name="isabella-overview",
+        granularity=granularity,
+        analysis_start="2021-06-10T00:00:00Z",
+    )
+
+
 @router.get("/walker-america-overview/top-liked-tweet")
 def walker_america_overview_top_liked_tweet(
     week_start: str = Query(...),
@@ -644,6 +656,17 @@ def stack_hodler_overview_top_liked_tweet(
     return _build_overview_top_liked_tweet(
         username="stackhodler",
         view_name="stack-hodler-overview-top-liked-tweet",
+        week_start=week_start,
+    )
+
+
+@router.get("/isabella-overview/top-liked-tweet")
+def isabella_overview_top_liked_tweet(
+    week_start: str = Query(...),
+) -> dict[str, object]:
+    return _build_overview_top_liked_tweet(
+        username="isabellasg3",
+        view_name="isabella-overview-top-liked-tweet",
         week_start=week_start,
     )
 
@@ -732,6 +755,20 @@ def stack_hodler_overview_sentiment(
     )
 
 
+@router.get("/isabella-overview/sentiment")
+def isabella_overview_sentiment(
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+    model_key: str = Query(default=DEFAULT_SENTIMENT_MODEL),
+) -> dict[str, object]:
+    return _build_overview_sentiment(
+        username="isabellasg3",
+        view_name="isabella-overview-sentiment",
+        granularity=granularity,
+        model_key=model_key,
+        analysis_start="2021-06-10T00:00:00Z",
+    )
+
+
 @router.get("/walker-america-overview/btc-spot")
 def walker_america_overview_btc_spot() -> dict[str, object]:
     return _build_btc_spot_price()
@@ -759,6 +796,11 @@ def ray_overview_btc_spot() -> dict[str, object]:
 
 @router.get("/stack-hodler-overview/btc-spot")
 def stack_hodler_overview_btc_spot() -> dict[str, object]:
+    return _build_btc_spot_price()
+
+
+@router.get("/isabella-overview/btc-spot")
+def isabella_overview_btc_spot() -> dict[str, object]:
     return _build_btc_spot_price()
 
 
@@ -831,6 +873,18 @@ def stack_hodler_moods(
         view_name="stack-hodler-moods",
         granularity=granularity,
         analysis_start="2020-05-05T00:00:00Z",
+    )
+
+
+@router.get("/isabella-moods")
+def isabella_moods(
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+) -> dict[str, object]:
+    return _build_overview_view(
+        username="isabellasg3",
+        view_name="isabella-moods",
+        granularity=granularity,
+        analysis_start="2021-06-10T00:00:00Z",
     )
 
 
@@ -918,6 +972,20 @@ def stack_hodler_mood_series(
     )
 
 
+@router.get("/isabella-moods/mood-series")
+def isabella_mood_series(
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+    model_key: str = Query(default=DEFAULT_MOOD_MODEL),
+) -> dict[str, object]:
+    return _build_author_moods(
+        username="isabellasg3",
+        view_name="isabella-mood-series",
+        granularity=granularity,
+        model_key=model_key,
+        analysis_start="2021-06-10T00:00:00Z",
+    )
+
+
 @router.get("/walker-america-moods/btc-spot")
 def walker_america_moods_btc_spot() -> dict[str, object]:
     return _build_btc_spot_price()
@@ -945,6 +1013,11 @@ def ray_moods_btc_spot() -> dict[str, object]:
 
 @router.get("/stack-hodler-moods/btc-spot")
 def stack_hodler_moods_btc_spot() -> dict[str, object]:
+    return _build_btc_spot_price()
+
+
+@router.get("/isabella-moods/btc-spot")
+def isabella_moods_btc_spot() -> dict[str, object]:
     return _build_btc_spot_price()
 
 
@@ -1068,6 +1141,26 @@ def stack_hodler_heatmap(
     )
 
 
+@router.get("/isabella-heatmap")
+def isabella_heatmap(
+    mode: str = Query(default="common", pattern="^(all|common|rising)$"),
+    word_count: str = Query(default="all", pattern="^(all|1|2|3)$"),
+    granularity: str = Query(default="month", pattern="^(month)$"),
+    limit: int = Query(default=48, ge=1, le=120),
+    phrase_query: str | None = Query(default=None),
+) -> dict[str, object]:
+    return _build_author_keyword_heatmap(
+        username="isabellasg3",
+        view_name="isabella-heatmap",
+        mode=mode,
+        word_count=word_count,
+        granularity=granularity,
+        limit=limit,
+        phrase_query=phrase_query,
+        analysis_start="2021-06-10T00:00:00Z",
+    )
+
+
 @router.get("/walker-america-heatmap/phrase-trend")
 def walker_america_heatmap_phrase_trend(
     phrase: str = Query(...),
@@ -1149,6 +1242,20 @@ def stack_hodler_heatmap_phrase_trend(
         phrase=phrase,
         granularity=granularity,
         analysis_start="2020-05-05T00:00:00Z",
+    )
+
+
+@router.get("/isabella-heatmap/phrase-trend")
+def isabella_heatmap_phrase_trend(
+    phrase: str = Query(...),
+    granularity: str = Query(default="month", pattern="^(month)$"),
+) -> dict[str, object]:
+    return _build_author_keyword_trend(
+        username="isabellasg3",
+        view_name="isabella-heatmap-phrase-trend",
+        phrase=phrase,
+        granularity=granularity,
+        analysis_start="2021-06-10T00:00:00Z",
     )
 
 
@@ -1236,6 +1343,21 @@ def stack_hodler_heatmap_top_liked_tweets(
     return _build_author_keyword_top_tweets(
         username="stackhodler",
         view_name="stack-hodler-heatmap-top-liked-tweets",
+        phrase=phrase,
+        month_start=month_start,
+        limit=limit,
+    )
+
+
+@router.get("/isabella-heatmap/top-liked-tweets")
+def isabella_heatmap_top_liked_tweets(
+    phrase: str = Query(...),
+    month_start: str = Query(...),
+    limit: int = Query(default=3, ge=1, le=10),
+) -> dict[str, object]:
+    return _build_author_keyword_top_tweets(
+        username="isabellasg3",
+        view_name="isabella-heatmap-top-liked-tweets",
         phrase=phrase,
         month_start=month_start,
         limit=limit,

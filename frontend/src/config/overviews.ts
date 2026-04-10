@@ -41,6 +41,11 @@ export const overviewDefinitions: OverviewDefinition[] = [
     apiBasePath: "/api/views/stack-hodler-overview",
   },
   {
+    slug: "isabella",
+    username: "isabellasg3",
+    apiBasePath: "/api/views/isabella-overview",
+  },
+  {
     slug: "michael-sullivan",
     username: "SullyMichaelvan",
     apiBasePath: "/api/views/michael-sullivan-overview",
