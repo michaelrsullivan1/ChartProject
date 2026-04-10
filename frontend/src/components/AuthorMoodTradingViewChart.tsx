@@ -22,6 +22,9 @@ import { CHART_WATERMARK_HANDLE } from "../lib/watermark";
 type AuthorMoodTradingViewChartProps = {
   payload: AuthorOverviewResponse;
   moodPayload: AuthorMoodResponse;
+  comparisonMoodPayload?: AuthorMoodResponse | null;
+  comparisonMoodLabel?: string | null;
+  comparisonMoodColor?: string;
   selectedMoodLabel: string;
   priceMode: PriceMode;
   moodVisualMode: MoodVisualMode;
@@ -109,6 +112,9 @@ const moodRangeFocusStart = new Date("2020-08-01T00:00:00Z").getTime();
 export function AuthorMoodTradingViewChart({
   payload,
   moodPayload,
+  comparisonMoodPayload = null,
+  comparisonMoodLabel,
+  comparisonMoodColor = "rgba(198, 191, 180, 0.8)",
   selectedMoodLabel,
   priceMode,
   moodVisualMode,
@@ -130,9 +136,24 @@ export function AuthorMoodTradingViewChart({
     () => buildMoodDeviationSeries(moodPayload, selectedMoodLabel, sentimentMode),
     [moodPayload, selectedMoodLabel, sentimentMode],
   );
+  const comparisonMoodDeviationSeries = useMemo(
+    () =>
+      comparisonMoodPayload
+        ? buildMoodDeviationSeries(comparisonMoodPayload, selectedMoodLabel, sentimentMode)
+        : [],
+    [comparisonMoodPayload, selectedMoodLabel, sentimentMode],
+  );
   const moodSeriesData = useMemo<MoodSeriesPoint[]>(
     () => moodDeviationSeries.map((point) => buildMoodSeriesPoint(point.periodStart, point.value)),
     [moodDeviationSeries],
+  );
+  const comparisonMoodSeriesData = useMemo<LineData<Time>[]>(
+    () =>
+      comparisonMoodDeviationSeries.flatMap((point) => {
+        const time = toBusinessDay(point.periodStart);
+        return point.value === null ? [] : [{ time, value: point.value }];
+      }),
+    [comparisonMoodDeviationSeries],
   );
   const moodHistogramData = useMemo<MoodHistogramPoint[]>(
     () =>
@@ -151,8 +172,8 @@ export function AuthorMoodTradingViewChart({
     [moodDeviationSeries],
   );
   const moodRange = useMemo(
-    () => buildSymmetricMoodRange(moodSeriesData, sentimentMode),
-    [moodSeriesData, sentimentMode],
+    () => buildSymmetricMoodRange([...moodSeriesData, ...comparisonMoodSeriesData], sentimentMode),
+    [comparisonMoodSeriesData, moodSeriesData, sentimentMode],
   );
 
   useEffect(() => {
@@ -248,6 +269,28 @@ export function AuthorMoodTradingViewChart({
       moodSeries.setData(moodSeriesData);
     }
 
+    if (comparisonMoodSeriesData.length > 0) {
+      const comparisonSeries = chart.addSeries(
+        LineSeries,
+        {
+          title: comparisonMoodLabel ?? "",
+          color: comparisonMoodColor,
+          lineWidth: 2,
+          lineType: LineType.Curved,
+          lastValueVisible: false,
+          priceLineVisible: false,
+          crosshairMarkerVisible: false,
+          priceFormat: {
+            type: "custom",
+            minMove: 0.001,
+            formatter: formatSignedMoodPercent,
+          },
+        },
+        1,
+      );
+      comparisonSeries.setData(comparisonMoodSeriesData);
+    }
+
     const mstrSeries = chart.addSeries(LineSeries, {
       title: "",
       color: "#ff6c8b",
@@ -320,6 +363,9 @@ export function AuthorMoodTradingViewChart({
     };
   }, [
     btcSeriesData,
+    comparisonMoodColor,
+    comparisonMoodLabel,
+    comparisonMoodSeriesData,
     moodHistogramData,
     moodRange,
     moodSeriesData,

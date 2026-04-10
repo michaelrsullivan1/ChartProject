@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Pin } from "lucide-react";
 
 import {
   fetchAggregateMarketSeries,
@@ -47,6 +48,18 @@ const compactDateFormatter = new Intl.DateTimeFormat("en-US", {
   timeZone: "UTC",
 });
 
+const ALL_COHORT_KEY = "__all_tracked_users__";
+const COMPARISON_LINE_COLOR = "rgba(198, 191, 180, 0.8)";
+
+type CohortSelectionKey = string;
+
+type AggregateMoodCohortOption = {
+  key: CohortSelectionKey;
+  tagSlug: string | null;
+  tagName: string;
+  userCount: number | null;
+};
+
 type AggregateMoodPageProps = {
   aggregateMood: AggregateMoodDefinition;
   showWatermark: boolean;
@@ -55,10 +68,14 @@ type AggregateMoodPageProps = {
 export function AggregateMoodPage({ aggregateMood, showWatermark }: AggregateMoodPageProps) {
   const [payload, setPayload] = useState<AggregateOverviewResponse | null>(null);
   const [moodPayload, setMoodPayload] = useState<AuthorMoodResponse | null>(null);
+  const [comparisonMoodPayload, setComparisonMoodPayload] = useState<AuthorMoodResponse | null>(
+    null,
+  );
   const [marketPayload, setMarketPayload] = useState<AggregateMarketSeriesResponse | null>(null);
   const [btcSpotPayload, setBtcSpotPayload] = useState<BtcSpotPriceResponse | null>(null);
   const [cohortPayload, setCohortPayload] = useState<AggregateMoodCohortsResponse | null>(null);
-  const [selectedCohortTagSlug, setSelectedCohortTagSlug] = useState<string | null>(null);
+  const [selectedCohortKey, setSelectedCohortKey] = useState<CohortSelectionKey>(ALL_COHORT_KEY);
+  const [pinnedCohortKey, setPinnedCohortKey] = useState<CohortSelectionKey | null>(null);
   const [priceMode, setPriceMode] = useState<PriceMode>("btc");
   const [moodVisualMode, setMoodVisualMode] = useState<MoodVisualMode>("line");
   const [sentimentMode, setSentimentMode] = useState<SentimentMode>("weighted-8w");
@@ -67,17 +84,31 @@ export function AggregateMoodPage({ aggregateMood, showWatermark }: AggregateMoo
   const moodDescription = getAggregateMoodDescription(aggregateMood);
 
   useEffect(() => {
+    setPinnedCohortKey(null);
+  }, [aggregateMood.slug]);
+
+  useEffect(() => {
     let cancelled = false;
 
     async function loadView() {
       try {
         const cohortResponse = await fetchAggregateMoodCohorts(aggregateMood.apiBasePath);
-        const selectedCohortExists = selectedCohortTagSlug
-          ? cohortResponse.cohorts.some((cohort) => cohort.tag_slug === selectedCohortTagSlug)
-          : false;
-        const effectiveCohortTagSlug = selectedCohortExists ? selectedCohortTagSlug : null;
+        const cohortOptions = buildAggregateMoodCohortOptions(cohortResponse.cohorts);
+        const effectiveSelectedCohortKey = isValidCohortKey(selectedCohortKey, cohortOptions)
+          ? selectedCohortKey
+          : ALL_COHORT_KEY;
+        const effectivePinnedCohortKey =
+          pinnedCohortKey !== null && isValidCohortKey(pinnedCohortKey, cohortOptions)
+            ? pinnedCohortKey
+            : null;
+        const effectiveSelectedCohortTagSlug = cohortKeyToTagSlug(effectiveSelectedCohortKey);
+        const effectiveComparisonCohortKey =
+          effectivePinnedCohortKey !== null &&
+          effectivePinnedCohortKey !== effectiveSelectedCohortKey
+            ? effectivePinnedCohortKey
+            : null;
         const overviewPromise = fetchAggregateOverview(aggregateMood.apiBasePath, "week", undefined, {
-          cohortTagSlug: effectiveCohortTagSlug,
+          cohortTagSlug: effectiveSelectedCohortTagSlug,
         });
         const marketPromise = overviewPromise
           .then((response) =>
@@ -93,24 +124,33 @@ export function AggregateMoodPage({ aggregateMood, showWatermark }: AggregateMoo
           Promise.all([
             overviewPromise,
             fetchAuthorMoods(aggregateMood.apiBasePath, "week", undefined, {
-              cohortTagSlug: effectiveCohortTagSlug,
+              cohortTagSlug: effectiveSelectedCohortTagSlug,
             }),
+            effectiveComparisonCohortKey === null
+              ? Promise.resolve(null)
+              : fetchAuthorMoods(aggregateMood.apiBasePath, "week", undefined, {
+                  cohortTagSlug: cohortKeyToTagSlug(effectiveComparisonCohortKey),
+                }),
           ]),
           fetchBtcSpotPrice(aggregateMood.apiBasePath)
             .then((response) => ({ ok: true as const, response }))
             .catch((spotError: unknown) => ({ ok: false as const, spotError })),
           marketPromise,
         ]);
-        const [response, moodResponse] = requiredResponses;
+        const [response, moodResponse, comparisonMoodResponse] = requiredResponses;
 
         if (!cancelled) {
           setPayload(response);
           setMoodPayload(moodResponse);
+          setComparisonMoodPayload(comparisonMoodResponse);
           setMarketPayload(marketResult.ok ? marketResult.response : null);
           setBtcSpotPayload(btcSpotResult.ok ? btcSpotResult.response : null);
           setCohortPayload(cohortResponse);
-          if (selectedCohortTagSlug !== effectiveCohortTagSlug) {
-            setSelectedCohortTagSlug(effectiveCohortTagSlug);
+          if (selectedCohortKey !== effectiveSelectedCohortKey) {
+            setSelectedCohortKey(effectiveSelectedCohortKey);
+          }
+          if (pinnedCohortKey !== effectivePinnedCohortKey) {
+            setPinnedCohortKey(effectivePinnedCohortKey);
           }
           setError(null);
         }
@@ -148,7 +188,33 @@ export function AggregateMoodPage({ aggregateMood, showWatermark }: AggregateMoo
     return () => {
       cancelled = true;
     };
-  }, [aggregateMood.apiBasePath, selectedCohortTagSlug]);
+  }, [aggregateMood.apiBasePath, pinnedCohortKey, selectedCohortKey]);
+
+  function handleSelectedCohortKeyChange(nextKey: CohortSelectionKey) {
+    if (selectedCohortKey === nextKey) {
+      return;
+    }
+
+    let nextPinnedCohortKey = pinnedCohortKey;
+    if (pinnedCohortKey !== null) {
+      if (pinnedCohortKey === selectedCohortKey) {
+        nextPinnedCohortKey = pinnedCohortKey;
+      } else if (pinnedCohortKey === nextKey) {
+        nextPinnedCohortKey = null;
+      } else {
+        nextPinnedCohortKey = null;
+      }
+    }
+
+    setSelectedCohortKey(nextKey);
+    if (nextPinnedCohortKey !== pinnedCohortKey) {
+      setPinnedCohortKey(nextPinnedCohortKey);
+    }
+  }
+
+  function handlePinnedCohortKeyToggle(nextKey: CohortSelectionKey) {
+    setPinnedCohortKey((currentKey) => (currentKey === nextKey ? null : nextKey));
+  }
 
   return (
     <section className="dashboard-page">
@@ -163,6 +229,7 @@ export function AggregateMoodPage({ aggregateMood, showWatermark }: AggregateMoo
           <AggregateMoodChartSection
             payload={payload}
             moodPayload={moodPayload}
+            comparisonMoodPayload={comparisonMoodPayload}
             marketPayload={marketPayload}
             btcSpotPayload={btcSpotPayload}
             showWatermark={showWatermark}
@@ -174,9 +241,11 @@ export function AggregateMoodPage({ aggregateMood, showWatermark }: AggregateMoo
             onMoodVisualModeChange={setMoodVisualMode}
             sentimentMode={sentimentMode}
             onSentimentModeChange={setSentimentMode}
-            cohorts={cohortPayload?.cohorts ?? []}
-            selectedCohortTagSlug={selectedCohortTagSlug}
-            onCohortTagSlugChange={setSelectedCohortTagSlug}
+            cohortOptions={buildAggregateMoodCohortOptions(cohortPayload?.cohorts ?? [])}
+            selectedCohortKey={selectedCohortKey}
+            pinnedCohortKey={pinnedCohortKey}
+            onSelectedCohortKeyChange={handleSelectedCohortKeyChange}
+            onPinnedCohortKeyToggle={handlePinnedCohortKeyToggle}
           />
         ) : null}
       </article>
@@ -187,6 +256,7 @@ export function AggregateMoodPage({ aggregateMood, showWatermark }: AggregateMoo
 function AggregateMoodChartSection({
   payload,
   moodPayload,
+  comparisonMoodPayload,
   marketPayload,
   btcSpotPayload,
   showWatermark,
@@ -198,12 +268,15 @@ function AggregateMoodChartSection({
   onMoodVisualModeChange,
   sentimentMode,
   onSentimentModeChange,
-  cohorts,
-  selectedCohortTagSlug,
-  onCohortTagSlugChange,
+  cohortOptions,
+  selectedCohortKey,
+  pinnedCohortKey,
+  onSelectedCohortKeyChange,
+  onPinnedCohortKeyToggle,
 }: {
   payload: AggregateOverviewResponse;
   moodPayload: AuthorMoodResponse;
+  comparisonMoodPayload: AuthorMoodResponse | null;
   marketPayload: AggregateMarketSeriesResponse | null;
   btcSpotPayload: BtcSpotPriceResponse | null;
   showWatermark: boolean;
@@ -215,9 +288,11 @@ function AggregateMoodChartSection({
   onMoodVisualModeChange: (mode: MoodVisualMode) => void;
   sentimentMode: SentimentMode;
   onSentimentModeChange: (mode: SentimentMode) => void;
-  cohorts: AggregateMoodCohortsResponse["cohorts"];
-  selectedCohortTagSlug: string | null;
-  onCohortTagSlugChange: (value: string | null) => void;
+  cohortOptions: AggregateMoodCohortOption[];
+  selectedCohortKey: CohortSelectionKey;
+  pinnedCohortKey: CohortSelectionKey | null;
+  onSelectedCohortKeyChange: (value: CohortSelectionKey) => void;
+  onPinnedCohortKeyToggle: (value: CohortSelectionKey) => void;
 }) {
   const chartPayload = {
     ...payload,
@@ -245,6 +320,13 @@ function AggregateMoodChartSection({
     cohortSelection?.type === "tag"
       ? (cohortSelection.tag_name ?? formatMoodLabel(cohortSelection.tag_slug ?? ""))
       : "All tracked users";
+  const pinnedCohortOption =
+    pinnedCohortKey === null
+      ? null
+      : cohortOptions.find((cohortOption) => cohortOption.key === pinnedCohortKey) ?? null;
+  const pinnedMatchesActive = pinnedCohortKey !== null && pinnedCohortKey === selectedCohortKey;
+  const comparisonCohortName =
+    comparisonMoodPayload && pinnedCohortOption ? pinnedCohortOption.tagName : null;
 
   return (
     <>
@@ -307,6 +389,9 @@ function AggregateMoodChartSection({
         <AuthorMoodTradingViewChart
           payload={chartPayload}
           moodPayload={moodPayload}
+          comparisonMoodPayload={comparisonMoodPayload}
+          comparisonMoodLabel={comparisonCohortName}
+          comparisonMoodColor={COMPARISON_LINE_COLOR}
           showWatermark={showWatermark}
           showMoodSelector={false}
           moodDefinition={moodDescription}
@@ -323,27 +408,52 @@ function AggregateMoodChartSection({
             <>
               <div className="chart-control-card">
                 <p className="chart-control-eyebrow">User Cohorts</p>
-                <div className="chart-toggle-group chart-toggle-group-vertical" role="group">
-                  <button
-                    className={`chart-toggle-button${selectedCohortTagSlug === null ? " is-active" : ""}`}
-                    onClick={() => onCohortTagSlugChange(null)}
-                    type="button"
-                  >
-                    All tracked users
-                  </button>
-                  {cohorts.map((cohort) => (
-                    <button
-                      key={cohort.tag_slug}
-                      className={`chart-toggle-button${selectedCohortTagSlug === cohort.tag_slug ? " is-active" : ""}`}
-                      onClick={() => onCohortTagSlugChange(cohort.tag_slug)}
-                      type="button"
-                    >
-                      {cohort.tag_name}
-                    </button>
-                  ))}
+                <div className="chart-cohort-list" role="group" aria-label="User cohorts">
+                  {cohortOptions.map((cohortOption) => {
+                    const isSelected = selectedCohortKey === cohortOption.key;
+                    const isPinned = pinnedCohortKey === cohortOption.key;
+
+                    return (
+                      <div className="chart-cohort-row" key={cohortOption.key}>
+                        <button
+                          className={`chart-toggle-button chart-cohort-select-button${isSelected ? " is-active" : ""}`}
+                          onClick={() => onSelectedCohortKeyChange(cohortOption.key)}
+                          type="button"
+                        >
+                          {cohortOption.tagName}
+                        </button>
+                        <button
+                          aria-label={`${isPinned ? "Unpin" : "Pin"} ${cohortOption.tagName}`}
+                          aria-pressed={isPinned}
+                          className={`chart-toggle-button chart-pin-button${isPinned ? " is-active" : ""}`}
+                          onClick={() => onPinnedCohortKeyToggle(cohortOption.key)}
+                          title={isPinned ? "Unpin cohort" : "Pin cohort"}
+                          type="button"
+                        >
+                          <Pin aria-hidden="true" className="chart-pin-icon" size={16} strokeWidth={1.9} />
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
                 <p className="chart-control-note">
                   Showing {integerFormatter.format(cohortUserCount)} tracked users in {selectedCohortName}.
+                </p>
+                {comparisonMoodPayload && comparisonCohortName ? (
+                  <p className="chart-control-note">
+                    Comparing against pinned {comparisonCohortName} in the mood pane only.
+                  </p>
+                ) : pinnedMatchesActive && pinnedCohortOption ? (
+                  <p className="chart-control-note">
+                    {pinnedCohortOption.tagName} is pinned. Select another cohort to overlay it.
+                  </p>
+                ) : pinnedCohortOption ? (
+                  <p className="chart-control-note">
+                    {pinnedCohortOption.tagName} is pinned as the comparison baseline.
+                  </p>
+                ) : null}
+                <p className="chart-control-note">
+                  Only one comparison pin is allowed, and changing cohorts again clears the current comparison.
                 </p>
               </div>
               <div className="chart-control-card">
@@ -376,10 +486,46 @@ function AggregateMoodChartSection({
             <span className="chart-swatch chart-swatch-sentiment" />
             Aggregate {formatMoodLabel(selectedMoodLabel)} deviation
           </span>
+          {comparisonMoodPayload && comparisonCohortName ? (
+            <span className="chart-legend-item">
+              <span className="chart-swatch chart-swatch-sentiment-comparison" />
+              {comparisonCohortName} comparison line
+            </span>
+          ) : null}
         </div>
       </div>
     </>
   );
+}
+
+function buildAggregateMoodCohortOptions(
+  cohorts: AggregateMoodCohortsResponse["cohorts"],
+): AggregateMoodCohortOption[] {
+  return [
+    {
+      key: ALL_COHORT_KEY,
+      tagSlug: null,
+      tagName: "All tracked users",
+      userCount: null,
+    },
+    ...cohorts.map((cohort) => ({
+      key: cohort.tag_slug,
+      tagSlug: cohort.tag_slug,
+      tagName: cohort.tag_name,
+      userCount: cohort.user_count,
+    })),
+  ];
+}
+
+function isValidCohortKey(
+  value: CohortSelectionKey,
+  cohortOptions: AggregateMoodCohortOption[],
+): boolean {
+  return cohortOptions.some((cohortOption) => cohortOption.key === value);
+}
+
+function cohortKeyToTagSlug(value: CohortSelectionKey): string | null {
+  return value === ALL_COHORT_KEY ? null : value;
 }
 
 function formatFullDate(value: string | number): string {

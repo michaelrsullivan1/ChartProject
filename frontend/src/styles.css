@@ -931,6 +931,35 @@ textarea {
   grid-template-columns: 1fr;
 }
 
+.chart-cohort-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.chart-cohort-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.chart-cohort-select-button {
+  text-align: left;
+}
+
+.chart-pin-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 52px;
+  padding-inline: 0;
+}
+
+.chart-pin-icon {
+  width: 16px;
+  height: 16px;
+}
+
 .chart-toggle-button {
   border: 1px solid rgba(var(--line-rgb), 0.12);
   border-radius: 999px;
@@ -1252,6 +1281,10 @@ textarea {
 
 .chart-swatch-sentiment {
   background: linear-gradient(180deg, #7af0b6 0%, #f0d38a 50%, #ff6c6c 100%);
+}
+
+.chart-swatch-sentiment-comparison {
+  background: #c6bfb4;
 }
 
 .chart-caption {
