@@ -594,6 +594,18 @@ def isabella_overview(
     )
 
 
+@router.get("/oliver-velez-overview")
+def oliver_velez_overview(
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+) -> dict[str, object]:
+    return _build_overview_view(
+        username="olvelez007",
+        view_name="oliver-velez-overview",
+        granularity=granularity,
+        analysis_start="2020-01-01T00:00:00Z",
+    )
+
+
 @router.get("/walker-america-overview/top-liked-tweet")
 def walker_america_overview_top_liked_tweet(
     week_start: str = Query(...),
@@ -667,6 +679,17 @@ def isabella_overview_top_liked_tweet(
     return _build_overview_top_liked_tweet(
         username="isabellasg3",
         view_name="isabella-overview-top-liked-tweet",
+        week_start=week_start,
+    )
+
+
+@router.get("/oliver-velez-overview/top-liked-tweet")
+def oliver_velez_overview_top_liked_tweet(
+    week_start: str = Query(...),
+) -> dict[str, object]:
+    return _build_overview_top_liked_tweet(
+        username="olvelez007",
+        view_name="oliver-velez-overview-top-liked-tweet",
         week_start=week_start,
     )
 
@@ -769,6 +792,20 @@ def isabella_overview_sentiment(
     )
 
 
+@router.get("/oliver-velez-overview/sentiment")
+def oliver_velez_overview_sentiment(
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+    model_key: str = Query(default=DEFAULT_SENTIMENT_MODEL),
+) -> dict[str, object]:
+    return _build_overview_sentiment(
+        username="olvelez007",
+        view_name="oliver-velez-overview-sentiment",
+        granularity=granularity,
+        model_key=model_key,
+        analysis_start="2020-01-01T00:00:00Z",
+    )
+
+
 @router.get("/walker-america-overview/btc-spot")
 def walker_america_overview_btc_spot() -> dict[str, object]:
     return _build_btc_spot_price()
@@ -801,6 +838,11 @@ def stack_hodler_overview_btc_spot() -> dict[str, object]:
 
 @router.get("/isabella-overview/btc-spot")
 def isabella_overview_btc_spot() -> dict[str, object]:
+    return _build_btc_spot_price()
+
+
+@router.get("/oliver-velez-overview/btc-spot")
+def oliver_velez_overview_btc_spot() -> dict[str, object]:
     return _build_btc_spot_price()
 
 
@@ -885,6 +927,18 @@ def isabella_moods(
         view_name="isabella-moods",
         granularity=granularity,
         analysis_start="2021-06-10T00:00:00Z",
+    )
+
+
+@router.get("/oliver-velez-moods")
+def oliver_velez_moods(
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+) -> dict[str, object]:
+    return _build_overview_view(
+        username="olvelez007",
+        view_name="oliver-velez-moods",
+        granularity=granularity,
+        analysis_start="2020-01-01T00:00:00Z",
     )
 
 
@@ -986,6 +1040,20 @@ def isabella_mood_series(
     )
 
 
+@router.get("/oliver-velez-moods/mood-series")
+def oliver_velez_mood_series(
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+    model_key: str = Query(default=DEFAULT_MOOD_MODEL),
+) -> dict[str, object]:
+    return _build_author_moods(
+        username="olvelez007",
+        view_name="oliver-velez-mood-series",
+        granularity=granularity,
+        model_key=model_key,
+        analysis_start="2020-01-01T00:00:00Z",
+    )
+
+
 @router.get("/walker-america-moods/btc-spot")
 def walker_america_moods_btc_spot() -> dict[str, object]:
     return _build_btc_spot_price()
@@ -1018,6 +1086,11 @@ def stack_hodler_moods_btc_spot() -> dict[str, object]:
 
 @router.get("/isabella-moods/btc-spot")
 def isabella_moods_btc_spot() -> dict[str, object]:
+    return _build_btc_spot_price()
+
+
+@router.get("/oliver-velez-moods/btc-spot")
+def oliver_velez_moods_btc_spot() -> dict[str, object]:
     return _build_btc_spot_price()
 
 
@@ -1161,6 +1234,26 @@ def isabella_heatmap(
     )
 
 
+@router.get("/oliver-velez-heatmap")
+def oliver_velez_heatmap(
+    mode: str = Query(default="common", pattern="^(all|common|rising)$"),
+    word_count: str = Query(default="all", pattern="^(all|1|2|3)$"),
+    granularity: str = Query(default="month", pattern="^(month)$"),
+    limit: int = Query(default=48, ge=1, le=120),
+    phrase_query: str | None = Query(default=None),
+) -> dict[str, object]:
+    return _build_author_keyword_heatmap(
+        username="olvelez007",
+        view_name="oliver-velez-heatmap",
+        mode=mode,
+        word_count=word_count,
+        granularity=granularity,
+        limit=limit,
+        phrase_query=phrase_query,
+        analysis_start="2020-01-01T00:00:00Z",
+    )
+
+
 @router.get("/walker-america-heatmap/phrase-trend")
 def walker_america_heatmap_phrase_trend(
     phrase: str = Query(...),
@@ -1256,6 +1349,20 @@ def isabella_heatmap_phrase_trend(
         phrase=phrase,
         granularity=granularity,
         analysis_start="2021-06-10T00:00:00Z",
+    )
+
+
+@router.get("/oliver-velez-heatmap/phrase-trend")
+def oliver_velez_heatmap_phrase_trend(
+    phrase: str = Query(...),
+    granularity: str = Query(default="month", pattern="^(month)$"),
+) -> dict[str, object]:
+    return _build_author_keyword_trend(
+        username="olvelez007",
+        view_name="oliver-velez-heatmap-phrase-trend",
+        phrase=phrase,
+        granularity=granularity,
+        analysis_start="2020-01-01T00:00:00Z",
     )
 
 
@@ -1358,6 +1465,21 @@ def isabella_heatmap_top_liked_tweets(
     return _build_author_keyword_top_tweets(
         username="isabellasg3",
         view_name="isabella-heatmap-top-liked-tweets",
+        phrase=phrase,
+        month_start=month_start,
+        limit=limit,
+    )
+
+
+@router.get("/oliver-velez-heatmap/top-liked-tweets")
+def oliver_velez_heatmap_top_liked_tweets(
+    phrase: str = Query(...),
+    month_start: str = Query(...),
+    limit: int = Query(default=3, ge=1, le=10),
+) -> dict[str, object]:
+    return _build_author_keyword_top_tweets(
+        username="olvelez007",
+        view_name="oliver-velez-heatmap-top-liked-tweets",
         phrase=phrase,
         month_start=month_start,
         limit=limit,
