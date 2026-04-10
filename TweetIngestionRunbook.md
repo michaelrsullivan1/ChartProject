@@ -208,6 +208,32 @@ Recommendation:
 - set `--analysis-start` to the first date you want included in phrase analysis
 - using the user's first normalized tweet date is a good default
 
+### Optional: Batch Steps 2-6
+
+If step 1 has already completed successfully, you can run steps 2, 3, 4, 5, and 6 in one command.
+
+Script:
+
+```bash
+./scripts/run-user-post-ingest-batch.sh --username <USERNAME> --analysis-start <KEYWORD_ANALYSIS_START_UTC>
+```
+
+If you omit `--analysis-start`, the script auto-resolves the user's first normalized tweet timestamp from canonical `tweets` and uses that for step 6:
+
+```bash
+./scripts/run-user-post-ingest-batch.sh --username <USERNAME>
+```
+
+Behavior:
+
+- runs only steps 2-6
+- does not run step 1 ingest
+- does not run step 7 snapshot rebuild
+- defaults step 6 `--analysis-start` to the user's first normalized tweet timestamp
+- stops on the first failure
+- prints which step failed, the command, and exit code
+- leaves all underlying commands unchanged so each can still be rerun manually
+
 ### 7. Rebuild aggregate snapshots
 
 What it does:
@@ -225,6 +251,7 @@ python3 scripts/cache/rebuild_aggregate_snapshots.py --delete-stale
 Important downstream effect:
 
 - this is the command that makes newly scored users and updated cohort assignments show up correctly in Aggregate Moods without waiting for request-time recomputation
+- this step is intentionally independent and not included in the step 2-6 batch script
 
 ## Copy/Paste Example
 
@@ -250,6 +277,31 @@ python3 backend/scripts/enrich/score_tweet_moods.py --username <USERNAME>
 python3 backend/scripts/enrich/extract_tweet_keywords.py \
   --username <USERNAME> \
   --analysis-start <KEYWORD_ANALYSIS_START_UTC>
+cd backend
+python3 scripts/cache/rebuild_aggregate_snapshots.py --delete-stale
+cd ..
+```
+
+## Copy/Paste Example (Batched Steps 2-6)
+
+Use this when you want ingest isolated, then a single post-ingest batch command:
+
+```bash
+cd /Users/michaelsullivan/Code/ChartProject
+source .venv/bin/activate
+
+python3 backend/scripts/ingest/fetch_user_tweets_history.py \
+  --username <USERNAME> \
+  --since <FIRST_POST_UTC> \
+  --until <UNTIL_UTC> \
+  --window-months 1 \
+  --page-delay-seconds 0.25 \
+  --debug
+
+./scripts/run-user-post-ingest-batch.sh \
+  --username <USERNAME> \
+  --analysis-start <KEYWORD_ANALYSIS_START_UTC>
+
 cd backend
 python3 scripts/cache/rebuild_aggregate_snapshots.py --delete-stale
 cd ..
@@ -297,13 +349,15 @@ This is usually part of the same unit of work as ingesting the user.
 
 Use this sequence every time:
 
-1. Finish ingest, normalization, validation, sentiment, moods, aggregate snapshot rebuild, and keywords.
-2. Choose the final slug for the user.
-3. Decide the `analysis_start` timestamp.
-4. Add the dedicated backend routes in [backend/app/api/routes/views.py](/Users/michaelsullivan/Code/ChartProject/backend/app/api/routes/views.py).
-5. Add the frontend config entries under [frontend/src/config](/Users/michaelsullivan/Code/ChartProject/frontend/src/config).
-6. Start or refresh the local app if needed.
-7. Verify the user appears in the page controls and the dedicated URLs load.
+1. Run step 1 ingest independently.
+2. Run steps 2-6 either manually or with `./scripts/run-user-post-ingest-batch.sh`.
+3. Run step 7 snapshot rebuild independently.
+4. Choose the final slug for the user.
+5. Decide the `analysis_start` timestamp.
+6. Add the dedicated backend routes in [backend/app/api/routes/views.py](/Users/michaelsullivan/Code/ChartProject/backend/app/api/routes/views.py).
+7. Add the frontend config entries under [frontend/src/config](/Users/michaelsullivan/Code/ChartProject/frontend/src/config).
+8. Start or refresh the local app if needed.
+9. Verify the user appears in the page controls and the dedicated URLs load.
 
 ### Slug and analysis-start rules
 
