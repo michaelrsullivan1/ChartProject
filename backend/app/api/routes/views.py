@@ -570,6 +570,18 @@ def ray_overview(
     )
 
 
+@router.get("/stack-hodler-overview")
+def stack_hodler_overview(
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+) -> dict[str, object]:
+    return _build_overview_view(
+        username="stackhodler",
+        view_name="stack-hodler-overview",
+        granularity=granularity,
+        analysis_start="2020-05-05T00:00:00Z",
+    )
+
+
 @router.get("/walker-america-overview/top-liked-tweet")
 def walker_america_overview_top_liked_tweet(
     week_start: str = Query(...),
@@ -621,6 +633,17 @@ def ray_overview_top_liked_tweet(
     return _build_overview_top_liked_tweet(
         username="artificialsub",
         view_name="ray-overview-top-liked-tweet",
+        week_start=week_start,
+    )
+
+
+@router.get("/stack-hodler-overview/top-liked-tweet")
+def stack_hodler_overview_top_liked_tweet(
+    week_start: str = Query(...),
+) -> dict[str, object]:
+    return _build_overview_top_liked_tweet(
+        username="stackhodler",
+        view_name="stack-hodler-overview-top-liked-tweet",
         week_start=week_start,
     )
 
@@ -695,6 +718,20 @@ def ray_overview_sentiment(
     )
 
 
+@router.get("/stack-hodler-overview/sentiment")
+def stack_hodler_overview_sentiment(
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+    model_key: str = Query(default=DEFAULT_SENTIMENT_MODEL),
+) -> dict[str, object]:
+    return _build_overview_sentiment(
+        username="stackhodler",
+        view_name="stack-hodler-overview-sentiment",
+        granularity=granularity,
+        model_key=model_key,
+        analysis_start="2020-05-05T00:00:00Z",
+    )
+
+
 @router.get("/walker-america-overview/btc-spot")
 def walker_america_overview_btc_spot() -> dict[str, object]:
     return _build_btc_spot_price()
@@ -717,6 +754,11 @@ def andrew_webley_overview_btc_spot() -> dict[str, object]:
 
 @router.get("/ray-overview/btc-spot")
 def ray_overview_btc_spot() -> dict[str, object]:
+    return _build_btc_spot_price()
+
+
+@router.get("/stack-hodler-overview/btc-spot")
+def stack_hodler_overview_btc_spot() -> dict[str, object]:
     return _build_btc_spot_price()
 
 
@@ -777,6 +819,18 @@ def ray_moods(
         view_name="ray-moods",
         granularity=granularity,
         analysis_start="2023-03-18T00:00:00Z",
+    )
+
+
+@router.get("/stack-hodler-moods")
+def stack_hodler_moods(
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+) -> dict[str, object]:
+    return _build_overview_view(
+        username="stackhodler",
+        view_name="stack-hodler-moods",
+        granularity=granularity,
+        analysis_start="2020-05-05T00:00:00Z",
     )
 
 
@@ -850,6 +904,20 @@ def ray_mood_series(
     )
 
 
+@router.get("/stack-hodler-moods/mood-series")
+def stack_hodler_mood_series(
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+    model_key: str = Query(default=DEFAULT_MOOD_MODEL),
+) -> dict[str, object]:
+    return _build_author_moods(
+        username="stackhodler",
+        view_name="stack-hodler-mood-series",
+        granularity=granularity,
+        model_key=model_key,
+        analysis_start="2020-05-05T00:00:00Z",
+    )
+
+
 @router.get("/walker-america-moods/btc-spot")
 def walker_america_moods_btc_spot() -> dict[str, object]:
     return _build_btc_spot_price()
@@ -872,6 +940,11 @@ def andrew_webley_moods_btc_spot() -> dict[str, object]:
 
 @router.get("/ray-moods/btc-spot")
 def ray_moods_btc_spot() -> dict[str, object]:
+    return _build_btc_spot_price()
+
+
+@router.get("/stack-hodler-moods/btc-spot")
+def stack_hodler_moods_btc_spot() -> dict[str, object]:
     return _build_btc_spot_price()
 
 
@@ -975,6 +1048,26 @@ def ray_heatmap(
     )
 
 
+@router.get("/stack-hodler-heatmap")
+def stack_hodler_heatmap(
+    mode: str = Query(default="common", pattern="^(all|common|rising)$"),
+    word_count: str = Query(default="all", pattern="^(all|1|2|3)$"),
+    granularity: str = Query(default="month", pattern="^(month)$"),
+    limit: int = Query(default=48, ge=1, le=120),
+    phrase_query: str | None = Query(default=None),
+) -> dict[str, object]:
+    return _build_author_keyword_heatmap(
+        username="stackhodler",
+        view_name="stack-hodler-heatmap",
+        mode=mode,
+        word_count=word_count,
+        granularity=granularity,
+        limit=limit,
+        phrase_query=phrase_query,
+        analysis_start="2020-05-05T00:00:00Z",
+    )
+
+
 @router.get("/walker-america-heatmap/phrase-trend")
 def walker_america_heatmap_phrase_trend(
     phrase: str = Query(...),
@@ -1042,6 +1135,20 @@ def ray_heatmap_phrase_trend(
         phrase=phrase,
         granularity=granularity,
         analysis_start="2023-03-18T00:00:00Z",
+    )
+
+
+@router.get("/stack-hodler-heatmap/phrase-trend")
+def stack_hodler_heatmap_phrase_trend(
+    phrase: str = Query(...),
+    granularity: str = Query(default="month", pattern="^(month)$"),
+) -> dict[str, object]:
+    return _build_author_keyword_trend(
+        username="stackhodler",
+        view_name="stack-hodler-heatmap-phrase-trend",
+        phrase=phrase,
+        granularity=granularity,
+        analysis_start="2020-05-05T00:00:00Z",
     )
 
 
@@ -1114,6 +1221,21 @@ def ray_heatmap_top_liked_tweets(
     return _build_author_keyword_top_tweets(
         username="artificialsub",
         view_name="ray-heatmap-top-liked-tweets",
+        phrase=phrase,
+        month_start=month_start,
+        limit=limit,
+    )
+
+
+@router.get("/stack-hodler-heatmap/top-liked-tweets")
+def stack_hodler_heatmap_top_liked_tweets(
+    phrase: str = Query(...),
+    month_start: str = Query(...),
+    limit: int = Query(default=3, ge=1, le=10),
+) -> dict[str, object]:
+    return _build_author_keyword_top_tweets(
+        username="stackhodler",
+        view_name="stack-hodler-heatmap-top-liked-tweets",
         phrase=phrase,
         month_start=month_start,
         limit=limit,
