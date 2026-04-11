@@ -168,6 +168,13 @@ cd backend
 python3 scripts/cache/rebuild_aggregate_snapshots.py --delete-stale
 ```
 
+Force-clear and rebuild aggregate snapshots when you want an immediate full refresh after cohort/tag changes:
+
+```bash
+cd backend
+python3 scripts/cache/rebuild_aggregate_snapshots.py --clear-first --delete-stale
+```
+
 Check the Postgres container:
 
 ```bash
@@ -486,7 +493,7 @@ python3 backend/scripts/enrich/extract_tweet_keywords.py \
 9. Rebuild aggregate mood snapshots so Aggregate Moods includes the latest scored/cohort data:
 
 ```bash
-python3 backend/scripts/cache/rebuild_aggregate_snapshots.py --delete-stale
+python3 backend/scripts/cache/rebuild_aggregate_snapshots.py --clear-first --delete-stale
 ```
 
 10. Confirm the dedicated overview endpoints, mood endpoints, aggregate mood endpoints, heatmap endpoints, and frontend pages render correctly.
@@ -526,6 +533,7 @@ Run the rebuild after any change that affects aggregate mood outputs:
 Practical operator rule:
 
 - if you changed anything that affects `tweet_mood_scores`, aggregate-user eligibility, `cohort_tags`, or `user_cohort_tags`, rerun the snapshot rebuild
+- snapshot rebuilds are manual; user settings cohort edits do not auto-refresh aggregate snapshot rows
 
 Common examples that should trigger a rebuild:
 
@@ -553,6 +561,13 @@ cd backend
 python3 scripts/cache/rebuild_aggregate_snapshots.py --delete-stale
 ```
 
+Force-refresh variant (clear existing snapshot rows first, then rebuild):
+
+```bash
+cd backend
+python3 scripts/cache/rebuild_aggregate_snapshots.py --clear-first --delete-stale
+```
+
 What this does:
 
 - rebuilds the `aggregate-cohorts` snapshot
@@ -560,12 +575,14 @@ What this does:
 - rebuilds `aggregate-mood-series` for `all` and every eligible cohort
 - upserts the latest snapshot rows into Postgres
 - removes stale snapshot rows for the same model/granularity when `--delete-stale` is used
+- optionally clears existing rows first when `--clear-first` is used (full rebuild only)
 
 Useful variants:
 
 ```bash
 cd backend
 python3 scripts/cache/rebuild_aggregate_snapshots.py --dry-run
+python3 scripts/cache/rebuild_aggregate_snapshots.py --clear-first --dry-run
 python3 scripts/cache/rebuild_aggregate_snapshots.py --cohort mstr
 python3 scripts/cache/rebuild_aggregate_snapshots.py --view aggregate-mood-series
 ```

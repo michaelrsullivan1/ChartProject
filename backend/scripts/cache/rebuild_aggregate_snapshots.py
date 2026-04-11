@@ -63,6 +63,14 @@ def parse_args() -> argparse.Namespace:
         help="Optional view type to rebuild. Repeat to target multiple view types.",
     )
     parser.add_argument(
+        "--clear-first",
+        action="store_true",
+        help=(
+            "Delete existing snapshot rows for this model/granularity before rebuilding. "
+            "Only supported for full rebuilds without --cohort or --view."
+        ),
+    )
+    parser.add_argument(
         "--delete-stale",
         action="store_true",
         help="Delete stale snapshot rows for this model/granularity after a full rebuild.",
@@ -84,6 +92,8 @@ def main() -> None:
     args = parse_args()
     if args.delete_stale and (args.cohorts or args.views):
         raise RuntimeError("--delete-stale only supports full rebuilds without --cohort or --view.")
+    if args.clear_first and (args.cohorts or args.views):
+        raise RuntimeError("--clear-first only supports full rebuilds without --cohort or --view.")
 
     requested_views = tuple(
         args.views
@@ -96,7 +106,17 @@ def main() -> None:
 
     started_at = datetime.now(UTC)
     generated_at = datetime.now(UTC)
+    cleared_rows = 0
     rebuilt_cache_keys: list[str] = []
+
+    if args.clear_first and not args.dry_run:
+        print("Clearing existing aggregate snapshot rows before rebuild...", flush=True)
+        cleared_rows = delete_stale_aggregate_snapshots(
+            model_key=args.model_key,
+            granularity=args.granularity,
+            rebuilt_cache_keys=(),
+            view_types=requested_views,
+        )
 
     cohort_payload = build_aggregate_mood_cohorts(
         AggregateMoodCohortsRequest(
@@ -168,6 +188,7 @@ def main() -> None:
             "dry_run": args.dry_run,
             "requested_views": list(requested_views),
             "requested_cohorts": requested_cohorts,
+            "cleared_rows_before_rebuild": cleared_rows,
             "rebuilt_cache_keys": rebuilt_cache_keys,
             "deleted_stale_rows": deleted_rows,
             "duration_seconds": round((datetime.now(UTC) - started_at).total_seconds(), 3),
