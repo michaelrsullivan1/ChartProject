@@ -133,6 +133,38 @@ export const bitcoinMentionsDefinitions: BitcoinMentionsDefinition[] = [
     username: "parkeralewis",
   },
   {
+    slug: "kristen",
+    username: "2dogs1chic",
+  },
+  {
+    slug: "dana-in-hawaii",
+    username: "Danainhawaii",
+  },
+  {
+    slug: "parabolic-code",
+    username: "ParabolicCode",
+  },
+  {
+    slug: "bitquant",
+    username: "BitQua",
+  },
+  {
+    slug: "ed-juline",
+    username: "ejuline",
+  },
+  {
+    slug: "alex-thorn",
+    username: "intangiblecoins",
+  },
+  {
+    slug: "btc-teacher",
+    username: "BitcoinTeacher_",
+  },
+  {
+    slug: "roaring-ragnar",
+    username: "RoaringRagnar",
+  },
+  {
     slug: "michael-sullivan",
     username: "SullyMichaelvan",
   },

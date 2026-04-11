@@ -882,6 +882,102 @@ def parker_lewis_overview(
     )
 
 
+@router.get("/kristen-overview")
+def kristen_overview(
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+) -> dict[str, object]:
+    return _build_overview_view(
+        username="2dogs1chic",
+        view_name="kristen-overview",
+        granularity=granularity,
+        analysis_start="2024-04-30T00:00:00Z",
+    )
+
+
+@router.get("/dana-in-hawaii-overview")
+def dana_in_hawaii_overview(
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+) -> dict[str, object]:
+    return _build_overview_view(
+        username="Danainhawaii",
+        view_name="dana-in-hawaii-overview",
+        granularity=granularity,
+        analysis_start="2022-09-23T00:00:00Z",
+    )
+
+
+@router.get("/parabolic-code-overview")
+def parabolic_code_overview(
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+) -> dict[str, object]:
+    return _build_overview_view(
+        username="ParabolicCode",
+        view_name="parabolic-code-overview",
+        granularity=granularity,
+        analysis_start="2025-01-10T00:00:00Z",
+    )
+
+
+@router.get("/bitquant-overview")
+def bitquant_overview(
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+) -> dict[str, object]:
+    return _build_overview_view(
+        username="BitQua",
+        view_name="bitquant-overview",
+        granularity=granularity,
+        analysis_start="2021-09-16T00:00:00Z",
+    )
+
+
+@router.get("/ed-juline-overview")
+def ed_juline_overview(
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+) -> dict[str, object]:
+    return _build_overview_view(
+        username="ejuline",
+        view_name="ed-juline-overview",
+        granularity=granularity,
+        analysis_start="2020-01-12T00:00:00Z",
+    )
+
+
+@router.get("/alex-thorn-overview")
+def alex_thorn_overview(
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+) -> dict[str, object]:
+    return _build_overview_view(
+        username="intangiblecoins",
+        view_name="alex-thorn-overview",
+        granularity=granularity,
+        analysis_start="2017-08-25T00:00:00Z",
+    )
+
+
+@router.get("/btc-teacher-overview")
+def btc_teacher_overview(
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+) -> dict[str, object]:
+    return _build_overview_view(
+        username="BitcoinTeacher_",
+        view_name="btc-teacher-overview",
+        granularity=granularity,
+        analysis_start="2025-11-12T00:00:00Z",
+    )
+
+
+@router.get("/roaring-ragnar-overview")
+def roaring_ragnar_overview(
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+) -> dict[str, object]:
+    return _build_overview_view(
+        username="RoaringRagnar",
+        view_name="roaring-ragnar-overview",
+        granularity=granularity,
+        analysis_start="2025-01-10T00:00:00Z",
+    )
+
+
 @router.get("/walker-america-overview/top-liked-tweet")
 def walker_america_overview_top_liked_tweet(
     week_start: str = Query(...),
@@ -1219,6 +1315,94 @@ def parker_lewis_overview_top_liked_tweet(
     return _build_overview_top_liked_tweet(
         username="parkeralewis",
         view_name="parker-lewis-overview-top-liked-tweet",
+        week_start=week_start,
+    )
+
+
+@router.get("/kristen-overview/top-liked-tweet")
+def kristen_overview_top_liked_tweet(
+    week_start: str = Query(...),
+) -> dict[str, object]:
+    return _build_overview_top_liked_tweet(
+        username="2dogs1chic",
+        view_name="kristen-overview-top-liked-tweet",
+        week_start=week_start,
+    )
+
+
+@router.get("/dana-in-hawaii-overview/top-liked-tweet")
+def dana_in_hawaii_overview_top_liked_tweet(
+    week_start: str = Query(...),
+) -> dict[str, object]:
+    return _build_overview_top_liked_tweet(
+        username="Danainhawaii",
+        view_name="dana-in-hawaii-overview-top-liked-tweet",
+        week_start=week_start,
+    )
+
+
+@router.get("/parabolic-code-overview/top-liked-tweet")
+def parabolic_code_overview_top_liked_tweet(
+    week_start: str = Query(...),
+) -> dict[str, object]:
+    return _build_overview_top_liked_tweet(
+        username="ParabolicCode",
+        view_name="parabolic-code-overview-top-liked-tweet",
+        week_start=week_start,
+    )
+
+
+@router.get("/bitquant-overview/top-liked-tweet")
+def bitquant_overview_top_liked_tweet(
+    week_start: str = Query(...),
+) -> dict[str, object]:
+    return _build_overview_top_liked_tweet(
+        username="BitQua",
+        view_name="bitquant-overview-top-liked-tweet",
+        week_start=week_start,
+    )
+
+
+@router.get("/ed-juline-overview/top-liked-tweet")
+def ed_juline_overview_top_liked_tweet(
+    week_start: str = Query(...),
+) -> dict[str, object]:
+    return _build_overview_top_liked_tweet(
+        username="ejuline",
+        view_name="ed-juline-overview-top-liked-tweet",
+        week_start=week_start,
+    )
+
+
+@router.get("/alex-thorn-overview/top-liked-tweet")
+def alex_thorn_overview_top_liked_tweet(
+    week_start: str = Query(...),
+) -> dict[str, object]:
+    return _build_overview_top_liked_tweet(
+        username="intangiblecoins",
+        view_name="alex-thorn-overview-top-liked-tweet",
+        week_start=week_start,
+    )
+
+
+@router.get("/btc-teacher-overview/top-liked-tweet")
+def btc_teacher_overview_top_liked_tweet(
+    week_start: str = Query(...),
+) -> dict[str, object]:
+    return _build_overview_top_liked_tweet(
+        username="BitcoinTeacher_",
+        view_name="btc-teacher-overview-top-liked-tweet",
+        week_start=week_start,
+    )
+
+
+@router.get("/roaring-ragnar-overview/top-liked-tweet")
+def roaring_ragnar_overview_top_liked_tweet(
+    week_start: str = Query(...),
+) -> dict[str, object]:
+    return _build_overview_top_liked_tweet(
+        username="RoaringRagnar",
+        view_name="roaring-ragnar-overview-top-liked-tweet",
         week_start=week_start,
     )
 
@@ -1657,6 +1841,118 @@ def parker_lewis_overview_sentiment(
     )
 
 
+@router.get("/kristen-overview/sentiment")
+def kristen_overview_sentiment(
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+    model_key: str = Query(default=DEFAULT_SENTIMENT_MODEL),
+) -> dict[str, object]:
+    return _build_overview_sentiment(
+        username="2dogs1chic",
+        view_name="kristen-overview-sentiment",
+        granularity=granularity,
+        model_key=model_key,
+        analysis_start="2024-04-30T00:00:00Z",
+    )
+
+
+@router.get("/dana-in-hawaii-overview/sentiment")
+def dana_in_hawaii_overview_sentiment(
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+    model_key: str = Query(default=DEFAULT_SENTIMENT_MODEL),
+) -> dict[str, object]:
+    return _build_overview_sentiment(
+        username="Danainhawaii",
+        view_name="dana-in-hawaii-overview-sentiment",
+        granularity=granularity,
+        model_key=model_key,
+        analysis_start="2022-09-23T00:00:00Z",
+    )
+
+
+@router.get("/parabolic-code-overview/sentiment")
+def parabolic_code_overview_sentiment(
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+    model_key: str = Query(default=DEFAULT_SENTIMENT_MODEL),
+) -> dict[str, object]:
+    return _build_overview_sentiment(
+        username="ParabolicCode",
+        view_name="parabolic-code-overview-sentiment",
+        granularity=granularity,
+        model_key=model_key,
+        analysis_start="2025-01-10T00:00:00Z",
+    )
+
+
+@router.get("/bitquant-overview/sentiment")
+def bitquant_overview_sentiment(
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+    model_key: str = Query(default=DEFAULT_SENTIMENT_MODEL),
+) -> dict[str, object]:
+    return _build_overview_sentiment(
+        username="BitQua",
+        view_name="bitquant-overview-sentiment",
+        granularity=granularity,
+        model_key=model_key,
+        analysis_start="2021-09-16T00:00:00Z",
+    )
+
+
+@router.get("/ed-juline-overview/sentiment")
+def ed_juline_overview_sentiment(
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+    model_key: str = Query(default=DEFAULT_SENTIMENT_MODEL),
+) -> dict[str, object]:
+    return _build_overview_sentiment(
+        username="ejuline",
+        view_name="ed-juline-overview-sentiment",
+        granularity=granularity,
+        model_key=model_key,
+        analysis_start="2020-01-12T00:00:00Z",
+    )
+
+
+@router.get("/alex-thorn-overview/sentiment")
+def alex_thorn_overview_sentiment(
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+    model_key: str = Query(default=DEFAULT_SENTIMENT_MODEL),
+) -> dict[str, object]:
+    return _build_overview_sentiment(
+        username="intangiblecoins",
+        view_name="alex-thorn-overview-sentiment",
+        granularity=granularity,
+        model_key=model_key,
+        analysis_start="2017-08-25T00:00:00Z",
+    )
+
+
+@router.get("/btc-teacher-overview/sentiment")
+def btc_teacher_overview_sentiment(
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+    model_key: str = Query(default=DEFAULT_SENTIMENT_MODEL),
+) -> dict[str, object]:
+    return _build_overview_sentiment(
+        username="BitcoinTeacher_",
+        view_name="btc-teacher-overview-sentiment",
+        granularity=granularity,
+        model_key=model_key,
+        analysis_start="2025-11-12T00:00:00Z",
+    )
+
+
+@router.get("/roaring-ragnar-overview/sentiment")
+def roaring_ragnar_overview_sentiment(
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+    model_key: str = Query(default=DEFAULT_SENTIMENT_MODEL),
+) -> dict[str, object]:
+    return _build_overview_sentiment(
+        username="RoaringRagnar",
+        view_name="roaring-ragnar-overview-sentiment",
+        granularity=granularity,
+        model_key=model_key,
+        analysis_start="2025-01-10T00:00:00Z",
+    )
+
+
 @router.get("/walker-america-overview/btc-spot")
 def walker_america_overview_btc_spot() -> dict[str, object]:
     return _build_btc_spot_price()
@@ -1809,6 +2105,46 @@ def matt_cole_overview_btc_spot() -> dict[str, object]:
 
 @router.get("/parker-lewis-overview/btc-spot")
 def parker_lewis_overview_btc_spot() -> dict[str, object]:
+    return _build_btc_spot_price()
+
+
+@router.get("/kristen-overview/btc-spot")
+def kristen_overview_btc_spot() -> dict[str, object]:
+    return _build_btc_spot_price()
+
+
+@router.get("/dana-in-hawaii-overview/btc-spot")
+def dana_in_hawaii_overview_btc_spot() -> dict[str, object]:
+    return _build_btc_spot_price()
+
+
+@router.get("/parabolic-code-overview/btc-spot")
+def parabolic_code_overview_btc_spot() -> dict[str, object]:
+    return _build_btc_spot_price()
+
+
+@router.get("/bitquant-overview/btc-spot")
+def bitquant_overview_btc_spot() -> dict[str, object]:
+    return _build_btc_spot_price()
+
+
+@router.get("/ed-juline-overview/btc-spot")
+def ed_juline_overview_btc_spot() -> dict[str, object]:
+    return _build_btc_spot_price()
+
+
+@router.get("/alex-thorn-overview/btc-spot")
+def alex_thorn_overview_btc_spot() -> dict[str, object]:
+    return _build_btc_spot_price()
+
+
+@router.get("/btc-teacher-overview/btc-spot")
+def btc_teacher_overview_btc_spot() -> dict[str, object]:
+    return _build_btc_spot_price()
+
+
+@router.get("/roaring-ragnar-overview/btc-spot")
+def roaring_ragnar_overview_btc_spot() -> dict[str, object]:
     return _build_btc_spot_price()
 
 
@@ -2181,6 +2517,102 @@ def parker_lewis_moods(
         view_name="parker-lewis-moods",
         granularity=granularity,
         analysis_start="2017-12-30T00:00:00Z",
+    )
+
+
+@router.get("/kristen-moods")
+def kristen_moods(
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+) -> dict[str, object]:
+    return _build_overview_view(
+        username="2dogs1chic",
+        view_name="kristen-moods",
+        granularity=granularity,
+        analysis_start="2024-04-30T00:00:00Z",
+    )
+
+
+@router.get("/dana-in-hawaii-moods")
+def dana_in_hawaii_moods(
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+) -> dict[str, object]:
+    return _build_overview_view(
+        username="Danainhawaii",
+        view_name="dana-in-hawaii-moods",
+        granularity=granularity,
+        analysis_start="2022-09-23T00:00:00Z",
+    )
+
+
+@router.get("/parabolic-code-moods")
+def parabolic_code_moods(
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+) -> dict[str, object]:
+    return _build_overview_view(
+        username="ParabolicCode",
+        view_name="parabolic-code-moods",
+        granularity=granularity,
+        analysis_start="2025-01-10T00:00:00Z",
+    )
+
+
+@router.get("/bitquant-moods")
+def bitquant_moods(
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+) -> dict[str, object]:
+    return _build_overview_view(
+        username="BitQua",
+        view_name="bitquant-moods",
+        granularity=granularity,
+        analysis_start="2021-09-16T00:00:00Z",
+    )
+
+
+@router.get("/ed-juline-moods")
+def ed_juline_moods(
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+) -> dict[str, object]:
+    return _build_overview_view(
+        username="ejuline",
+        view_name="ed-juline-moods",
+        granularity=granularity,
+        analysis_start="2020-01-12T00:00:00Z",
+    )
+
+
+@router.get("/alex-thorn-moods")
+def alex_thorn_moods(
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+) -> dict[str, object]:
+    return _build_overview_view(
+        username="intangiblecoins",
+        view_name="alex-thorn-moods",
+        granularity=granularity,
+        analysis_start="2017-08-25T00:00:00Z",
+    )
+
+
+@router.get("/btc-teacher-moods")
+def btc_teacher_moods(
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+) -> dict[str, object]:
+    return _build_overview_view(
+        username="BitcoinTeacher_",
+        view_name="btc-teacher-moods",
+        granularity=granularity,
+        analysis_start="2025-11-12T00:00:00Z",
+    )
+
+
+@router.get("/roaring-ragnar-moods")
+def roaring_ragnar_moods(
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+) -> dict[str, object]:
+    return _build_overview_view(
+        username="RoaringRagnar",
+        view_name="roaring-ragnar-moods",
+        granularity=granularity,
+        analysis_start="2025-01-10T00:00:00Z",
     )
 
 
@@ -2618,6 +3050,118 @@ def parker_lewis_mood_series(
     )
 
 
+@router.get("/kristen-moods/mood-series")
+def kristen_mood_series(
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+    model_key: str = Query(default=DEFAULT_MOOD_MODEL),
+) -> dict[str, object]:
+    return _build_author_moods(
+        username="2dogs1chic",
+        view_name="kristen-mood-series",
+        granularity=granularity,
+        model_key=model_key,
+        analysis_start="2024-04-30T00:00:00Z",
+    )
+
+
+@router.get("/dana-in-hawaii-moods/mood-series")
+def dana_in_hawaii_mood_series(
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+    model_key: str = Query(default=DEFAULT_MOOD_MODEL),
+) -> dict[str, object]:
+    return _build_author_moods(
+        username="Danainhawaii",
+        view_name="dana-in-hawaii-mood-series",
+        granularity=granularity,
+        model_key=model_key,
+        analysis_start="2022-09-23T00:00:00Z",
+    )
+
+
+@router.get("/parabolic-code-moods/mood-series")
+def parabolic_code_mood_series(
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+    model_key: str = Query(default=DEFAULT_MOOD_MODEL),
+) -> dict[str, object]:
+    return _build_author_moods(
+        username="ParabolicCode",
+        view_name="parabolic-code-mood-series",
+        granularity=granularity,
+        model_key=model_key,
+        analysis_start="2025-01-10T00:00:00Z",
+    )
+
+
+@router.get("/bitquant-moods/mood-series")
+def bitquant_mood_series(
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+    model_key: str = Query(default=DEFAULT_MOOD_MODEL),
+) -> dict[str, object]:
+    return _build_author_moods(
+        username="BitQua",
+        view_name="bitquant-mood-series",
+        granularity=granularity,
+        model_key=model_key,
+        analysis_start="2021-09-16T00:00:00Z",
+    )
+
+
+@router.get("/ed-juline-moods/mood-series")
+def ed_juline_mood_series(
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+    model_key: str = Query(default=DEFAULT_MOOD_MODEL),
+) -> dict[str, object]:
+    return _build_author_moods(
+        username="ejuline",
+        view_name="ed-juline-mood-series",
+        granularity=granularity,
+        model_key=model_key,
+        analysis_start="2020-01-12T00:00:00Z",
+    )
+
+
+@router.get("/alex-thorn-moods/mood-series")
+def alex_thorn_mood_series(
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+    model_key: str = Query(default=DEFAULT_MOOD_MODEL),
+) -> dict[str, object]:
+    return _build_author_moods(
+        username="intangiblecoins",
+        view_name="alex-thorn-mood-series",
+        granularity=granularity,
+        model_key=model_key,
+        analysis_start="2017-08-25T00:00:00Z",
+    )
+
+
+@router.get("/btc-teacher-moods/mood-series")
+def btc_teacher_mood_series(
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+    model_key: str = Query(default=DEFAULT_MOOD_MODEL),
+) -> dict[str, object]:
+    return _build_author_moods(
+        username="BitcoinTeacher_",
+        view_name="btc-teacher-mood-series",
+        granularity=granularity,
+        model_key=model_key,
+        analysis_start="2025-11-12T00:00:00Z",
+    )
+
+
+@router.get("/roaring-ragnar-moods/mood-series")
+def roaring_ragnar_mood_series(
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+    model_key: str = Query(default=DEFAULT_MOOD_MODEL),
+) -> dict[str, object]:
+    return _build_author_moods(
+        username="RoaringRagnar",
+        view_name="roaring-ragnar-mood-series",
+        granularity=granularity,
+        model_key=model_key,
+        analysis_start="2025-01-10T00:00:00Z",
+    )
+
+
 @router.get("/walker-america-moods/btc-spot")
 def walker_america_moods_btc_spot() -> dict[str, object]:
     return _build_btc_spot_price()
@@ -2770,6 +3314,46 @@ def matt_cole_moods_btc_spot() -> dict[str, object]:
 
 @router.get("/parker-lewis-moods/btc-spot")
 def parker_lewis_moods_btc_spot() -> dict[str, object]:
+    return _build_btc_spot_price()
+
+
+@router.get("/kristen-moods/btc-spot")
+def kristen_moods_btc_spot() -> dict[str, object]:
+    return _build_btc_spot_price()
+
+
+@router.get("/dana-in-hawaii-moods/btc-spot")
+def dana_in_hawaii_moods_btc_spot() -> dict[str, object]:
+    return _build_btc_spot_price()
+
+
+@router.get("/parabolic-code-moods/btc-spot")
+def parabolic_code_moods_btc_spot() -> dict[str, object]:
+    return _build_btc_spot_price()
+
+
+@router.get("/bitquant-moods/btc-spot")
+def bitquant_moods_btc_spot() -> dict[str, object]:
+    return _build_btc_spot_price()
+
+
+@router.get("/ed-juline-moods/btc-spot")
+def ed_juline_moods_btc_spot() -> dict[str, object]:
+    return _build_btc_spot_price()
+
+
+@router.get("/alex-thorn-moods/btc-spot")
+def alex_thorn_moods_btc_spot() -> dict[str, object]:
+    return _build_btc_spot_price()
+
+
+@router.get("/btc-teacher-moods/btc-spot")
+def btc_teacher_moods_btc_spot() -> dict[str, object]:
+    return _build_btc_spot_price()
+
+
+@router.get("/roaring-ragnar-moods/btc-spot")
+def roaring_ragnar_moods_btc_spot() -> dict[str, object]:
     return _build_btc_spot_price()
 
 
@@ -3393,6 +3977,166 @@ def parker_lewis_heatmap(
     )
 
 
+@router.get("/kristen-heatmap")
+def kristen_heatmap(
+    mode: str = Query(default="common", pattern="^(all|common|rising)$"),
+    word_count: str = Query(default="all", pattern="^(all|1|2|3)$"),
+    granularity: str = Query(default="month", pattern="^(month)$"),
+    limit: int = Query(default=48, ge=1, le=120),
+    phrase_query: str | None = Query(default=None),
+) -> dict[str, object]:
+    return _build_author_keyword_heatmap(
+        username="2dogs1chic",
+        view_name="kristen-heatmap",
+        mode=mode,
+        word_count=word_count,
+        granularity=granularity,
+        limit=limit,
+        phrase_query=phrase_query,
+        analysis_start="2024-04-30T00:00:00Z",
+    )
+
+
+@router.get("/dana-in-hawaii-heatmap")
+def dana_in_hawaii_heatmap(
+    mode: str = Query(default="common", pattern="^(all|common|rising)$"),
+    word_count: str = Query(default="all", pattern="^(all|1|2|3)$"),
+    granularity: str = Query(default="month", pattern="^(month)$"),
+    limit: int = Query(default=48, ge=1, le=120),
+    phrase_query: str | None = Query(default=None),
+) -> dict[str, object]:
+    return _build_author_keyword_heatmap(
+        username="Danainhawaii",
+        view_name="dana-in-hawaii-heatmap",
+        mode=mode,
+        word_count=word_count,
+        granularity=granularity,
+        limit=limit,
+        phrase_query=phrase_query,
+        analysis_start="2022-09-23T00:00:00Z",
+    )
+
+
+@router.get("/parabolic-code-heatmap")
+def parabolic_code_heatmap(
+    mode: str = Query(default="common", pattern="^(all|common|rising)$"),
+    word_count: str = Query(default="all", pattern="^(all|1|2|3)$"),
+    granularity: str = Query(default="month", pattern="^(month)$"),
+    limit: int = Query(default=48, ge=1, le=120),
+    phrase_query: str | None = Query(default=None),
+) -> dict[str, object]:
+    return _build_author_keyword_heatmap(
+        username="ParabolicCode",
+        view_name="parabolic-code-heatmap",
+        mode=mode,
+        word_count=word_count,
+        granularity=granularity,
+        limit=limit,
+        phrase_query=phrase_query,
+        analysis_start="2025-01-10T00:00:00Z",
+    )
+
+
+@router.get("/bitquant-heatmap")
+def bitquant_heatmap(
+    mode: str = Query(default="common", pattern="^(all|common|rising)$"),
+    word_count: str = Query(default="all", pattern="^(all|1|2|3)$"),
+    granularity: str = Query(default="month", pattern="^(month)$"),
+    limit: int = Query(default=48, ge=1, le=120),
+    phrase_query: str | None = Query(default=None),
+) -> dict[str, object]:
+    return _build_author_keyword_heatmap(
+        username="BitQua",
+        view_name="bitquant-heatmap",
+        mode=mode,
+        word_count=word_count,
+        granularity=granularity,
+        limit=limit,
+        phrase_query=phrase_query,
+        analysis_start="2021-09-16T00:00:00Z",
+    )
+
+
+@router.get("/ed-juline-heatmap")
+def ed_juline_heatmap(
+    mode: str = Query(default="common", pattern="^(all|common|rising)$"),
+    word_count: str = Query(default="all", pattern="^(all|1|2|3)$"),
+    granularity: str = Query(default="month", pattern="^(month)$"),
+    limit: int = Query(default=48, ge=1, le=120),
+    phrase_query: str | None = Query(default=None),
+) -> dict[str, object]:
+    return _build_author_keyword_heatmap(
+        username="ejuline",
+        view_name="ed-juline-heatmap",
+        mode=mode,
+        word_count=word_count,
+        granularity=granularity,
+        limit=limit,
+        phrase_query=phrase_query,
+        analysis_start="2020-01-12T00:00:00Z",
+    )
+
+
+@router.get("/alex-thorn-heatmap")
+def alex_thorn_heatmap(
+    mode: str = Query(default="common", pattern="^(all|common|rising)$"),
+    word_count: str = Query(default="all", pattern="^(all|1|2|3)$"),
+    granularity: str = Query(default="month", pattern="^(month)$"),
+    limit: int = Query(default=48, ge=1, le=120),
+    phrase_query: str | None = Query(default=None),
+) -> dict[str, object]:
+    return _build_author_keyword_heatmap(
+        username="intangiblecoins",
+        view_name="alex-thorn-heatmap",
+        mode=mode,
+        word_count=word_count,
+        granularity=granularity,
+        limit=limit,
+        phrase_query=phrase_query,
+        analysis_start="2017-08-25T00:00:00Z",
+    )
+
+
+@router.get("/btc-teacher-heatmap")
+def btc_teacher_heatmap(
+    mode: str = Query(default="common", pattern="^(all|common|rising)$"),
+    word_count: str = Query(default="all", pattern="^(all|1|2|3)$"),
+    granularity: str = Query(default="month", pattern="^(month)$"),
+    limit: int = Query(default=48, ge=1, le=120),
+    phrase_query: str | None = Query(default=None),
+) -> dict[str, object]:
+    return _build_author_keyword_heatmap(
+        username="BitcoinTeacher_",
+        view_name="btc-teacher-heatmap",
+        mode=mode,
+        word_count=word_count,
+        granularity=granularity,
+        limit=limit,
+        phrase_query=phrase_query,
+        analysis_start="2025-11-12T00:00:00Z",
+    )
+
+
+@router.get("/roaring-ragnar-heatmap")
+def roaring_ragnar_heatmap(
+    mode: str = Query(default="common", pattern="^(all|common|rising)$"),
+    word_count: str = Query(default="all", pattern="^(all|1|2|3)$"),
+    granularity: str = Query(default="month", pattern="^(month)$"),
+    limit: int = Query(default=48, ge=1, le=120),
+    phrase_query: str | None = Query(default=None),
+) -> dict[str, object]:
+    return _build_author_keyword_heatmap(
+        username="RoaringRagnar",
+        view_name="roaring-ragnar-heatmap",
+        mode=mode,
+        word_count=word_count,
+        granularity=granularity,
+        limit=limit,
+        phrase_query=phrase_query,
+        analysis_start="2025-01-10T00:00:00Z",
+    )
+
+
 @router.get("/walker-america-heatmap/phrase-trend")
 def walker_america_heatmap_phrase_trend(
     phrase: str = Query(...),
@@ -3824,6 +4568,118 @@ def parker_lewis_heatmap_phrase_trend(
         phrase=phrase,
         granularity=granularity,
         analysis_start="2017-12-30T00:00:00Z",
+    )
+
+
+@router.get("/kristen-heatmap/phrase-trend")
+def kristen_heatmap_phrase_trend(
+    phrase: str = Query(...),
+    granularity: str = Query(default="month", pattern="^(month)$"),
+) -> dict[str, object]:
+    return _build_author_keyword_trend(
+        username="2dogs1chic",
+        view_name="kristen-heatmap-phrase-trend",
+        phrase=phrase,
+        granularity=granularity,
+        analysis_start="2024-04-30T00:00:00Z",
+    )
+
+
+@router.get("/dana-in-hawaii-heatmap/phrase-trend")
+def dana_in_hawaii_heatmap_phrase_trend(
+    phrase: str = Query(...),
+    granularity: str = Query(default="month", pattern="^(month)$"),
+) -> dict[str, object]:
+    return _build_author_keyword_trend(
+        username="Danainhawaii",
+        view_name="dana-in-hawaii-heatmap-phrase-trend",
+        phrase=phrase,
+        granularity=granularity,
+        analysis_start="2022-09-23T00:00:00Z",
+    )
+
+
+@router.get("/parabolic-code-heatmap/phrase-trend")
+def parabolic_code_heatmap_phrase_trend(
+    phrase: str = Query(...),
+    granularity: str = Query(default="month", pattern="^(month)$"),
+) -> dict[str, object]:
+    return _build_author_keyword_trend(
+        username="ParabolicCode",
+        view_name="parabolic-code-heatmap-phrase-trend",
+        phrase=phrase,
+        granularity=granularity,
+        analysis_start="2025-01-10T00:00:00Z",
+    )
+
+
+@router.get("/bitquant-heatmap/phrase-trend")
+def bitquant_heatmap_phrase_trend(
+    phrase: str = Query(...),
+    granularity: str = Query(default="month", pattern="^(month)$"),
+) -> dict[str, object]:
+    return _build_author_keyword_trend(
+        username="BitQua",
+        view_name="bitquant-heatmap-phrase-trend",
+        phrase=phrase,
+        granularity=granularity,
+        analysis_start="2021-09-16T00:00:00Z",
+    )
+
+
+@router.get("/ed-juline-heatmap/phrase-trend")
+def ed_juline_heatmap_phrase_trend(
+    phrase: str = Query(...),
+    granularity: str = Query(default="month", pattern="^(month)$"),
+) -> dict[str, object]:
+    return _build_author_keyword_trend(
+        username="ejuline",
+        view_name="ed-juline-heatmap-phrase-trend",
+        phrase=phrase,
+        granularity=granularity,
+        analysis_start="2020-01-12T00:00:00Z",
+    )
+
+
+@router.get("/alex-thorn-heatmap/phrase-trend")
+def alex_thorn_heatmap_phrase_trend(
+    phrase: str = Query(...),
+    granularity: str = Query(default="month", pattern="^(month)$"),
+) -> dict[str, object]:
+    return _build_author_keyword_trend(
+        username="intangiblecoins",
+        view_name="alex-thorn-heatmap-phrase-trend",
+        phrase=phrase,
+        granularity=granularity,
+        analysis_start="2017-08-25T00:00:00Z",
+    )
+
+
+@router.get("/btc-teacher-heatmap/phrase-trend")
+def btc_teacher_heatmap_phrase_trend(
+    phrase: str = Query(...),
+    granularity: str = Query(default="month", pattern="^(month)$"),
+) -> dict[str, object]:
+    return _build_author_keyword_trend(
+        username="BitcoinTeacher_",
+        view_name="btc-teacher-heatmap-phrase-trend",
+        phrase=phrase,
+        granularity=granularity,
+        analysis_start="2025-11-12T00:00:00Z",
+    )
+
+
+@router.get("/roaring-ragnar-heatmap/phrase-trend")
+def roaring_ragnar_heatmap_phrase_trend(
+    phrase: str = Query(...),
+    granularity: str = Query(default="month", pattern="^(month)$"),
+) -> dict[str, object]:
+    return _build_author_keyword_trend(
+        username="RoaringRagnar",
+        view_name="roaring-ragnar-heatmap-phrase-trend",
+        phrase=phrase,
+        granularity=granularity,
+        analysis_start="2025-01-10T00:00:00Z",
     )
 
 
@@ -4286,6 +5142,126 @@ def parker_lewis_heatmap_top_liked_tweets(
     return _build_author_keyword_top_tweets(
         username="parkeralewis",
         view_name="parker-lewis-heatmap-top-liked-tweets",
+        phrase=phrase,
+        month_start=month_start,
+        limit=limit,
+    )
+
+
+@router.get("/kristen-heatmap/top-liked-tweets")
+def kristen_heatmap_top_liked_tweets(
+    phrase: str = Query(...),
+    month_start: str = Query(...),
+    limit: int = Query(default=3, ge=1, le=10),
+) -> dict[str, object]:
+    return _build_author_keyword_top_tweets(
+        username="2dogs1chic",
+        view_name="kristen-heatmap-top-liked-tweets",
+        phrase=phrase,
+        month_start=month_start,
+        limit=limit,
+    )
+
+
+@router.get("/dana-in-hawaii-heatmap/top-liked-tweets")
+def dana_in_hawaii_heatmap_top_liked_tweets(
+    phrase: str = Query(...),
+    month_start: str = Query(...),
+    limit: int = Query(default=3, ge=1, le=10),
+) -> dict[str, object]:
+    return _build_author_keyword_top_tweets(
+        username="Danainhawaii",
+        view_name="dana-in-hawaii-heatmap-top-liked-tweets",
+        phrase=phrase,
+        month_start=month_start,
+        limit=limit,
+    )
+
+
+@router.get("/parabolic-code-heatmap/top-liked-tweets")
+def parabolic_code_heatmap_top_liked_tweets(
+    phrase: str = Query(...),
+    month_start: str = Query(...),
+    limit: int = Query(default=3, ge=1, le=10),
+) -> dict[str, object]:
+    return _build_author_keyword_top_tweets(
+        username="ParabolicCode",
+        view_name="parabolic-code-heatmap-top-liked-tweets",
+        phrase=phrase,
+        month_start=month_start,
+        limit=limit,
+    )
+
+
+@router.get("/bitquant-heatmap/top-liked-tweets")
+def bitquant_heatmap_top_liked_tweets(
+    phrase: str = Query(...),
+    month_start: str = Query(...),
+    limit: int = Query(default=3, ge=1, le=10),
+) -> dict[str, object]:
+    return _build_author_keyword_top_tweets(
+        username="BitQua",
+        view_name="bitquant-heatmap-top-liked-tweets",
+        phrase=phrase,
+        month_start=month_start,
+        limit=limit,
+    )
+
+
+@router.get("/ed-juline-heatmap/top-liked-tweets")
+def ed_juline_heatmap_top_liked_tweets(
+    phrase: str = Query(...),
+    month_start: str = Query(...),
+    limit: int = Query(default=3, ge=1, le=10),
+) -> dict[str, object]:
+    return _build_author_keyword_top_tweets(
+        username="ejuline",
+        view_name="ed-juline-heatmap-top-liked-tweets",
+        phrase=phrase,
+        month_start=month_start,
+        limit=limit,
+    )
+
+
+@router.get("/alex-thorn-heatmap/top-liked-tweets")
+def alex_thorn_heatmap_top_liked_tweets(
+    phrase: str = Query(...),
+    month_start: str = Query(...),
+    limit: int = Query(default=3, ge=1, le=10),
+) -> dict[str, object]:
+    return _build_author_keyword_top_tweets(
+        username="intangiblecoins",
+        view_name="alex-thorn-heatmap-top-liked-tweets",
+        phrase=phrase,
+        month_start=month_start,
+        limit=limit,
+    )
+
+
+@router.get("/btc-teacher-heatmap/top-liked-tweets")
+def btc_teacher_heatmap_top_liked_tweets(
+    phrase: str = Query(...),
+    month_start: str = Query(...),
+    limit: int = Query(default=3, ge=1, le=10),
+) -> dict[str, object]:
+    return _build_author_keyword_top_tweets(
+        username="BitcoinTeacher_",
+        view_name="btc-teacher-heatmap-top-liked-tweets",
+        phrase=phrase,
+        month_start=month_start,
+        limit=limit,
+    )
+
+
+@router.get("/roaring-ragnar-heatmap/top-liked-tweets")
+def roaring_ragnar_heatmap_top_liked_tweets(
+    phrase: str = Query(...),
+    month_start: str = Query(...),
+    limit: int = Query(default=3, ge=1, le=10),
+) -> dict[str, object]:
+    return _build_author_keyword_top_tweets(
+        username="RoaringRagnar",
+        view_name="roaring-ragnar-heatmap-top-liked-tweets",
         phrase=phrase,
         month_start=month_start,
         limit=limit,

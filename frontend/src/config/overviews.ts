@@ -166,6 +166,46 @@ export const overviewDefinitions: OverviewDefinition[] = [
     apiBasePath: "/api/views/parker-lewis-overview",
   },
   {
+    slug: "kristen",
+    username: "2dogs1chic",
+    apiBasePath: "/api/views/kristen-overview",
+  },
+  {
+    slug: "dana-in-hawaii",
+    username: "Danainhawaii",
+    apiBasePath: "/api/views/dana-in-hawaii-overview",
+  },
+  {
+    slug: "parabolic-code",
+    username: "ParabolicCode",
+    apiBasePath: "/api/views/parabolic-code-overview",
+  },
+  {
+    slug: "bitquant",
+    username: "BitQua",
+    apiBasePath: "/api/views/bitquant-overview",
+  },
+  {
+    slug: "ed-juline",
+    username: "ejuline",
+    apiBasePath: "/api/views/ed-juline-overview",
+  },
+  {
+    slug: "alex-thorn",
+    username: "intangiblecoins",
+    apiBasePath: "/api/views/alex-thorn-overview",
+  },
+  {
+    slug: "btc-teacher",
+    username: "BitcoinTeacher_",
+    apiBasePath: "/api/views/btc-teacher-overview",
+  },
+  {
+    slug: "roaring-ragnar",
+    username: "RoaringRagnar",
+    apiBasePath: "/api/views/roaring-ragnar-overview",
+  },
+  {
     slug: "michael-sullivan",
     username: "SullyMichaelvan",
     apiBasePath: "/api/views/michael-sullivan-overview",

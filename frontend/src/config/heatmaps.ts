@@ -166,6 +166,46 @@ export const heatmapDefinitions: HeatmapDefinition[] = [
     apiBasePath: "/api/views/parker-lewis-heatmap",
   },
   {
+    slug: "kristen",
+    username: "2dogs1chic",
+    apiBasePath: "/api/views/kristen-heatmap",
+  },
+  {
+    slug: "dana-in-hawaii",
+    username: "Danainhawaii",
+    apiBasePath: "/api/views/dana-in-hawaii-heatmap",
+  },
+  {
+    slug: "parabolic-code",
+    username: "ParabolicCode",
+    apiBasePath: "/api/views/parabolic-code-heatmap",
+  },
+  {
+    slug: "bitquant",
+    username: "BitQua",
+    apiBasePath: "/api/views/bitquant-heatmap",
+  },
+  {
+    slug: "ed-juline",
+    username: "ejuline",
+    apiBasePath: "/api/views/ed-juline-heatmap",
+  },
+  {
+    slug: "alex-thorn",
+    username: "intangiblecoins",
+    apiBasePath: "/api/views/alex-thorn-heatmap",
+  },
+  {
+    slug: "btc-teacher",
+    username: "BitcoinTeacher_",
+    apiBasePath: "/api/views/btc-teacher-heatmap",
+  },
+  {
+    slug: "roaring-ragnar",
+    username: "RoaringRagnar",
+    apiBasePath: "/api/views/roaring-ragnar-heatmap",
+  },
+  {
     slug: "michael-sullivan",
     username: "SullyMichaelvan",
     apiBasePath: "/api/views/michael-sullivan-heatmap",

@@ -166,6 +166,46 @@ export const moodDefinitions: MoodDefinition[] = [
     apiBasePath: "/api/views/parker-lewis-moods",
   },
   {
+    slug: "kristen",
+    username: "2dogs1chic",
+    apiBasePath: "/api/views/kristen-moods",
+  },
+  {
+    slug: "dana-in-hawaii",
+    username: "Danainhawaii",
+    apiBasePath: "/api/views/dana-in-hawaii-moods",
+  },
+  {
+    slug: "parabolic-code",
+    username: "ParabolicCode",
+    apiBasePath: "/api/views/parabolic-code-moods",
+  },
+  {
+    slug: "bitquant",
+    username: "BitQua",
+    apiBasePath: "/api/views/bitquant-moods",
+  },
+  {
+    slug: "ed-juline",
+    username: "ejuline",
+    apiBasePath: "/api/views/ed-juline-moods",
+  },
+  {
+    slug: "alex-thorn",
+    username: "intangiblecoins",
+    apiBasePath: "/api/views/alex-thorn-moods",
+  },
+  {
+    slug: "btc-teacher",
+    username: "BitcoinTeacher_",
+    apiBasePath: "/api/views/btc-teacher-moods",
+  },
+  {
+    slug: "roaring-ragnar",
+    username: "RoaringRagnar",
+    apiBasePath: "/api/views/roaring-ragnar-moods",
+  },
+  {
     slug: "peter-schiff",
     username: "PeterSchiff",
     apiBasePath: "/api/views/peter-schiff-moods",
