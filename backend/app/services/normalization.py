@@ -570,10 +570,12 @@ def _upsert_users(session: Session, snapshots: list[UserSnapshot]) -> None:
 
 
 def _load_user_id_map(session: Session, platform_user_ids: list[str]) -> dict[str, int]:
-    rows = session.execute(
-        select(User.platform_user_id, User.id).where(User.platform_user_id.in_(platform_user_ids))
-    ).all()
-    return {platform_user_id: user_id for platform_user_id, user_id in rows}
+    return _load_platform_id_map(
+        session,
+        platform_ids=platform_user_ids,
+        platform_id_column=User.platform_user_id,
+        id_column=User.id,
+    )
 
 
 def _upsert_tweets(
@@ -637,10 +639,31 @@ def _upsert_tweets(
 
 
 def _load_tweet_id_map(session: Session, platform_tweet_ids: list[str]) -> dict[str, int]:
-    rows = session.execute(
-        select(Tweet.platform_tweet_id, Tweet.id).where(Tweet.platform_tweet_id.in_(platform_tweet_ids))
-    ).all()
-    return {platform_tweet_id: tweet_id for platform_tweet_id, tweet_id in rows}
+    return _load_platform_id_map(
+        session,
+        platform_ids=platform_tweet_ids,
+        platform_id_column=Tweet.platform_tweet_id,
+        id_column=Tweet.id,
+    )
+
+
+def _load_platform_id_map(
+    session: Session,
+    *,
+    platform_ids: list[str],
+    platform_id_column,
+    id_column,
+) -> dict[str, int]:
+    # Large backfills can exceed PostgreSQL's bind-parameter ceiling if we query all ids at once.
+    loaded: dict[str, int] = {}
+    for chunk in _chunked(platform_ids, size=1000):
+        if not chunk:
+            continue
+        rows = session.execute(
+            select(platform_id_column, id_column).where(platform_id_column.in_(chunk))
+        ).all()
+        loaded.update({platform_id: row_id for platform_id, row_id in rows})
+    return loaded
 
 
 def _replace_tweet_references(
