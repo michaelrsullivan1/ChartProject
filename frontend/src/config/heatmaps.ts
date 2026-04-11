@@ -146,6 +146,26 @@ export const heatmapDefinitions: HeatmapDefinition[] = [
     apiBasePath: "/api/views/professor-b21-heatmap",
   },
   {
+    slug: "btc-gus",
+    username: "Scavacini777",
+    apiBasePath: "/api/views/btc-gus-heatmap",
+  },
+  {
+    slug: "bit-paine",
+    username: "BitPaine",
+    apiBasePath: "/api/views/bit-paine-heatmap",
+  },
+  {
+    slug: "matt-cole",
+    username: "ColeMacro",
+    apiBasePath: "/api/views/matt-cole-heatmap",
+  },
+  {
+    slug: "parker-lewis",
+    username: "parkeralewis",
+    apiBasePath: "/api/views/parker-lewis-heatmap",
+  },
+  {
     slug: "michael-sullivan",
     username: "SullyMichaelvan",
     apiBasePath: "/api/views/michael-sullivan-heatmap",

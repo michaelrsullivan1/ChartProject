@@ -146,6 +146,26 @@ export const moodDefinitions: MoodDefinition[] = [
     apiBasePath: "/api/views/professor-b21-moods",
   },
   {
+    slug: "btc-gus",
+    username: "Scavacini777",
+    apiBasePath: "/api/views/btc-gus-moods",
+  },
+  {
+    slug: "bit-paine",
+    username: "BitPaine",
+    apiBasePath: "/api/views/bit-paine-moods",
+  },
+  {
+    slug: "matt-cole",
+    username: "ColeMacro",
+    apiBasePath: "/api/views/matt-cole-moods",
+  },
+  {
+    slug: "parker-lewis",
+    username: "parkeralewis",
+    apiBasePath: "/api/views/parker-lewis-moods",
+  },
+  {
     slug: "peter-schiff",
     username: "PeterSchiff",
     apiBasePath: "/api/views/peter-schiff-moods",

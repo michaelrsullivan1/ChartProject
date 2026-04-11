@@ -146,6 +146,26 @@ export const overviewDefinitions: OverviewDefinition[] = [
     apiBasePath: "/api/views/professor-b21-overview",
   },
   {
+    slug: "btc-gus",
+    username: "Scavacini777",
+    apiBasePath: "/api/views/btc-gus-overview",
+  },
+  {
+    slug: "bit-paine",
+    username: "BitPaine",
+    apiBasePath: "/api/views/bit-paine-overview",
+  },
+  {
+    slug: "matt-cole",
+    username: "ColeMacro",
+    apiBasePath: "/api/views/matt-cole-overview",
+  },
+  {
+    slug: "parker-lewis",
+    username: "parkeralewis",
+    apiBasePath: "/api/views/parker-lewis-overview",
+  },
+  {
     slug: "michael-sullivan",
     username: "SullyMichaelvan",
     apiBasePath: "/api/views/michael-sullivan-overview",
