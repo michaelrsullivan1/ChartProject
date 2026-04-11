@@ -15,6 +15,7 @@ import {
 } from "lightweight-charts";
 
 import type { AuthorMoodResponse, AuthorOverviewResponse } from "../api/authorOverview";
+import { ChartControlSelect } from "./ChartControlSelect";
 import { buildMoodDeviationSeries } from "../lib/moods";
 import type { SentimentMode } from "../lib/sentiment";
 import { CHART_WATERMARK_HANDLE } from "../lib/watermark";
@@ -476,18 +477,15 @@ export function AuthorMoodTradingViewChart({
                 {moodSelectorVariant === "select" ? (
                   <label className="chart-control-field">
                     <span className="sr-only">Mood label</span>
-                    <select
-                      aria-label="Mood label"
-                      className="chart-control-select"
-                      onChange={(event) => onMoodLabelChange(event.target.value)}
+                    <ChartControlSelect
+                      ariaLabel="Mood label"
+                      onChange={onMoodLabelChange}
+                      options={moodPayload.model.mood_labels.map((moodLabel) => ({
+                        value: moodLabel,
+                        label: formatMoodLabel(moodLabel),
+                      }))}
                       value={selectedMoodLabel}
-                    >
-                      {moodPayload.model.mood_labels.map((moodLabel) => (
-                        <option key={moodLabel} value={moodLabel}>
-                          {formatMoodLabel(moodLabel)}
-                        </option>
-                      ))}
-                    </select>
+                    />
                   </label>
                 ) : (
                   <div className="chart-toggle-group" role="group" aria-label="Mood label">

@@ -15,6 +15,7 @@ import {
   type MoodVisualMode,
   type PriceMode,
 } from "../components/AuthorMoodTradingViewChart";
+import { ChartControlSelect } from "../components/ChartControlSelect";
 import { DashboardLoadingState } from "../components/DashboardLoadingState";
 import { getMoodDescriptionByLabel } from "../config/aggregateMoods";
 import { type MoodDefinition } from "../config/moods";
@@ -355,18 +356,15 @@ function AuthorMoodChartSection({
               <p className="chart-control-eyebrow">Aggregate Comparison</p>
               <label className="chart-control-field">
                 <span className="sr-only">Aggregate cohort comparison</span>
-                <select
-                  aria-label="Aggregate cohort comparison"
-                  className="chart-control-select"
-                  onChange={(event) => onAggregateComparisonKeyChange(event.target.value)}
+                <ChartControlSelect
+                  ariaLabel="Aggregate cohort comparison"
+                  onChange={onAggregateComparisonKeyChange}
+                  options={aggregateComparisonOptions.map((option) => ({
+                    value: option.key,
+                    label: option.label,
+                  }))}
                   value={selectedAggregateComparisonKey}
-                >
-                  {aggregateComparisonOptions.map((option) => (
-                    <option key={option.key} value={option.key}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
+                />
               </label>
               <p className="chart-control-note">
                 Uses the same selected mood and smoothing mode, overlaid as a muted aggregate line.
