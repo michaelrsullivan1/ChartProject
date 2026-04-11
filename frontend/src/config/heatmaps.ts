@@ -131,6 +131,21 @@ export const heatmapDefinitions: HeatmapDefinition[] = [
     apiBasePath: "/api/views/mason-heatmap",
   },
   {
+    slug: "british-hodl",
+    username: "BritishHodl",
+    apiBasePath: "/api/views/british-hodl-heatmap",
+  },
+  {
+    slug: "lyn-alden",
+    username: "LynAldenContact",
+    apiBasePath: "/api/views/lyn-alden-heatmap",
+  },
+  {
+    slug: "professor-b21",
+    username: "ProfessorB21",
+    apiBasePath: "/api/views/professor-b21-heatmap",
+  },
+  {
     slug: "michael-sullivan",
     username: "SullyMichaelvan",
     apiBasePath: "/api/views/michael-sullivan-heatmap",

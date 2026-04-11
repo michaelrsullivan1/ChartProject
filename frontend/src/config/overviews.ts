@@ -131,6 +131,21 @@ export const overviewDefinitions: OverviewDefinition[] = [
     apiBasePath: "/api/views/mason-overview",
   },
   {
+    slug: "british-hodl",
+    username: "BritishHodl",
+    apiBasePath: "/api/views/british-hodl-overview",
+  },
+  {
+    slug: "lyn-alden",
+    username: "LynAldenContact",
+    apiBasePath: "/api/views/lyn-alden-overview",
+  },
+  {
+    slug: "professor-b21",
+    username: "ProfessorB21",
+    apiBasePath: "/api/views/professor-b21-overview",
+  },
+  {
     slug: "michael-sullivan",
     username: "SullyMichaelvan",
     apiBasePath: "/api/views/michael-sullivan-overview",
