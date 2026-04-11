@@ -61,6 +61,76 @@ export const moodDefinitions: MoodDefinition[] = [
     apiBasePath: "/api/views/brian-brookshire-moods",
   },
   {
+    slug: "brian-armstrong",
+    username: "brian_armstrong",
+    apiBasePath: "/api/views/brian-armstrong-moods",
+  },
+  {
+    slug: "cz-bnb",
+    username: "cz_binance",
+    apiBasePath: "/api/views/cz-bnb-moods",
+  },
+  {
+    slug: "arthur-hayes",
+    username: "CryptoHayes",
+    apiBasePath: "/api/views/arthur-hayes-moods",
+  },
+  {
+    slug: "jesse-powell",
+    username: "jespow",
+    apiBasePath: "/api/views/jesse-powell-moods",
+  },
+  {
+    slug: "jack-mallers",
+    username: "jackmallers",
+    apiBasePath: "/api/views/jack-mallers-moods",
+  },
+  {
+    slug: "zynx",
+    username: "ZynxBTC",
+    apiBasePath: "/api/views/zynx-moods",
+  },
+  {
+    slug: "jesse-myers",
+    username: "Croesus_BTC",
+    apiBasePath: "/api/views/jesse-myers-moods",
+  },
+  {
+    slug: "willy-woo",
+    username: "willywoo",
+    apiBasePath: "/api/views/willy-woo-moods",
+  },
+  {
+    slug: "andy-edstrom",
+    username: "edstromandrew",
+    apiBasePath: "/api/views/andy-edstrom-moods",
+  },
+  {
+    slug: "dan-hillery",
+    username: "hillery_dan",
+    apiBasePath: "/api/views/dan-hillery-moods",
+  },
+  {
+    slug: "adrian-morris",
+    username: "_Adrian",
+    apiBasePath: "/api/views/adrian-morris-moods",
+  },
+  {
+    slug: "jeff-walton",
+    username: "PunterJeff",
+    apiBasePath: "/api/views/jeff-walton-moods",
+  },
+  {
+    slug: "nithu-sezni",
+    username: "nithusezni",
+    apiBasePath: "/api/views/nithu-sezni-moods",
+  },
+  {
+    slug: "mason",
+    username: "MasonFoard",
+    apiBasePath: "/api/views/mason-moods",
+  },
+  {
     slug: "peter-schiff",
     username: "PeterSchiff",
     apiBasePath: "/api/views/peter-schiff-moods",

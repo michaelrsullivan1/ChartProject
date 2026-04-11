@@ -61,6 +61,76 @@ export const heatmapDefinitions: HeatmapDefinition[] = [
     apiBasePath: "/api/views/brian-brookshire-heatmap",
   },
   {
+    slug: "brian-armstrong",
+    username: "brian_armstrong",
+    apiBasePath: "/api/views/brian-armstrong-heatmap",
+  },
+  {
+    slug: "cz-bnb",
+    username: "cz_binance",
+    apiBasePath: "/api/views/cz-bnb-heatmap",
+  },
+  {
+    slug: "arthur-hayes",
+    username: "CryptoHayes",
+    apiBasePath: "/api/views/arthur-hayes-heatmap",
+  },
+  {
+    slug: "jesse-powell",
+    username: "jespow",
+    apiBasePath: "/api/views/jesse-powell-heatmap",
+  },
+  {
+    slug: "jack-mallers",
+    username: "jackmallers",
+    apiBasePath: "/api/views/jack-mallers-heatmap",
+  },
+  {
+    slug: "zynx",
+    username: "ZynxBTC",
+    apiBasePath: "/api/views/zynx-heatmap",
+  },
+  {
+    slug: "jesse-myers",
+    username: "Croesus_BTC",
+    apiBasePath: "/api/views/jesse-myers-heatmap",
+  },
+  {
+    slug: "willy-woo",
+    username: "willywoo",
+    apiBasePath: "/api/views/willy-woo-heatmap",
+  },
+  {
+    slug: "andy-edstrom",
+    username: "edstromandrew",
+    apiBasePath: "/api/views/andy-edstrom-heatmap",
+  },
+  {
+    slug: "dan-hillery",
+    username: "hillery_dan",
+    apiBasePath: "/api/views/dan-hillery-heatmap",
+  },
+  {
+    slug: "adrian-morris",
+    username: "_Adrian",
+    apiBasePath: "/api/views/adrian-morris-heatmap",
+  },
+  {
+    slug: "jeff-walton",
+    username: "PunterJeff",
+    apiBasePath: "/api/views/jeff-walton-heatmap",
+  },
+  {
+    slug: "nithu-sezni",
+    username: "nithusezni",
+    apiBasePath: "/api/views/nithu-sezni-heatmap",
+  },
+  {
+    slug: "mason",
+    username: "MasonFoard",
+    apiBasePath: "/api/views/mason-heatmap",
+  },
+  {
     slug: "michael-sullivan",
     username: "SullyMichaelvan",
     apiBasePath: "/api/views/michael-sullivan-heatmap",

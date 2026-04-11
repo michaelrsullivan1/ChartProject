@@ -49,6 +49,62 @@ export const bitcoinMentionsDefinitions: BitcoinMentionsDefinition[] = [
     username: "btc_overflow",
   },
   {
+    slug: "brian-armstrong",
+    username: "brian_armstrong",
+  },
+  {
+    slug: "cz-bnb",
+    username: "cz_binance",
+  },
+  {
+    slug: "arthur-hayes",
+    username: "CryptoHayes",
+  },
+  {
+    slug: "jesse-powell",
+    username: "jespow",
+  },
+  {
+    slug: "jack-mallers",
+    username: "jackmallers",
+  },
+  {
+    slug: "zynx",
+    username: "ZynxBTC",
+  },
+  {
+    slug: "jesse-myers",
+    username: "Croesus_BTC",
+  },
+  {
+    slug: "willy-woo",
+    username: "willywoo",
+  },
+  {
+    slug: "andy-edstrom",
+    username: "edstromandrew",
+  },
+  {
+    slug: "dan-hillery",
+    username: "hillery_dan",
+  },
+  {
+    slug: "adrian-morris",
+    username: "_Adrian",
+  },
+  {
+    slug: "jeff-walton",
+    username: "PunterJeff",
+  },
+  {
+    slug: "nithu-sezni",
+    username: "nithusezni",
+  },
+  {
+    slug: "mason",
+    username: "MasonFoard",
+  },
+  {
     slug: "michael-sullivan",
     username: "SullyMichaelvan",
   },
