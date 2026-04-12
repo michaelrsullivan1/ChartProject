@@ -12,23 +12,27 @@ import {
 } from "./config/aggregateMoods";
 import {
   bitcoinMentionsDefinitions as defaultBitcoinMentionsDefinitions,
+  getBitcoinMentionsLabel,
   getBitcoinMentionsHash,
   getBitcoinMentionsTitle,
   type BitcoinMentionsDefinition,
 } from "./config/bitcoinMentions";
 import {
   getHeatmapHash,
+  getHeatmapLabel,
   getHeatmapTitle,
   heatmapDefinitions as defaultHeatmapDefinitions,
   type HeatmapDefinition,
 } from "./config/heatmaps";
 import {
+  getMoodLabel,
   getMoodHash,
   getMoodTitle,
   moodDefinitions as defaultMoodDefinitions,
   type MoodDefinition,
 } from "./config/moods";
 import {
+  getOverviewLabel,
   getOverviewHash,
   getOverviewTitle,
   overviewDefinitions as defaultOverviewDefinitions,
@@ -152,6 +156,22 @@ function mergeDefinitions<T extends { slug: string }>(base: T[], incoming: T[]):
   return next;
 }
 
+function sortDefinitionsByLabel<T extends { slug: string }>(
+  definitions: T[],
+  getLabel: (definition: T) => string,
+): T[] {
+  return [...definitions].sort((left, right) => {
+    const labelComparison = getLabel(left).localeCompare(getLabel(right), undefined, {
+      sensitivity: "base",
+    });
+    if (labelComparison !== 0) {
+      return labelComparison;
+    }
+
+    return left.slug.localeCompare(right.slug, undefined, { sensitivity: "base" });
+  });
+}
+
 export default function App() {
   const [bitcoinMentionsDefinitions, setBitcoinMentionsDefinitions] = useState<BitcoinMentionsDefinition[]>(
     defaultBitcoinMentionsDefinitions,
@@ -168,10 +188,13 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [route, setRoute] = useState<AppRoute>(() =>
     getRouteFromHash(window.location.hash, {
-      bitcoinMentions: defaultBitcoinMentionsDefinitions,
-      moods: defaultMoodDefinitions,
-      overviews: defaultOverviewDefinitions,
-      heatmaps: defaultHeatmapDefinitions,
+      bitcoinMentions: sortDefinitionsByLabel(
+        defaultBitcoinMentionsDefinitions,
+        getBitcoinMentionsLabel,
+      ),
+      moods: sortDefinitionsByLabel(defaultMoodDefinitions, getMoodLabel),
+      overviews: sortDefinitionsByLabel(defaultOverviewDefinitions, getOverviewLabel),
+      heatmaps: sortDefinitionsByLabel(defaultHeatmapDefinitions, getHeatmapLabel),
     }),
   );
   const [showWatermark, setShowWatermark] = useState(() => {
@@ -188,6 +211,16 @@ export default function App() {
     document.documentElement.dataset.theme = resolvedTheme;
     return resolvedTheme;
   });
+  const sortedBitcoinMentionsDefinitions = sortDefinitionsByLabel(
+    bitcoinMentionsDefinitions,
+    getBitcoinMentionsLabel,
+  );
+  const sortedMoodDefinitions = sortDefinitionsByLabel(moodDefinitions, getMoodLabel);
+  const sortedOverviewDefinitions = sortDefinitionsByLabel(
+    overviewDefinitions,
+    getOverviewLabel,
+  );
+  const sortedHeatmapDefinitions = sortDefinitionsByLabel(heatmapDefinitions, getHeatmapLabel);
 
   useEffect(() => {
     let cancelled = false;
@@ -282,12 +315,26 @@ export default function App() {
 
   useEffect(() => {
     function handleHashChange() {
+      const currentBitcoinMentionsDefinitions = sortDefinitionsByLabel(
+        bitcoinMentionsDefinitions,
+        getBitcoinMentionsLabel,
+      );
+      const currentMoodDefinitions = sortDefinitionsByLabel(moodDefinitions, getMoodLabel);
+      const currentOverviewDefinitions = sortDefinitionsByLabel(
+        overviewDefinitions,
+        getOverviewLabel,
+      );
+      const currentHeatmapDefinitions = sortDefinitionsByLabel(
+        heatmapDefinitions,
+        getHeatmapLabel,
+      );
+
       setRoute(
         getRouteFromHash(window.location.hash, {
-          bitcoinMentions: bitcoinMentionsDefinitions,
-          moods: moodDefinitions,
-          overviews: overviewDefinitions,
-          heatmaps: heatmapDefinitions,
+          bitcoinMentions: currentBitcoinMentionsDefinitions,
+          moods: currentMoodDefinitions,
+          overviews: currentOverviewDefinitions,
+          heatmaps: currentHeatmapDefinitions,
         }),
       );
     }
@@ -355,8 +402,8 @@ export default function App() {
         activeHeatmapSlug={null}
         activeSettingsSection={null}
         aggregateMoods={aggregateMoodDefinitions}
-        bitcoinMentions={bitcoinMentionsDefinitions}
-        moods={moodDefinitions}
+        bitcoinMentions={sortedBitcoinMentionsDefinitions}
+        moods={sortedMoodDefinitions}
         onNavigateHome={navigateHome}
         onNavigateAggregateMood={navigateAggregateMood}
         onNavigateBitcoinMentions={navigateBitcoinMentions}
@@ -365,8 +412,8 @@ export default function App() {
         onNavigateHeatmap={navigateHeatmap}
         onNavigateGlobalSettings={navigateGlobalSettings}
         onNavigateUserSettings={navigateUserSettings}
-        overviews={overviewDefinitions}
-        heatmaps={heatmapDefinitions}
+        overviews={sortedOverviewDefinitions}
+        heatmaps={sortedHeatmapDefinitions}
       >
         <HomePage health={health} error={error} isLoading={isLoading} />
       </AppShell>
@@ -385,8 +432,8 @@ export default function App() {
         activeHeatmapSlug={null}
         activeSettingsSection={null}
         aggregateMoods={aggregateMoodDefinitions}
-        bitcoinMentions={bitcoinMentionsDefinitions}
-        moods={moodDefinitions}
+        bitcoinMentions={sortedBitcoinMentionsDefinitions}
+        moods={sortedMoodDefinitions}
         onNavigateHome={navigateHome}
         onNavigateAggregateMood={navigateAggregateMood}
         onNavigateBitcoinMentions={navigateBitcoinMentions}
@@ -395,8 +442,8 @@ export default function App() {
         onNavigateHeatmap={navigateHeatmap}
         onNavigateGlobalSettings={navigateGlobalSettings}
         onNavigateUserSettings={navigateUserSettings}
-        overviews={overviewDefinitions}
-        heatmaps={heatmapDefinitions}
+        overviews={sortedOverviewDefinitions}
+        heatmaps={sortedHeatmapDefinitions}
       >
         <AuthorOverviewPage
           key={route.overview.slug}
@@ -419,8 +466,8 @@ export default function App() {
         activeHeatmapSlug={null}
         activeSettingsSection={null}
         aggregateMoods={aggregateMoodDefinitions}
-        bitcoinMentions={bitcoinMentionsDefinitions}
-        moods={moodDefinitions}
+        bitcoinMentions={sortedBitcoinMentionsDefinitions}
+        moods={sortedMoodDefinitions}
         onNavigateHome={navigateHome}
         onNavigateAggregateMood={navigateAggregateMood}
         onNavigateBitcoinMentions={navigateBitcoinMentions}
@@ -429,8 +476,8 @@ export default function App() {
         onNavigateHeatmap={navigateHeatmap}
         onNavigateGlobalSettings={navigateGlobalSettings}
         onNavigateUserSettings={navigateUserSettings}
-        overviews={overviewDefinitions}
-        heatmaps={heatmapDefinitions}
+        overviews={sortedOverviewDefinitions}
+        heatmaps={sortedHeatmapDefinitions}
       >
         <AuthorMoodPage key={route.mood.slug} mood={route.mood} showWatermark={showWatermark} />
       </AppShell>
@@ -449,8 +496,8 @@ export default function App() {
         activeHeatmapSlug={null}
         activeSettingsSection={null}
         aggregateMoods={aggregateMoodDefinitions}
-        bitcoinMentions={bitcoinMentionsDefinitions}
-        moods={moodDefinitions}
+        bitcoinMentions={sortedBitcoinMentionsDefinitions}
+        moods={sortedMoodDefinitions}
         onNavigateHome={navigateHome}
         onNavigateAggregateMood={navigateAggregateMood}
         onNavigateBitcoinMentions={navigateBitcoinMentions}
@@ -459,8 +506,8 @@ export default function App() {
         onNavigateHeatmap={navigateHeatmap}
         onNavigateGlobalSettings={navigateGlobalSettings}
         onNavigateUserSettings={navigateUserSettings}
-        overviews={overviewDefinitions}
-        heatmaps={heatmapDefinitions}
+        overviews={sortedOverviewDefinitions}
+        heatmaps={sortedHeatmapDefinitions}
       >
         <AggregateMoodPage
           key={route.aggregateMood.slug}
@@ -483,8 +530,8 @@ export default function App() {
         activeHeatmapSlug={route.heatmap.slug}
         activeSettingsSection={null}
         aggregateMoods={aggregateMoodDefinitions}
-        bitcoinMentions={bitcoinMentionsDefinitions}
-        moods={moodDefinitions}
+        bitcoinMentions={sortedBitcoinMentionsDefinitions}
+        moods={sortedMoodDefinitions}
         onNavigateHome={navigateHome}
         onNavigateAggregateMood={navigateAggregateMood}
         onNavigateBitcoinMentions={navigateBitcoinMentions}
@@ -493,8 +540,8 @@ export default function App() {
         onNavigateHeatmap={navigateHeatmap}
         onNavigateGlobalSettings={navigateGlobalSettings}
         onNavigateUserSettings={navigateUserSettings}
-        overviews={overviewDefinitions}
-        heatmaps={heatmapDefinitions}
+        overviews={sortedOverviewDefinitions}
+        heatmaps={sortedHeatmapDefinitions}
       >
         <AuthorHeatmapPage
           key={route.heatmap.slug}
@@ -517,8 +564,8 @@ export default function App() {
         activeHeatmapSlug={null}
         activeSettingsSection={null}
         aggregateMoods={aggregateMoodDefinitions}
-        bitcoinMentions={bitcoinMentionsDefinitions}
-        moods={moodDefinitions}
+        bitcoinMentions={sortedBitcoinMentionsDefinitions}
+        moods={sortedMoodDefinitions}
         onNavigateHome={navigateHome}
         onNavigateAggregateMood={navigateAggregateMood}
         onNavigateBitcoinMentions={navigateBitcoinMentions}
@@ -527,8 +574,8 @@ export default function App() {
         onNavigateHeatmap={navigateHeatmap}
         onNavigateGlobalSettings={navigateGlobalSettings}
         onNavigateUserSettings={navigateUserSettings}
-        overviews={overviewDefinitions}
-        heatmaps={heatmapDefinitions}
+        overviews={sortedOverviewDefinitions}
+        heatmaps={sortedHeatmapDefinitions}
       >
         <BitcoinMentionsPage
           key={route.bitcoinMentions.slug}
@@ -551,8 +598,8 @@ export default function App() {
         activeHeatmapSlug={null}
         activeSettingsSection={route.section}
         aggregateMoods={aggregateMoodDefinitions}
-        bitcoinMentions={bitcoinMentionsDefinitions}
-        moods={moodDefinitions}
+        bitcoinMentions={sortedBitcoinMentionsDefinitions}
+        moods={sortedMoodDefinitions}
         onNavigateHome={navigateHome}
         onNavigateAggregateMood={navigateAggregateMood}
         onNavigateBitcoinMentions={navigateBitcoinMentions}
@@ -561,8 +608,8 @@ export default function App() {
         onNavigateHeatmap={navigateHeatmap}
         onNavigateGlobalSettings={navigateGlobalSettings}
         onNavigateUserSettings={navigateUserSettings}
-        overviews={overviewDefinitions}
-        heatmaps={heatmapDefinitions}
+        overviews={sortedOverviewDefinitions}
+        heatmaps={sortedHeatmapDefinitions}
       >
         {route.section === "global" ? (
           <SettingsPage
@@ -591,8 +638,8 @@ export default function App() {
       activeHeatmapSlug={null}
       activeSettingsSection={null}
       aggregateMoods={aggregateMoodDefinitions}
-      bitcoinMentions={bitcoinMentionsDefinitions}
-      moods={moodDefinitions}
+      bitcoinMentions={sortedBitcoinMentionsDefinitions}
+      moods={sortedMoodDefinitions}
       onNavigateHome={navigateHome}
       onNavigateAggregateMood={navigateAggregateMood}
       onNavigateBitcoinMentions={navigateBitcoinMentions}
@@ -601,8 +648,8 @@ export default function App() {
       onNavigateHeatmap={navigateHeatmap}
       onNavigateGlobalSettings={navigateGlobalSettings}
       onNavigateUserSettings={navigateUserSettings}
-      overviews={overviewDefinitions}
-      heatmaps={heatmapDefinitions}
+      overviews={sortedOverviewDefinitions}
+      heatmaps={sortedHeatmapDefinitions}
     >
       <NotFoundPage />
     </AppShell>

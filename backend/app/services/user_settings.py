@@ -168,7 +168,11 @@ def build_user_settings_users(
                 User.display_name,
             )
             .where(User.id.in_(eligible_user_ids))
-            .order_by(func.lower(User.username).asc())
+            .order_by(
+                func.lower(func.coalesce(User.display_name, User.username)).asc(),
+                func.lower(User.username).asc(),
+                User.id.asc(),
+            )
         ).all()
 
         tag_rows = session.execute(
