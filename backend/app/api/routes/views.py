@@ -24,6 +24,7 @@ from app.services.aggregate_mood_view import (
     build_cached_aggregate_mood_overview,
     build_cached_aggregate_mood_view,
 )
+from app.services.author_registry import resolve_managed_author_by_slug
 from app.services.author_sentiment_view import (
     AuthorSentimentViewRequest,
     build_author_sentiment_view,
@@ -285,6 +286,146 @@ def _build_bitcoin_mentions_leaderboard(
             buy_amount_usd=buy_amount_usd,
             view_name=view_name,
         )
+    )
+
+
+@router.get("/authors/{slug}/overview")
+def managed_author_overview(
+    slug: str,
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+) -> dict[str, object]:
+    context = resolve_managed_author_by_slug(slug, require_published=True)
+    return _build_overview_view(
+        username=context.username,
+        view_name=f"{context.slug}-overview",
+        granularity=granularity,
+        analysis_start=context.overview_analysis_start,
+    )
+
+
+@router.get("/authors/{slug}/overview/top-liked-tweet")
+def managed_author_overview_top_liked_tweet(
+    slug: str,
+    week_start: str = Query(...),
+) -> dict[str, object]:
+    context = resolve_managed_author_by_slug(slug, require_published=True)
+    return _build_overview_top_liked_tweet(
+        username=context.username,
+        view_name=f"{context.slug}-overview-top-liked-tweet",
+        week_start=week_start,
+    )
+
+
+@router.get("/authors/{slug}/overview/sentiment")
+def managed_author_overview_sentiment(
+    slug: str,
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+    model_key: str = Query(default=DEFAULT_SENTIMENT_MODEL),
+) -> dict[str, object]:
+    context = resolve_managed_author_by_slug(slug, require_published=True)
+    return _build_overview_sentiment(
+        username=context.username,
+        view_name=f"{context.slug}-overview-sentiment",
+        granularity=granularity,
+        model_key=model_key,
+        analysis_start=context.overview_analysis_start,
+    )
+
+
+@router.get("/authors/{slug}/overview/btc-spot")
+def managed_author_overview_btc_spot(slug: str) -> dict[str, object]:
+    resolve_managed_author_by_slug(slug, require_published=True)
+    return _build_btc_spot_price()
+
+
+@router.get("/authors/{slug}/moods")
+def managed_author_moods(
+    slug: str,
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+) -> dict[str, object]:
+    context = resolve_managed_author_by_slug(slug, require_published=True)
+    return _build_overview_view(
+        username=context.username,
+        view_name=f"{context.slug}-moods",
+        granularity=granularity,
+        analysis_start=context.mood_analysis_start,
+    )
+
+
+@router.get("/authors/{slug}/moods/mood-series")
+def managed_author_mood_series(
+    slug: str,
+    granularity: str = Query(default="week", pattern="^(day|week)$"),
+    model_key: str = Query(default=DEFAULT_MOOD_MODEL),
+) -> dict[str, object]:
+    context = resolve_managed_author_by_slug(slug, require_published=True)
+    return _build_author_moods(
+        username=context.username,
+        view_name=f"{context.slug}-mood-series",
+        granularity=granularity,
+        model_key=model_key,
+        analysis_start=context.mood_analysis_start,
+    )
+
+
+@router.get("/authors/{slug}/moods/btc-spot")
+def managed_author_moods_btc_spot(slug: str) -> dict[str, object]:
+    resolve_managed_author_by_slug(slug, require_published=True)
+    return _build_btc_spot_price()
+
+
+@router.get("/authors/{slug}/heatmap")
+def managed_author_heatmap(
+    slug: str,
+    mode: str = Query(default="common", pattern="^(all|common|rising)$"),
+    word_count: str = Query(default="all", pattern="^(all|1|2|3)$"),
+    granularity: str = Query(default="month", pattern="^(month)$"),
+    limit: int = Query(default=48, ge=1, le=120),
+    phrase_query: str | None = Query(default=None),
+) -> dict[str, object]:
+    context = resolve_managed_author_by_slug(slug, require_published=True)
+    return _build_author_keyword_heatmap(
+        username=context.username,
+        view_name=f"{context.slug}-heatmap",
+        mode=mode,
+        word_count=word_count,
+        granularity=granularity,
+        limit=limit,
+        phrase_query=phrase_query,
+        analysis_start=context.heatmap_analysis_start,
+    )
+
+
+@router.get("/authors/{slug}/heatmap/phrase-trend")
+def managed_author_heatmap_phrase_trend(
+    slug: str,
+    phrase: str = Query(...),
+    granularity: str = Query(default="month", pattern="^(month)$"),
+) -> dict[str, object]:
+    context = resolve_managed_author_by_slug(slug, require_published=True)
+    return _build_author_keyword_trend(
+        username=context.username,
+        view_name=f"{context.slug}-heatmap-phrase-trend",
+        phrase=phrase,
+        granularity=granularity,
+        analysis_start=context.heatmap_analysis_start,
+    )
+
+
+@router.get("/authors/{slug}/heatmap/top-liked-tweets")
+def managed_author_heatmap_top_liked_tweets(
+    slug: str,
+    phrase: str = Query(...),
+    month_start: str = Query(...),
+    limit: int = Query(default=3, ge=1, le=10),
+) -> dict[str, object]:
+    context = resolve_managed_author_by_slug(slug, require_published=True)
+    return _build_author_keyword_top_tweets(
+        username=context.username,
+        view_name=f"{context.slug}-heatmap-top-liked-tweets",
+        phrase=phrase,
+        month_start=month_start,
+        limit=limit,
     )
 
 

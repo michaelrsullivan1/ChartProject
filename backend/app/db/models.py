@@ -1,6 +1,7 @@
 from app.models.aggregate_view_snapshot import AggregateViewSnapshot
 from app.models.cohort_tag import CohortTag
 from app.models.ingestion_run import IngestionRun
+from app.models.managed_author_view import ManagedAuthorView
 from app.models.market_price_point import MarketPricePoint
 from app.models.raw_ingestion_artifact import RawIngestionArtifact
 from app.models.tweet_mood_score import TweetMoodScore
@@ -15,6 +16,7 @@ __all__ = [
     "AggregateViewSnapshot",
     "CohortTag",
     "IngestionRun",
+    "ManagedAuthorView",
     "MarketPricePoint",
     "RawIngestionArtifact",
     "TweetMoodScore",

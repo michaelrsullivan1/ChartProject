@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 
+import { fetchAuthorRegistry } from "./api/authorRegistry";
 import { fetchHealth } from "./api/health";
 import { AppShell } from "./components/AppShell";
 import {
@@ -10,31 +11,27 @@ import {
   type AggregateMoodDefinition,
 } from "./config/aggregateMoods";
 import {
-  bitcoinMentionsDefinitions,
-  findBitcoinMentionsBySlug,
+  bitcoinMentionsDefinitions as defaultBitcoinMentionsDefinitions,
   getBitcoinMentionsHash,
   getBitcoinMentionsTitle,
   type BitcoinMentionsDefinition,
 } from "./config/bitcoinMentions";
 import {
-  findHeatmapBySlug,
   getHeatmapHash,
   getHeatmapTitle,
-  heatmapDefinitions,
+  heatmapDefinitions as defaultHeatmapDefinitions,
   type HeatmapDefinition,
 } from "./config/heatmaps";
 import {
-  findMoodBySlug,
   getMoodHash,
   getMoodTitle,
-  moodDefinitions,
+  moodDefinitions as defaultMoodDefinitions,
   type MoodDefinition,
 } from "./config/moods";
 import {
-  findOverviewBySlug,
   getOverviewHash,
   getOverviewTitle,
-  overviewDefinitions,
+  overviewDefinitions as defaultOverviewDefinitions,
   type OverviewDefinition,
 } from "./config/overviews";
 import { HomePage } from "./pages/HomePage";
@@ -64,13 +61,24 @@ type AppRoute =
   | { kind: "settings"; section: "global" | "user" }
   | { kind: "not-found" };
 
-function getRouteFromHash(hash: string): AppRoute {
+type RouteDefinitions = {
+  bitcoinMentions: BitcoinMentionsDefinition[];
+  moods: MoodDefinition[];
+  overviews: OverviewDefinition[];
+  heatmaps: HeatmapDefinition[];
+};
+
+function findBySlug<T extends { slug: string }>(definitions: T[], slug: string): T | undefined {
+  return definitions.find((definition) => definition.slug === slug);
+}
+
+function getRouteFromHash(hash: string, definitions: RouteDefinitions): AppRoute {
   if (hash === "" || hash === "#" || hash === "#/") {
     return { kind: "home" };
   }
 
   if (hash === "#/bitcoin-mentions") {
-    const bitcoinMentions = bitcoinMentionsDefinitions[0];
+    const bitcoinMentions = definitions.bitcoinMentions[0];
     return bitcoinMentions ? { kind: "bitcoin-mentions", bitcoinMentions } : { kind: "not-found" };
   }
 
@@ -81,7 +89,7 @@ function getRouteFromHash(hash: string): AppRoute {
 
   if (hash.startsWith("#/bitcoin-mentions/")) {
     const slug = decodeURIComponent(hash.slice("#/bitcoin-mentions/".length));
-    const bitcoinMentions = findBitcoinMentionsBySlug(slug);
+    const bitcoinMentions = findBySlug(definitions.bitcoinMentions, slug);
     return bitcoinMentions ? { kind: "bitcoin-mentions", bitcoinMentions } : { kind: "not-found" };
   }
 
@@ -93,19 +101,19 @@ function getRouteFromHash(hash: string): AppRoute {
 
   if (hash.startsWith("#/overviews/")) {
     const slug = decodeURIComponent(hash.slice("#/overviews/".length));
-    const overview = findOverviewBySlug(slug);
+    const overview = findBySlug(definitions.overviews, slug);
     return overview ? { kind: "overview", overview } : { kind: "not-found" };
   }
 
   if (hash.startsWith("#/moods/")) {
     const slug = decodeURIComponent(hash.slice("#/moods/".length));
-    const mood = findMoodBySlug(slug);
+    const mood = findBySlug(definitions.moods, slug);
     return mood ? { kind: "mood", mood } : { kind: "not-found" };
   }
 
   if (hash.startsWith("#/heatmaps/")) {
     const slug = decodeURIComponent(hash.slice("#/heatmaps/".length));
-    const heatmap = findHeatmapBySlug(slug);
+    const heatmap = findBySlug(definitions.heatmaps, slug);
     return heatmap ? { kind: "heatmap", heatmap } : { kind: "not-found" };
   }
 
@@ -124,11 +132,48 @@ function getRouteFromHash(hash: string): AppRoute {
   return { kind: "not-found" };
 }
 
+function mergeDefinitions<T extends { slug: string }>(base: T[], incoming: T[]): T[] {
+  const next = [...base];
+  const indexBySlug = new Map<string, number>();
+  for (const [index, item] of next.entries()) {
+    indexBySlug.set(item.slug, index);
+  }
+
+  for (const item of incoming) {
+    const existingIndex = indexBySlug.get(item.slug);
+    if (existingIndex === undefined) {
+      indexBySlug.set(item.slug, next.length);
+      next.push(item);
+      continue;
+    }
+    next[existingIndex] = item;
+  }
+
+  return next;
+}
+
 export default function App() {
+  const [bitcoinMentionsDefinitions, setBitcoinMentionsDefinitions] = useState<BitcoinMentionsDefinition[]>(
+    defaultBitcoinMentionsDefinitions,
+  );
+  const [moodDefinitions, setMoodDefinitions] = useState<MoodDefinition[]>(defaultMoodDefinitions);
+  const [overviewDefinitions, setOverviewDefinitions] = useState<OverviewDefinition[]>(
+    defaultOverviewDefinitions,
+  );
+  const [heatmapDefinitions, setHeatmapDefinitions] = useState<HeatmapDefinition[]>(
+    defaultHeatmapDefinitions,
+  );
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [route, setRoute] = useState<AppRoute>(() => getRouteFromHash(window.location.hash));
+  const [route, setRoute] = useState<AppRoute>(() =>
+    getRouteFromHash(window.location.hash, {
+      bitcoinMentions: defaultBitcoinMentionsDefinitions,
+      moods: defaultMoodDefinitions,
+      overviews: defaultOverviewDefinitions,
+      heatmaps: defaultHeatmapDefinitions,
+    }),
+  );
   const [showWatermark, setShowWatermark] = useState(() => {
     const storedValue = window.localStorage.getItem(CHART_WATERMARK_STORAGE_KEY);
     return storedValue === null ? true : storedValue === "true";
@@ -177,15 +222,82 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    function handleHashChange() {
-      setRoute(getRouteFromHash(window.location.hash));
+    let cancelled = false;
+    async function loadAuthorRegistry() {
+      try {
+        const registry = await fetchAuthorRegistry();
+        if (cancelled) {
+          return;
+        }
+        setOverviewDefinitions((current) =>
+          mergeDefinitions(
+            current,
+            registry.overviews.map((item) => ({
+              slug: item.slug,
+              username: item.username,
+              apiBasePath: item.api_base_path,
+            })),
+          ),
+        );
+        setMoodDefinitions((current) =>
+          mergeDefinitions(
+            current,
+            registry.moods.map((item) => ({
+              slug: item.slug,
+              username: item.username,
+              apiBasePath: item.api_base_path,
+            })),
+          ),
+        );
+        setHeatmapDefinitions((current) =>
+          mergeDefinitions(
+            current,
+            registry.heatmaps.map((item) => ({
+              slug: item.slug,
+              username: item.username,
+              apiBasePath: item.api_base_path,
+            })),
+          ),
+        );
+        setBitcoinMentionsDefinitions((current) =>
+          mergeDefinitions(
+            current,
+            registry.bitcoin_mentions.map((item) => ({
+              slug: item.slug,
+              username: item.username,
+            })),
+          ),
+        );
+      } catch (loadError) {
+        console.warn("ChartProject author registry request failed; continuing with static config", loadError);
+      }
     }
 
+    void loadAuthorRegistry();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    function handleHashChange() {
+      setRoute(
+        getRouteFromHash(window.location.hash, {
+          bitcoinMentions: bitcoinMentionsDefinitions,
+          moods: moodDefinitions,
+          overviews: overviewDefinitions,
+          heatmaps: heatmapDefinitions,
+        }),
+      );
+    }
+
+    handleHashChange();
     window.addEventListener("hashchange", handleHashChange);
     return () => {
       window.removeEventListener("hashchange", handleHashChange);
     };
-  }, []);
+  }, [bitcoinMentionsDefinitions, moodDefinitions, overviewDefinitions, heatmapDefinitions]);
 
   useEffect(() => {
     window.localStorage.setItem(CHART_WATERMARK_STORAGE_KEY, String(showWatermark));

@@ -208,9 +208,24 @@ Recommendation:
 - set `--analysis-start` to the first date you want included in phrase analysis
 - using the user's first normalized tweet date is a good default
 
-### Optional: Batch Steps 2-6
+### 7. Sync managed author registry
 
-If step 1 has already completed successfully, you can run steps 2, 3, 4, 5, and 6 in one command.
+What it does:
+
+- creates or updates a `managed_author_views` row for the user
+- derives a stable slug if one does not already exist
+- fills missing per-view `analysis_start` values from the first normalized tweet date
+- marks the user published for `/api/author-registry` by default
+
+Command:
+
+```bash
+python3 backend/scripts/views/sync_managed_author_view.py --username <USERNAME> --published
+```
+
+### Optional: Batch Steps 2-7
+
+If step 1 has already completed successfully, you can run steps 2, 3, 4, 5, 6, and 7 in one command.
 
 Script:
 
@@ -226,15 +241,16 @@ If you omit `--analysis-start`, the script auto-resolves the user's first normal
 
 Behavior:
 
-- runs only steps 2-6
+- runs only steps 2-7
 - does not run step 1 ingest
-- does not run step 7 snapshot rebuild
+- does not run aggregate snapshot rebuild
 - defaults step 6 `--analysis-start` to the user's first normalized tweet timestamp
+- runs step 7 managed author registry sync for the username
 - stops on the first failure
 - prints which step failed, the command, and exit code
 - leaves all underlying commands unchanged so each can still be rerun manually
 
-### 7. Rebuild aggregate snapshots
+### 8. Rebuild aggregate snapshots
 
 What it does:
 
@@ -251,7 +267,7 @@ python3 scripts/cache/rebuild_aggregate_snapshots.py --delete-stale
 Important downstream effect:
 
 - this is the command that makes newly scored users and updated cohort assignments show up correctly in Aggregate Moods without waiting for request-time recomputation
-- this step is intentionally independent and not included in the step 2-6 batch script
+- this step is intentionally independent and not included in the step 2-7 batch script
 
 ## Copy/Paste Example
 
@@ -277,12 +293,13 @@ python3 backend/scripts/enrich/score_tweet_moods.py --username <USERNAME>
 python3 backend/scripts/enrich/extract_tweet_keywords.py \
   --username <USERNAME> \
   --analysis-start <KEYWORD_ANALYSIS_START_UTC>
+python3 backend/scripts/views/sync_managed_author_view.py --username <USERNAME> --published
 cd backend
 python3 scripts/cache/rebuild_aggregate_snapshots.py --delete-stale
 cd ..
 ```
 
-## Copy/Paste Example (Batched Steps 2-6)
+## Copy/Paste Example (Batched Steps 2-7)
 
 Use this when you want ingest isolated, then a single post-ingest batch command:
 
@@ -317,6 +334,7 @@ After the full sequence succeeds:
 - mood rows exist for the user
 - aggregate snapshot rows were rebuilt after the mood changes
 - keyword rows exist for the user
+- a `managed_author_views` row exists for the user
 - the user should appear in [user settings](http://127.0.0.1:5173/#/settings/user-settings) once the app is running
 
 ## After Ingestion
@@ -334,32 +352,38 @@ Then verify:
 - the user can be assigned to cohort tags there if needed
 - if cohort assignments were changed, rerun `python3 scripts/cache/rebuild_aggregate_snapshots.py --delete-stale` from `backend/`
 
-## Add The User To Local Pages
+## Managed Author Registry (Current Flow)
 
-For a newly ingested user, data pipeline completion is not enough by itself.
+For newly ingested users, local page registration is now handled by the managed author registry.
 
-If you want the user to show up in the local UI controls and dedicated pages, add the user in both places:
+`./scripts/run-user-post-ingest-batch.sh` now runs a step `7` sync that calls:
 
-- [backend/app/api/routes/views.py](/Users/michaelsullivan/Code/ChartProject/backend/app/api/routes/views.py)
-- the frontend config lists under [frontend/src/config](/Users/michaelsullivan/Code/ChartProject/frontend/src/config)
+```bash
+python3 backend/scripts/views/sync_managed_author_view.py --username <USERNAME> --published
+```
 
-This is usually part of the same unit of work as ingesting the user.
+That sync step automatically:
+
+- creates or updates a row in `managed_author_views`
+- derives a stable slug from display name or username
+- fills missing `analysis_start` defaults from the user's first normalized tweet date
+- publishes the user for `/api/author-registry` so the frontend can auto-list them
 
 ### Repeatable checklist
 
 Use this sequence every time:
 
 1. Run step 1 ingest independently.
-2. Run steps 2-6 either manually or with `./scripts/run-user-post-ingest-batch.sh`.
-3. Run step 7 snapshot rebuild independently.
-4. Choose the final slug for the user.
-5. Decide the `analysis_start` timestamp.
-6. Add the dedicated backend routes in [backend/app/api/routes/views.py](/Users/michaelsullivan/Code/ChartProject/backend/app/api/routes/views.py).
-7. Add the frontend config entries under [frontend/src/config](/Users/michaelsullivan/Code/ChartProject/frontend/src/config).
-8. Start or refresh the local app if needed.
-9. Verify the user appears in the page controls and the dedicated URLs load.
+2. Run steps 2-7 with `./scripts/run-user-post-ingest-batch.sh`.
+3. Run snapshot rebuild independently.
+4. Start or refresh the local app if needed.
+5. Verify the user appears in page controls and managed pages.
 
-### Slug and analysis-start rules
+## Legacy Manual Route/Config Workflow
+
+The sections below document the older manual route/config workflow and are retained only as reference.
+
+### Slug and analysis-start rules (legacy)
 
 Use a clean slug:
 
