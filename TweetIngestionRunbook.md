@@ -1,6 +1,6 @@
 # Tweet Ingestion Runbook
 
-This is the current manual operator flow for ingesting a single X/Twitter user into ChartProject.
+This is the current operator flow for ingesting a single X/Twitter user into ChartProject.
 
 The intended usage is:
 
@@ -16,6 +16,8 @@ This runbook covers the full path:
 - sentiment scoring
 - mood scoring
 - keyword extraction
+
+For page onboarding, this flow now uses managed author registry sync and no longer requires manual route/config edits for new users.
 
 ## Preflight
 
@@ -381,156 +383,14 @@ Use this sequence every time:
 
 ## Legacy Manual Route/Config Workflow
 
-The sections below document the older manual route/config workflow and are retained only as reference.
+The old per-author route/config wiring flow is no longer the default and should not be used for new users.
 
-### Slug and analysis-start rules (legacy)
+For new users:
 
-Use a clean slug:
-
-- lowercase
-- words separated by hyphens
-- usually derived from the display name
-
-Examples:
-
-- `ChrisMMillas` -> `chris-millas`
-- `RichardByworth` -> `richard-byworth`
-
-Set `analysis_start` deliberately:
-
-- for overviews and moods, use the beginning of the intended analysis window
-- for heatmaps, use the same beginning of the intended phrase-analysis window unless there is a specific reason to start later
-- this does not have to be the exact first normalized tweet timestamp down to the second
-- in practice, using the start-of-day UTC boundary is cleaner
-
-Examples:
-
-- if the first normalized tweet is `2024-09-09T09:16:38Z`, use `2024-09-09T00:00:00Z`
-- if you intentionally backfilled from March 2019, use `2019-03-01T00:00:00Z`
-
-### Backend routes to add
-
-Add dedicated entries for:
-
-- overview
-- overview top-liked tweet
-- overview sentiment
-- overview BTC spot
-- moods
-- mood series
-- moods BTC spot
-- heatmap
-- heatmap phrase trend
-- heatmap top-liked tweets
-
-Use the real username and chosen slug consistently in every route.
-
-### Backend route pattern
-
-For one user, the backend pattern is:
-
-```python
-@router.get("/<slug>-overview")
-@router.get("/<slug>-overview/top-liked-tweet")
-@router.get("/<slug>-overview/sentiment")
-@router.get("/<slug>-overview/btc-spot")
-
-@router.get("/<slug>-moods")
-@router.get("/<slug>-moods/mood-series")
-@router.get("/<slug>-moods/btc-spot")
-
-@router.get("/<slug>-heatmap")
-@router.get("/<slug>-heatmap/phrase-trend")
-@router.get("/<slug>-heatmap/top-liked-tweets")
-```
-
-Map them to the canonical username and view names:
-
-- username: exact stored X handle, such as `RichardByworth`
-- view name: slug-based string such as `richard-byworth-overview`
-- analysis start: UTC timestamp string such as `2019-03-01T00:00:00Z`
-
-### Frontend config entries to add
-
-Add the user to:
-
-- [frontend/src/config/overviews.ts](/Users/michaelsullivan/Code/ChartProject/frontend/src/config/overviews.ts)
-- [frontend/src/config/moods.ts](/Users/michaelsullivan/Code/ChartProject/frontend/src/config/moods.ts)
-- [frontend/src/config/heatmaps.ts](/Users/michaelsullivan/Code/ChartProject/frontend/src/config/heatmaps.ts)
-- [frontend/src/config/bitcoinMentions.ts](/Users/michaelsullivan/Code/ChartProject/frontend/src/config/bitcoinMentions.ts)
-
-That is what makes the user appear in the overview, moods, heatmap, and Bitcoin mentions page controls.
-
-### Frontend config pattern
-
-Add one entry per file:
-
-```ts
-{
-  slug: "<slug>",
-  username: "<USERNAME>",
-  apiBasePath: "/api/views/<slug>-overview",
-}
-```
-
-```ts
-{
-  slug: "<slug>",
-  username: "<USERNAME>",
-  apiBasePath: "/api/views/<slug>-moods",
-}
-```
-
-```ts
-{
-  slug: "<slug>",
-  username: "<USERNAME>",
-  apiBasePath: "/api/views/<slug>-heatmap",
-}
-```
-
-```ts
-{
-  slug: "<slug>",
-  username: "<USERNAME>",
-}
-```
-
-### Verification URLs
-
-After adding backend routes and frontend config, verify:
-
-- `#/overviews/<slug>`
-- `#/moods/<slug>`
-- `#/heatmaps/<slug>`
-- `#/bitcoin-mentions/<slug>`
-
-Also confirm the user appears in the relevant dropdowns or page controls.
-
-### Worked examples
-
-#### Chris Millas
-
-Current local subject wiring for `ChrisMMillas` uses:
-
-- slug: `chris-millas`
-- username: `ChrisMMillas`
-- analysis start: `2024-09-09T00:00:00Z`
-
-- `#/overviews/chris-millas`
-- `#/moods/chris-millas`
-- `#/heatmaps/chris-millas`
-- `#/bitcoin-mentions/chris-millas`
-
-#### Richard Byworth
-
-Current local subject wiring for `RichardByworth` uses:
-
-- slug: `richard-byworth`
-- username: `RichardByworth`
-- analysis start: `2019-03-01T00:00:00Z`
-
-- `#/overviews/richard-byworth`
-- `#/moods/richard-byworth`
-- `#/heatmaps/richard-byworth`
-- `#/bitcoin-mentions/richard-byworth`
+- do not add dedicated route handlers in [backend/app/api/routes/views.py](/Users/michaelsullivan/Code/ChartProject/backend/app/api/routes/views.py)
+- do not add manual entries in frontend config files
+- run managed author sync and verify `/api/author-registry`
+- verify `#/overviews/<slug>`
+- verify `#/moods/<slug>`
+- verify `#/heatmaps/<slug>`
+- verify `#/bitcoin-mentions/<slug>`

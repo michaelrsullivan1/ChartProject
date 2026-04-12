@@ -9,7 +9,7 @@ The architecture source of truth is [ProjectPlan.md](/Users/michaelsullivan/Code
 One full local flow is working end-to-end:
 
 - containerized Postgres on Docker Compose
-- Alembic migrations through `0008_agg_view_snapshots`
+- Alembic migrations through `0009_managed_author_views`
 - FastAPI backend with health, user settings, overview, mood, aggregate mood, Bitcoin mentions, and heatmap view routes
 - React frontend with a Foundation page, shared overview pages, shared mood pages, shared heatmap pages, and a user settings page for cohort management
 - raw-first X/Twitter ingest archived into Postgres via `raw_ingestion_artifacts`
@@ -20,6 +20,7 @@ One full local flow is working end-to-end:
 - versioned RoBERTa multilabel tweet mood scoring stored in Postgres
 - versioned exact phrase extraction stored in Postgres via `tweet_keywords`
 - managed cohort tags stored in Postgres via `cohort_tags` and `user_cohort_tags`
+- managed author page registry stored in Postgres via `managed_author_views`
 - precomputed aggregate mood snapshots stored in Postgres via `aggregate_view_snapshots`
 - a working chart flow from canonical data to backend payloads to frontend rendering
 - click-through drilldown for the top liked tweet in a selected week
@@ -44,7 +45,7 @@ The Foundation page still runs the backend health check and renders the full JSO
 
 The overview pages currently:
 
-- request a dedicated overview endpoint such as `/api/views/michael-saylor-overview?granularity=week`
+- request an overview endpoint such as `/api/views/authors/michael-saylor/overview?granularity=week`
 - renders BTC, MSTR, activity, and sentiment panes with a shared time axis
 - keeps BTC daily and tweet counts weekly in the current UI
 - shows hover state for the active date
@@ -52,7 +53,7 @@ The overview pages currently:
 
 The heatmap pages currently:
 
-- request a dedicated heatmap endpoint such as `/api/views/michael-saylor-heatmap?mode=common&word_count=all&granularity=month&limit=48`
+- request a heatmap endpoint such as `/api/views/authors/michael-saylor/heatmap?mode=common&word_count=all&granularity=month&limit=48`
 - render a monthly phrase heatmap in the top pane
 - support `Common` and `Rising` ranking modes
 - support `All`, `1 word`, `2 words`, and `3 words` filters
@@ -61,8 +62,8 @@ The heatmap pages currently:
 
 The mood pages currently:
 
-- request a dedicated mood overview endpoint such as `/api/views/michael-saylor-moods?granularity=week`
-- request a companion mood series endpoint such as `/api/views/michael-saylor-moods/mood-series?granularity=week`
+- request a mood overview endpoint such as `/api/views/authors/michael-saylor/moods?granularity=week`
+- request a companion mood series endpoint such as `/api/views/authors/michael-saylor/moods/mood-series?granularity=week`
 - render BTC in the top pane and the selected mood deviation in the bottom pane
 - default to relative-to-baseline mood deviation with the same weighted smoothing modes as the sentiment page
 - expose the full GoEmotions label set currently stored in the database, including `admiration`, `amusement`, `anger`, `annoyance`, `approval`, `caring`, `confusion`, `curiosity`, `desire`, `disappointment`, `disapproval`, `disgust`, `embarrassment`, `excitement`, `fear`, `gratitude`, `grief`, `joy`, `love`, `nervousness`, `neutral`, `optimism`, `pride`, `realization`, `relief`, `remorse`, `sadness`, and `surprise`
@@ -111,6 +112,12 @@ The Bitcoin mentions page currently:
 - models the result of buying a fixed dollar amount of BTC on every matching mention
 - ranks configured authors by average BTC entry price across their matched mentions
 - lists the cheapest and full-history Bitcoin mentions for the selected author
+
+Managed author registry:
+
+- `/api/author-registry` returns published, ready author definitions for frontend page controls
+- frontend route definitions are now dynamically merged from this registry at app startup
+- new users no longer require manual per-user route/config edits when registry sync is run
 
 ## Quick start
 
@@ -340,44 +347,39 @@ The current X/Twitter ingest path is designed for cautious historical backfills:
 
 ## Backend view endpoints
 
-The current chart flow uses dedicated overview endpoints:
+The current chart flow is registry-first for managed authors. Core endpoints:
 
 ```text
-/api/views/michael-saylor-overview?granularity=week
-/api/views/michael-saylor-overview/top-liked-tweet?week_start=2024-01-01T00:00:00Z
-/api/views/michael-saylor-overview/btc-spot
-/api/views/michael-saylor-moods?granularity=week
-/api/views/michael-saylor-moods/mood-series?granularity=week
-/api/views/michael-saylor-moods/btc-spot
+/api/author-registry
+/api/author-registry/admin
+/api/views/authors/{slug}/overview?granularity=week
+/api/views/authors/{slug}/overview/top-liked-tweet?week_start=2024-01-01T00:00:00Z
+/api/views/authors/{slug}/overview/sentiment
+/api/views/authors/{slug}/overview/btc-spot
+/api/views/authors/{slug}/moods?granularity=week
+/api/views/authors/{slug}/moods/mood-series?granularity=week
+/api/views/authors/{slug}/moods/btc-spot
+/api/views/authors/{slug}/heatmap?mode=common&word_count=all&granularity=month&limit=48
+/api/views/authors/{slug}/heatmap/phrase-trend?phrase=bitcoin&granularity=month
+/api/views/authors/{slug}/heatmap/top-liked-tweets?phrase=bitcoin&month_start=2026-03-01T00:00:00Z&limit=3
 /api/views/aggregate-moods?granularity=week
 /api/views/aggregate-moods?granularity=week&cohort_tag=bitcoin
 /api/views/aggregate-moods/mood-series?granularity=week
 /api/views/aggregate-moods/mood-series?granularity=week&cohort_tag=bitcoin
 /api/views/aggregate-moods/market-series?range_start=2016-01-04T00:00:00Z&range_end=2026-04-06T00:00:00Z
 /api/views/aggregate-moods/cohorts
-/api/views/peter-schiff-moods?granularity=week
-/api/views/peter-schiff-moods/mood-series?granularity=week
-/api/views/peter-schiff-moods/btc-spot
-/api/views/michael-sullivan-moods?granularity=week
-/api/views/michael-sullivan-moods/mood-series?granularity=week
-/api/views/michael-sullivan-moods/btc-spot
-/api/views/michael-sullivan-overview?granularity=week
-/api/views/michael-sullivan-overview/top-liked-tweet?week_start=2024-01-01T00:00:00Z
-/api/views/michael-sullivan-overview/btc-spot
-/api/views/michael-saylor-heatmap?mode=common&word_count=all&granularity=month&limit=48
-/api/views/michael-saylor-heatmap/phrase-trend?phrase=digital%20credit&granularity=month
-/api/views/michael-saylor-heatmap/top-liked-tweets?phrase=digital%20credit&month_start=2025-08-01T00:00:00Z&limit=3
-/api/views/michael-sullivan-heatmap?mode=common&word_count=all&granularity=month&limit=48
-/api/views/michael-sullivan-heatmap/phrase-trend?phrase=bitcoin&granularity=month
-/api/views/michael-sullivan-heatmap/top-liked-tweets?phrase=bitcoin&month_start=2026-03-01T00:00:00Z&limit=3
+/api/views/bitcoin-mentions?username={handle}&phrase=bitcoin&buy_amount_usd=10
 /api/user-settings/cohort-tags
 /api/user-settings/users
-/api/user-settings/users/<user_id>/cohort-tags
+/api/user-settings/users/{user_id}/cohort-tags
 ```
+
+Legacy dedicated subject endpoints (for example `/api/views/michael-saylor-overview`) are still present during migration, but new users should be onboarded through registry-backed slug endpoints.
 
 Current behavior:
 
-- each overview route is dedicated to a single manually configured subject
+- registry-backed slug routes support newly ingested users without manual route wiring
+- legacy dedicated routes remain for existing hardcoded subjects during migration
 - the chart endpoint supports `granularity=day` or `granularity=week`
 - the current frontend page requests `granularity=week`
 - tweet counts include all authored tweets, including replies and quote tweets
@@ -490,13 +492,27 @@ python3 backend/scripts/enrich/extract_tweet_keywords.py \
   --analysis-start 2020-08-01T00:00:00Z
 ```
 
-9. Rebuild aggregate mood snapshots so Aggregate Moods includes the latest scored/cohort data:
+9. Sync the managed author registry row so the frontend auto-lists the new user:
+
+```bash
+python3 backend/scripts/views/sync_managed_author_view.py --username someuser --published
+```
+
+10. Rebuild aggregate mood snapshots so Aggregate Moods includes the latest scored/cohort data:
 
 ```bash
 python3 backend/scripts/cache/rebuild_aggregate_snapshots.py --clear-first --delete-stale
 ```
 
-10. Confirm the dedicated overview endpoints, mood endpoints, aggregate mood endpoints, heatmap endpoints, and frontend pages render correctly.
+11. Confirm the registry-backed overview endpoints, mood endpoints, aggregate mood endpoints, heatmap endpoints, and frontend pages render correctly.
+
+Batch alternative after ingest:
+
+```bash
+./scripts/run-user-post-ingest-batch.sh --username someuser --analysis-start 2020-08-01T00:00:00Z
+```
+
+This runs steps 2-7 in order (including managed author registry sync as step 7), then you still run aggregate snapshot rebuild separately.
 
 ## Aggregate snapshot workflow
 
@@ -862,30 +878,48 @@ Current extractor behavior:
 - stores one row per `(tweet, phrase, extractor version)`
 - the current Michael Saylor heatmap is intended for the August 2020 onward analysis window
 
-## Add a new page subject
+## Publish or tune a page subject
 
-To add a new author cleanly, treat the backend route wiring and frontend page config as two separate steps.
+For newly ingested users, do not add new frontend config entries or new dedicated backend routes. Use the managed author registry instead.
 
-### Add a new overview subject
+### Default publish flow
 
-1. Ensure the user's tweets are ingested, normalized, validated, and sentiment-scored.
-2. Add a dedicated route entry in [backend/app/api/routes/views.py](/Users/michaelsullivan/Code/ChartProject/backend/app/api/routes/views.py).
-3. Add a frontend entry in [frontend/src/config/overviews.ts](/Users/michaelsullivan/Code/ChartProject/frontend/src/config/overviews.ts).
-4. Verify the route renders under `#/overviews/<slug>`.
+1. Complete ingest + normalization + validation + sentiment + moods + keyword extraction.
+2. Run:
 
-### Add a new moods subject
+```bash
+python3 backend/scripts/views/sync_managed_author_view.py --username someuser --published
+```
 
-1. Ensure the user's tweets are ingested, normalized, validated, and mood-scored.
-2. Add a dedicated route entry in [backend/app/api/routes/views.py](/Users/michaelsullivan/Code/ChartProject/backend/app/api/routes/views.py).
-3. Add a frontend entry in [frontend/src/config/moods.ts](/Users/michaelsullivan/Code/ChartProject/frontend/src/config/moods.ts).
-4. Verify the route renders under `#/moods/<slug>`.
+3. Verify the user appears in `/api/author-registry` under the relevant lists (`overviews`, `moods`, `heatmaps`, `bitcoin_mentions`).
+4. Verify `#/overviews/<slug>`.
+5. Verify `#/moods/<slug>`.
+6. Verify `#/heatmaps/<slug>`.
+7. Verify `#/bitcoin-mentions/<slug>`.
 
-### Add a new heatmap subject
+### Optional admin tuning via API
 
-1. Ensure the user's tweets are ingested, normalized, validated, and keyword-extracted.
-2. Add a dedicated route entry in [backend/app/api/routes/views.py](/Users/michaelsullivan/Code/ChartProject/backend/app/api/routes/views.py).
-3. Add a frontend entry in [frontend/src/config/heatmaps.ts](/Users/michaelsullivan/Code/ChartProject/frontend/src/config/heatmaps.ts).
-4. Verify the route renders under `#/heatmaps/<slug>`.
+You can tune slug, publish state, sort order, enabled views, and per-view analysis starts:
+
+```bash
+curl -X PUT "http://127.0.0.1:8000/api/author-registry/<user_id>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "slug": "some-slug",
+    "published": true,
+    "sort_order": 100,
+    "enable_overview": true,
+    "enable_moods": true,
+    "enable_heatmap": true,
+    "enable_bitcoin_mentions": true
+  }'
+```
+
+And inspect the full managed state:
+
+```bash
+curl "http://127.0.0.1:8000/api/author-registry/admin"
+```
 
 ### Recommended data prep order for a new heatmap author
 
@@ -898,6 +932,7 @@ python3 backend/scripts/enrich/score_tweet_sentiment.py --username someuser
 python3 backend/scripts/enrich/extract_tweet_keywords.py \
   --username someuser \
   --analysis-start 2020-08-01T00:00:00Z
+python3 backend/scripts/views/sync_managed_author_view.py --username someuser --published
 ```
 
 ### Recommended repeatable workflow for a new moods author
@@ -910,12 +945,8 @@ source .venv/bin/activate
 python3 backend/scripts/normalize/normalize_archived_user.py --username someuser
 python3 backend/scripts/validate/validate_normalized_user.py --username someuser
 python3 backend/scripts/enrich/score_tweet_moods.py --username someuser
+python3 backend/scripts/views/sync_managed_author_view.py --username someuser --published
 ```
-
-Then wire the new author into:
-
-- [backend/app/api/routes/views.py](/Users/michaelsullivan/Code/ChartProject/backend/app/api/routes/views.py)
-- [frontend/src/config/moods.ts](/Users/michaelsullivan/Code/ChartProject/frontend/src/config/moods.ts)
 
 ### Add more moods to the current moods page
 
@@ -951,6 +982,9 @@ cd /Users/michaelsullivan/Code/ChartProject
 ./scripts/dev.sh
 curl http://127.0.0.1:8000/api/health
 ```
+
+- The frontend shows `Unexpected token '<', "<!doctype "... is not valid JSON` for backend requests
+  The frontend is receiving HTML (usually Vite index) instead of proxied API JSON. Confirm [frontend/vite.config.ts](/Users/michaelsullivan/Code/ChartProject/frontend/vite.config.ts) proxy target points to the running backend host and port (for local default: `http://127.0.0.1:8000`), then restart Vite.
 
 - `ModuleNotFoundError: No module named 'sqlalchemy'`
   Use the project virtualenv and sync backend deps:
