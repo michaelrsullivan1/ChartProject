@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: chartproject-postgres
+    environment:
+      POSTGRES_USER: chartproject
+      POSTGRES_PASSWORD: chartproject
+      POSTGRES_DB: chartproject
+    ports:
+      - "5433:5432"
+    volumes:
+      - chartproject_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chartproject -d chartproject"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  chartproject_postgres_data:
