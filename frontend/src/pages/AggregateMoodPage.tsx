@@ -324,7 +324,6 @@ function AggregateMoodChartSection({
     pinnedCohortKey === null
       ? null
       : cohortOptions.find((cohortOption) => cohortOption.key === pinnedCohortKey) ?? null;
-  const pinnedMatchesActive = pinnedCohortKey !== null && pinnedCohortKey === selectedCohortKey;
   const comparisonCohortName =
     comparisonMoodPayload && pinnedCohortOption ? pinnedCohortOption.tagName : null;
 
@@ -405,65 +404,37 @@ function AggregateMoodChartSection({
           smoothingWeightLabel="active user count"
           onSentimentModeChange={onSentimentModeChange}
           rightSidebarContent={
-            <>
-              <div className="chart-control-card">
-                <p className="chart-control-eyebrow">User Cohorts</p>
-                <div className="chart-cohort-list" role="group" aria-label="User cohorts">
-                  {cohortOptions.map((cohortOption) => {
-                    const isSelected = selectedCohortKey === cohortOption.key;
-                    const isPinned = pinnedCohortKey === cohortOption.key;
+            <div className="chart-control-card">
+              <p className="chart-control-eyebrow">User Cohorts</p>
+              <div className="chart-cohort-list" role="group" aria-label="User cohorts">
+                {cohortOptions.map((cohortOption) => {
+                  const isSelected = selectedCohortKey === cohortOption.key;
+                  const isPinned = pinnedCohortKey === cohortOption.key;
 
-                    return (
-                      <div className="chart-cohort-row" key={cohortOption.key}>
-                        <button
-                          className={`chart-toggle-button chart-cohort-select-button${isSelected ? " is-active" : ""}`}
-                          onClick={() => onSelectedCohortKeyChange(cohortOption.key)}
-                          type="button"
-                        >
-                          {cohortOption.tagName}
-                        </button>
-                        <button
-                          aria-label={`${isPinned ? "Unpin" : "Pin"} ${cohortOption.tagName}`}
-                          aria-pressed={isPinned}
-                          className={`chart-toggle-button chart-pin-button${isPinned ? " is-active" : ""}`}
-                          onClick={() => onPinnedCohortKeyToggle(cohortOption.key)}
-                          title={isPinned ? "Unpin cohort" : "Pin cohort"}
-                          type="button"
-                        >
-                          <Pin aria-hidden="true" className="chart-pin-icon" size={16} strokeWidth={1.9} />
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-                <p className="chart-control-note">
-                  Showing {integerFormatter.format(cohortUserCount)} tracked users in {selectedCohortName}.
-                </p>
-                {comparisonMoodPayload && comparisonCohortName ? (
-                  <p className="chart-control-note">
-                    Comparing against pinned {comparisonCohortName} in the mood pane only.
-                  </p>
-                ) : pinnedMatchesActive && pinnedCohortOption ? (
-                  <p className="chart-control-note">
-                    {pinnedCohortOption.tagName} is pinned. Select another cohort to overlay it.
-                  </p>
-                ) : pinnedCohortOption ? (
-                  <p className="chart-control-note">
-                    {pinnedCohortOption.tagName} is pinned as the comparison baseline.
-                  </p>
-                ) : null}
-                <p className="chart-control-note">
-                  Only one comparison pin is allowed, and changing cohorts again clears the current comparison.
-                </p>
+                  return (
+                    <div className="chart-cohort-row" key={cohortOption.key}>
+                      <button
+                        className={`chart-toggle-button chart-cohort-select-button${isSelected ? " is-active" : ""}`}
+                        onClick={() => onSelectedCohortKeyChange(cohortOption.key)}
+                        type="button"
+                      >
+                        {cohortOption.tagName}
+                      </button>
+                      <button
+                        aria-label={`${isPinned ? "Unpin" : "Pin"} ${cohortOption.tagName}`}
+                        aria-pressed={isPinned}
+                        className={`chart-toggle-button chart-pin-button${isPinned ? " is-active" : ""}`}
+                        onClick={() => onPinnedCohortKeyToggle(cohortOption.key)}
+                        title={isPinned ? "Unpin cohort" : "Pin cohort"}
+                        type="button"
+                      >
+                        <Pin aria-hidden="true" className="chart-pin-icon" size={16} strokeWidth={1.9} />
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
-              <div className="chart-control-card">
-                <p className="chart-control-eyebrow">Cohort Coverage</p>
-                <p className="chart-control-note">
-                  Cohort filters only include users with scored mood data, so aggregates stay aligned
-                  with the plotted mood series.
-                </p>
-              </div>
-            </>
+            </div>
           }
         />
       </div>
