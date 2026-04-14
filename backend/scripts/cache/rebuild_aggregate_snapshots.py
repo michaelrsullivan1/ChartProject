@@ -27,6 +27,7 @@ from app.services.aggregate_snapshot_cache import (
     delete_stale_aggregate_snapshots,
     upsert_aggregate_snapshot,
 )
+from app.services.author_registry import rebuild_public_author_registry_snapshot
 from app.services.moods import DEFAULT_MOOD_MODEL
 
 
@@ -84,6 +85,12 @@ def parse_args() -> argparse.Namespace:
         "--no-bell",
         action="store_true",
         help="Do not emit a terminal bell when the rebuild finishes.",
+    )
+    parser.add_argument(
+        "--author-registry",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Also rebuild the cached public author-registry payload.",
     )
     return parser.parse_args()
 
@@ -171,6 +178,7 @@ def main() -> None:
         )
 
     deleted_rows = 0
+    author_registry_snapshot = None
     if args.delete_stale and not args.dry_run:
         print("Deleting stale aggregate snapshot rows...", flush=True)
         deleted_rows = delete_stale_aggregate_snapshots(
@@ -179,6 +187,10 @@ def main() -> None:
             rebuilt_cache_keys=rebuilt_cache_keys,
             view_types=requested_views,
         )
+
+    if args.author_registry:
+        print("Rebuilding author registry snapshot...", flush=True)
+        author_registry_snapshot = rebuild_public_author_registry_snapshot(dry_run=args.dry_run)
 
     pprint(
         {
@@ -190,6 +202,7 @@ def main() -> None:
             "requested_cohorts": requested_cohorts,
             "cleared_rows_before_rebuild": cleared_rows,
             "rebuilt_cache_keys": rebuilt_cache_keys,
+            "author_registry_snapshot": author_registry_snapshot,
             "deleted_stale_rows": deleted_rows,
             "duration_seconds": round((datetime.now(UTC) - started_at).total_seconds(), 3),
         }

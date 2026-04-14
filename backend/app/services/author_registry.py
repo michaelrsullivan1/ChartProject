@@ -14,6 +14,15 @@ from app.models.tweet import Tweet
 from app.models.tweet_keyword import TweetKeyword
 from app.models.tweet_mood_score import TweetMoodScore
 from app.models.user import User
+from app.services.aggregate_snapshot_cache import (
+    AUTHOR_REGISTRY_GRANULARITY,
+    AUTHOR_REGISTRY_MODEL_KEY,
+    AUTHOR_REGISTRY_SCOPE,
+    AUTHOR_REGISTRY_VIEW_TYPE,
+    build_aggregate_snapshot_cache_key,
+    get_aggregate_snapshot,
+    upsert_aggregate_snapshot,
+)
 from app.services.keywords import (
     DEFAULT_KEYWORD_EXTRACTOR_KEY,
     DEFAULT_KEYWORD_EXTRACTOR_VERSION,
@@ -70,6 +79,72 @@ def build_public_author_registry(
     *,
     session_factory: sessionmaker[Session] = SessionLocal,
 ) -> dict[str, object]:
+    snapshot = get_public_author_registry_snapshot(session_factory=session_factory)
+    if snapshot is not None:
+        return snapshot
+    return _build_public_author_registry_payload(session_factory=session_factory)
+
+
+def get_public_author_registry_snapshot(
+    *,
+    session_factory: sessionmaker[Session] = SessionLocal,
+) -> dict[str, object] | None:
+    return get_aggregate_snapshot(
+        view_type=AUTHOR_REGISTRY_VIEW_TYPE,
+        cohort_tag_slug=AUTHOR_REGISTRY_SCOPE,
+        granularity=AUTHOR_REGISTRY_GRANULARITY,
+        model_key=AUTHOR_REGISTRY_MODEL_KEY,
+        session_factory=session_factory,
+    )
+
+
+def rebuild_public_author_registry_snapshot(
+    *,
+    dry_run: bool = False,
+    session_factory: sessionmaker[Session] = SessionLocal,
+) -> dict[str, object]:
+    payload = _build_public_author_registry_payload(session_factory=session_factory)
+    cache_key = build_aggregate_snapshot_cache_key(
+        view_type=AUTHOR_REGISTRY_VIEW_TYPE,
+        cohort_tag_slug=AUTHOR_REGISTRY_SCOPE,
+        granularity=AUTHOR_REGISTRY_GRANULARITY,
+        model_key=AUTHOR_REGISTRY_MODEL_KEY,
+    )
+    build_meta = {
+        "tracked_author_count": len(payload["authors"]),
+        "overview_count": len(payload["overviews"]),
+        "mood_count": len(payload["moods"]),
+        "heatmap_count": len(payload["heatmaps"]),
+        "bitcoin_mentions_count": len(payload["bitcoin_mentions"]),
+        "rebuilt_at": _to_iso(datetime.now(UTC)),
+    }
+    if not dry_run:
+        cache_key = upsert_aggregate_snapshot(
+            view_type=AUTHOR_REGISTRY_VIEW_TYPE,
+            cohort_tag_slug=AUTHOR_REGISTRY_SCOPE,
+            granularity=AUTHOR_REGISTRY_GRANULARITY,
+            model_key=AUTHOR_REGISTRY_MODEL_KEY,
+            payload=payload,
+            build_meta=build_meta,
+            session_factory=session_factory,
+        )
+
+    return {
+        "view": "author-registry-snapshot-rebuild",
+        "dry_run": dry_run,
+        "cache_key": cache_key,
+        "tracked_author_count": len(payload["authors"]),
+        "overview_count": len(payload["overviews"]),
+        "mood_count": len(payload["moods"]),
+        "heatmap_count": len(payload["heatmaps"]),
+        "bitcoin_mentions_count": len(payload["bitcoin_mentions"]),
+    }
+
+
+def _build_public_author_registry_payload(
+    *,
+    session_factory: sessionmaker[Session] = SessionLocal,
+) -> dict[str, object]:
     session = session_factory()
     try:
         rows = session.execute(
@@ -85,6 +160,10 @@ def build_public_author_registry(
             )
         ).all()
 
+        user_ids = [int(user.id) for _mav, user in rows]
+        first_tweet_at_by_user_id = _load_first_tweet_at_map(session, user_ids=user_ids)
+        readiness_by_user_id = _load_author_readiness_map(session, user_ids=user_ids)
+
         authors: list[dict[str, object]] = []
         overviews: list[dict[str, str]] = []
         moods: list[dict[str, str]] = []
@@ -92,8 +171,12 @@ def build_public_author_registry(
         bitcoin_mentions: list[dict[str, str]] = []
 
         for mav, user in rows:
-            readiness = _load_author_readiness(session, user_id=int(user.id))
-            starts = _resolve_analysis_starts(session, managed_author_view=mav, user_id=int(user.id))
+            default_start = first_tweet_at_by_user_id.get(int(user.id))
+            readiness = readiness_by_user_id.get(int(user.id), _empty_author_readiness())
+            starts = _resolve_analysis_starts(
+                managed_author_view=mav,
+                default_start=default_start,
+            )
 
             author_payload = {
                 "user_id": int(user.id),
@@ -192,10 +275,18 @@ def build_admin_author_registry(
             )
         ).all()
 
+        user_ids = [int(user.id) for _mav, user in rows]
+        first_tweet_at_by_user_id = _load_first_tweet_at_map(session, user_ids=user_ids)
+        readiness_by_user_id = _load_author_readiness_map(session, user_ids=user_ids)
+
         authors: list[dict[str, object]] = []
         for mav, user in rows:
-            readiness = _load_author_readiness(session, user_id=int(user.id))
-            starts = _resolve_analysis_starts(session, managed_author_view=mav, user_id=int(user.id))
+            default_start = first_tweet_at_by_user_id.get(int(user.id))
+            readiness = readiness_by_user_id.get(int(user.id), _empty_author_readiness())
+            starts = _resolve_analysis_starts(
+                managed_author_view=mav,
+                default_start=default_start,
+            )
             authors.append(
                 {
                     "user_id": int(user.id),
@@ -279,13 +370,18 @@ def build_update_managed_author_view(
 
         session.commit()
         session.refresh(managed_author)
+        rebuild_public_author_registry_snapshot(session_factory=session_factory)
 
         user = session.scalar(select(User).where(User.id == request.user_id))
         if user is None:
             raise RuntimeError(f"No canonical user exists for user_id={request.user_id}.")
 
+        default_start = _load_first_tweet_at(session, user_id=int(user.id))
         readiness = _load_author_readiness(session, user_id=int(user.id))
-        starts = _resolve_analysis_starts(session, managed_author_view=managed_author, user_id=int(user.id))
+        starts = _resolve_analysis_starts(
+            managed_author_view=managed_author,
+            default_start=default_start,
+        )
 
         return {
             "view": "author-registry-update",
@@ -360,9 +456,14 @@ def sync_managed_author_view_for_username(
 
         session.commit()
         session.refresh(existing)
+        rebuild_public_author_registry_snapshot(session_factory=session_factory)
 
+        default_start = _load_first_tweet_at(session, user_id=int(user.id))
         readiness = _load_author_readiness(session, user_id=int(user.id))
-        starts = _resolve_analysis_starts(session, managed_author_view=existing, user_id=int(user.id))
+        starts = _resolve_analysis_starts(
+            managed_author_view=existing,
+            default_start=default_start,
+        )
 
         return {
             "view": "author-registry-sync",
@@ -498,6 +599,7 @@ def sync_tracked_authors(
             session.rollback()
         else:
             session.commit()
+            rebuild_public_author_registry_snapshot(session_factory=session_factory)
 
         return {
             "view": "tracked-author-sync",
@@ -685,12 +787,10 @@ def resolve_managed_author_by_slug(
 
 
 def _resolve_analysis_starts(
-    session: Session,
     *,
     managed_author_view: ManagedAuthorView,
-    user_id: int,
+    default_start: datetime | None,
 ) -> dict[str, str | None]:
-    default_start = _load_first_tweet_at(session, user_id=user_id)
     return {
         "overview": _to_iso_nullable(managed_author_view.overview_analysis_start or default_start),
         "moods": _to_iso_nullable(managed_author_view.mood_analysis_start or default_start),
@@ -699,53 +799,117 @@ def _resolve_analysis_starts(
 
 
 def _load_author_readiness(session: Session, *, user_id: int) -> dict[str, object]:
-    tweet_count = int(
-        session.scalar(select(func.count(Tweet.id)).where(Tweet.author_user_id == user_id)) or 0
-    )
-    mood_scored_tweet_count = int(
-        session.scalar(
-            select(func.count(func.distinct(TweetMoodScore.tweet_id)))
-            .join(Tweet, Tweet.id == TweetMoodScore.tweet_id)
+    readiness_map = _load_author_readiness_map(session, user_ids=[user_id])
+    return readiness_map.get(user_id, _empty_author_readiness())
+
+
+def _load_author_readiness_map(
+    session: Session,
+    *,
+    user_ids: list[int],
+) -> dict[int, dict[str, object]]:
+    if not user_ids:
+        return {}
+
+    tweet_counts = {
+        int(user_id): int(count)
+        for user_id, count in session.execute(
+            select(Tweet.author_user_id, func.count(Tweet.id))
+            .where(Tweet.author_user_id.in_(user_ids))
+            .group_by(Tweet.author_user_id)
+        ).all()
+    }
+    mood_counts = {
+        int(user_id): int(count)
+        for user_id, count in session.execute(
+            select(Tweet.author_user_id, func.count(func.distinct(TweetMoodScore.tweet_id)))
+            .join(TweetMoodScore, TweetMoodScore.tweet_id == Tweet.id)
             .where(
-                Tweet.author_user_id == user_id,
+                Tweet.author_user_id.in_(user_ids),
                 TweetMoodScore.model_key == DEFAULT_MOOD_MODEL,
                 TweetMoodScore.status == "scored",
             )
-        )
-        or 0
-    )
-    keyword_tweet_count = int(
-        session.scalar(
-            select(func.count(func.distinct(TweetKeyword.tweet_id)))
-            .join(Tweet, Tweet.id == TweetKeyword.tweet_id)
+            .group_by(Tweet.author_user_id)
+        ).all()
+    }
+    keyword_counts = {
+        int(user_id): int(count)
+        for user_id, count in session.execute(
+            select(Tweet.author_user_id, func.count(func.distinct(TweetKeyword.tweet_id)))
+            .join(TweetKeyword, TweetKeyword.tweet_id == Tweet.id)
             .where(
-                Tweet.author_user_id == user_id,
+                Tweet.author_user_id.in_(user_ids),
                 TweetKeyword.extractor_key == DEFAULT_KEYWORD_EXTRACTOR_KEY,
                 TweetKeyword.extractor_version == DEFAULT_KEYWORD_EXTRACTOR_VERSION,
             )
-        )
-        or 0
-    )
+            .group_by(Tweet.author_user_id)
+        ).all()
+    }
 
+    readiness_by_user_id: dict[int, dict[str, object]] = {}
+    for user_id in user_ids:
+        tweet_count = tweet_counts.get(user_id, 0)
+        mood_scored_tweet_count = mood_counts.get(user_id, 0)
+        keyword_tweet_count = keyword_counts.get(user_id, 0)
+        readiness_by_user_id[user_id] = {
+            "tweet_count": tweet_count,
+            "mood_scored_tweet_count": mood_scored_tweet_count,
+            "keyword_tweet_count": keyword_tweet_count,
+            "overview_ready": tweet_count > 0,
+            "moods_ready": mood_scored_tweet_count > 0,
+            "heatmap_ready": keyword_tweet_count > 0,
+            "bitcoin_mentions_ready": tweet_count > 0,
+        }
+
+    return readiness_by_user_id
+
+
+def _empty_author_readiness() -> dict[str, object]:
+    tweet_count = int(
+        0
+    )
     return {
         "tweet_count": tweet_count,
-        "mood_scored_tweet_count": mood_scored_tweet_count,
-        "keyword_tweet_count": keyword_tweet_count,
+        "mood_scored_tweet_count": 0,
+        "keyword_tweet_count": 0,
         "overview_ready": tweet_count > 0,
-        "moods_ready": mood_scored_tweet_count > 0,
-        "heatmap_ready": keyword_tweet_count > 0,
+        "moods_ready": False,
+        "heatmap_ready": False,
         "bitcoin_mentions_ready": tweet_count > 0,
     }
 
 
 def _load_first_tweet_at(session: Session, *, user_id: int) -> datetime | None:
-    first_tweet_at = session.scalar(
-        select(func.min(Tweet.created_at_platform)).where(Tweet.author_user_id == user_id)
-    )
-    if first_tweet_at is None:
-        return None
-    normalized = first_tweet_at.astimezone(UTC)
-    return normalized.replace(hour=0, minute=0, second=0, microsecond=0)
+    first_tweet_at_by_user_id = _load_first_tweet_at_map(session, user_ids=[user_id])
+    return first_tweet_at_by_user_id.get(user_id)
+
+
+def _load_first_tweet_at_map(
+    session: Session,
+    *,
+    user_ids: list[int],
+) -> dict[int, datetime]:
+    if not user_ids:
+        return {}
+
+    rows = session.execute(
+        select(Tweet.author_user_id, func.min(Tweet.created_at_platform))
+        .where(Tweet.author_user_id.in_(user_ids))
+        .group_by(Tweet.author_user_id)
+    ).all()
+
+    first_tweet_at_by_user_id: dict[int, datetime] = {}
+    for user_id, first_tweet_at in rows:
+        if first_tweet_at is None:
+            continue
+        normalized = first_tweet_at.astimezone(UTC).replace(
+            hour=0,
+            minute=0,
+            second=0,
+            microsecond=0,
+        )
+        first_tweet_at_by_user_id[int(user_id)] = normalized
+    return first_tweet_at_by_user_id
 
 
 def _slug_base_from_user(*, user: User) -> str:

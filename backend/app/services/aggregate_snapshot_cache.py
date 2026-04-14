@@ -16,6 +16,10 @@ AGGREGATE_ALL_COHORT_SLUG = "all"
 AGGREGATE_COHORTS_VIEW_TYPE = "aggregate-cohorts"
 AGGREGATE_OVERVIEW_VIEW_TYPE = "aggregate-overview"
 AGGREGATE_MOOD_SERIES_VIEW_TYPE = "aggregate-mood-series"
+AUTHOR_REGISTRY_VIEW_TYPE = "author-registry"
+AUTHOR_REGISTRY_SCOPE = "all"
+AUTHOR_REGISTRY_GRANULARITY = "registry"
+AUTHOR_REGISTRY_MODEL_KEY = "tracked-authors"
 
 
 def normalize_aggregate_cohort_slug(value: str | None) -> str:

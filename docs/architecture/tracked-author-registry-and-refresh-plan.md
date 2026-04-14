@@ -238,6 +238,7 @@ For each tracked author:
 ### Deliverables
 
 - frontend no longer depends on hardcoded tracked-author config files
+- public author registry served from a precomputed snapshot instead of a live first-load build
 - frontend dropdowns and page routing use backend registry data
 - dynamic author endpoints are the main path
 

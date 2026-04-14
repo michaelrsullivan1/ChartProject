@@ -131,3 +131,22 @@ Then rerun the tracked-author refresh planner.
 - `fetch` and `post-process` are safe to rerun from their manifest files.
 - The refresh manifests are stored in-repo under `data/exports/refresh-plans/`.
 - Legacy hardcoded backend author routes still exist for compatibility, but the frontend author definitions no longer depend on the removed static config files.
+
+## Author Registry Cache
+
+The public `/api/author-registry` response is now served from a cached snapshot so the frontend does not have to wait for the full live registry build on first load.
+
+Warm just the author registry cache:
+
+```bash
+python3 backend/scripts/cache/rebuild_author_registry_snapshot.py
+```
+
+Or rebuild it alongside the existing aggregate snapshot flow:
+
+```bash
+cd backend
+python3 scripts/cache/rebuild_aggregate_snapshots.py
+```
+
+`rebuild_aggregate_snapshots.py` now includes the author-registry snapshot by default unless you explicitly disable it with `--no-author-registry`.
