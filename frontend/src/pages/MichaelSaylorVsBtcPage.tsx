@@ -9,7 +9,7 @@ import {
   type AuthorSentimentResponse,
 } from "../api/authorOverview";
 import { DashboardLoadingState } from "../components/DashboardLoadingState";
-import { type OverviewDefinition, getOverviewLabel } from "../config/overviews";
+import { type OverviewDefinition, getOverviewLabel } from "../lib/authorDefinitions";
 import { MichaelSaylorVsBtcTradingViewChart } from "../components/MichaelSaylorVsBtcTradingViewChart";
 import {
   buildSentimentDeviationSeries,

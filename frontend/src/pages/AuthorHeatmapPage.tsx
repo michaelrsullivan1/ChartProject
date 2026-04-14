@@ -19,7 +19,7 @@ import {
 } from "../api/authorHeatmap";
 import { DashboardLoadingState } from "../components/DashboardLoadingState";
 import { TweetPreviewCard } from "../components/TweetPreviewCard";
-import { type HeatmapDefinition } from "../config/heatmaps";
+import { type HeatmapDefinition } from "../lib/authorDefinitions";
 import { CHART_WATERMARK_HANDLE } from "../lib/watermark";
 
 type HeatmapMode = "all" | "common" | "rising";

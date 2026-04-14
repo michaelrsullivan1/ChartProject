@@ -21,7 +21,7 @@ import {
   type AuthorSentimentResponse,
   type AuthorTopLikedTweetResponse,
 } from "../api/authorOverview";
-import type { OverviewDefinition } from "../config/overviews";
+import type { OverviewDefinition } from "../lib/authorDefinitions";
 import { TweetPreviewCard } from "./TweetPreviewCard";
 import {
   buildSentimentDeviationSeries,

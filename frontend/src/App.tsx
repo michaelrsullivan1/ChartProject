@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { fetchAuthorRegistry } from "./api/authorRegistry";
 import { fetchHealth } from "./api/health";
 import { AppShell } from "./components/AppShell";
+import { DashboardLoadingState } from "./components/DashboardLoadingState";
 import {
   aggregateMoodDefinitions,
   findAggregateMoodBySlug,
@@ -11,33 +12,29 @@ import {
   type AggregateMoodDefinition,
 } from "./config/aggregateMoods";
 import {
-  bitcoinMentionsDefinitions as defaultBitcoinMentionsDefinitions,
   getBitcoinMentionsLabel,
   getBitcoinMentionsHash,
   getBitcoinMentionsTitle,
   type BitcoinMentionsDefinition,
-} from "./config/bitcoinMentions";
+} from "./lib/authorDefinitions";
 import {
   getHeatmapHash,
   getHeatmapLabel,
   getHeatmapTitle,
-  heatmapDefinitions as defaultHeatmapDefinitions,
   type HeatmapDefinition,
-} from "./config/heatmaps";
+} from "./lib/authorDefinitions";
 import {
   getMoodLabel,
   getMoodHash,
   getMoodTitle,
-  moodDefinitions as defaultMoodDefinitions,
   type MoodDefinition,
-} from "./config/moods";
+} from "./lib/authorDefinitions";
 import {
   getOverviewLabel,
   getOverviewHash,
   getOverviewTitle,
-  overviewDefinitions as defaultOverviewDefinitions,
   type OverviewDefinition,
-} from "./config/overviews";
+} from "./lib/authorDefinitions";
 import { HomePage } from "./pages/HomePage";
 import { AuthorHeatmapPage } from "./pages/AuthorHeatmapPage";
 import { AuthorMoodPage } from "./pages/AuthorMoodPage";
@@ -74,6 +71,19 @@ type RouteDefinitions = {
 
 function findBySlug<T extends { slug: string }>(definitions: T[], slug: string): T | undefined {
   return definitions.find((definition) => definition.slug === slug);
+}
+
+function isRegistryBackedHash(hash: string): boolean {
+  return (
+    hash === "#/bitcoin-mentions" ||
+    hash === "#/narratives" ||
+    hash === "#/heatmaps" ||
+    hash.startsWith("#/bitcoin-mentions/") ||
+    hash.startsWith("#/overviews/") ||
+    hash.startsWith("#/moods/") ||
+    hash.startsWith("#/narratives/") ||
+    hash.startsWith("#/heatmaps/")
+  );
 }
 
 function getRouteFromHash(hash: string, definitions: RouteDefinitions): AppRoute {
@@ -147,26 +157,6 @@ function getRouteFromHash(hash: string, definitions: RouteDefinitions): AppRoute
   return { kind: "not-found" };
 }
 
-function mergeDefinitions<T extends { slug: string }>(base: T[], incoming: T[]): T[] {
-  const next = [...base];
-  const indexBySlug = new Map<string, number>();
-  for (const [index, item] of next.entries()) {
-    indexBySlug.set(item.slug, index);
-  }
-
-  for (const item of incoming) {
-    const existingIndex = indexBySlug.get(item.slug);
-    if (existingIndex === undefined) {
-      indexBySlug.set(item.slug, next.length);
-      next.push(item);
-      continue;
-    }
-    next[existingIndex] = item;
-  }
-
-  return next;
-}
-
 function sortDefinitionsByLabel<T extends { slug: string }>(
   definitions: T[],
   getLabel: (definition: T) => string,
@@ -184,28 +174,20 @@ function sortDefinitionsByLabel<T extends { slug: string }>(
 }
 
 export default function App() {
-  const [bitcoinMentionsDefinitions, setBitcoinMentionsDefinitions] = useState<BitcoinMentionsDefinition[]>(
-    defaultBitcoinMentionsDefinitions,
-  );
-  const [moodDefinitions, setMoodDefinitions] = useState<MoodDefinition[]>(defaultMoodDefinitions);
-  const [overviewDefinitions, setOverviewDefinitions] = useState<OverviewDefinition[]>(
-    defaultOverviewDefinitions,
-  );
-  const [heatmapDefinitions, setHeatmapDefinitions] = useState<HeatmapDefinition[]>(
-    defaultHeatmapDefinitions,
-  );
+  const [bitcoinMentionsDefinitions, setBitcoinMentionsDefinitions] = useState<BitcoinMentionsDefinition[]>([]);
+  const [moodDefinitions, setMoodDefinitions] = useState<MoodDefinition[]>([]);
+  const [overviewDefinitions, setOverviewDefinitions] = useState<OverviewDefinition[]>([]);
+  const [heatmapDefinitions, setHeatmapDefinitions] = useState<HeatmapDefinition[]>([]);
+  const [isAuthorRegistryLoading, setIsAuthorRegistryLoading] = useState(true);
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [route, setRoute] = useState<AppRoute>(() =>
     getRouteFromHash(window.location.hash, {
-      bitcoinMentions: sortDefinitionsByLabel(
-        defaultBitcoinMentionsDefinitions,
-        getBitcoinMentionsLabel,
-      ),
-      moods: sortDefinitionsByLabel(defaultMoodDefinitions, getMoodLabel),
-      overviews: sortDefinitionsByLabel(defaultOverviewDefinitions, getOverviewLabel),
-      heatmaps: sortDefinitionsByLabel(defaultHeatmapDefinitions, getHeatmapLabel),
+      bitcoinMentions: sortDefinitionsByLabel([], getBitcoinMentionsLabel),
+      moods: sortDefinitionsByLabel([], getMoodLabel),
+      overviews: sortDefinitionsByLabel([], getOverviewLabel),
+      heatmaps: sortDefinitionsByLabel([], getHeatmapLabel),
     }),
   );
   const [showWatermark, setShowWatermark] = useState(() => {
@@ -273,47 +255,40 @@ export default function App() {
         if (cancelled) {
           return;
         }
-        setOverviewDefinitions((current) =>
-          mergeDefinitions(
-            current,
-            registry.overviews.map((item) => ({
-              slug: item.slug,
-              username: item.username,
-              apiBasePath: item.api_base_path,
-            })),
-          ),
+        setOverviewDefinitions(
+          registry.overviews.map((item) => ({
+            slug: item.slug,
+            username: item.username,
+            apiBasePath: item.api_base_path,
+          })),
         );
-        setMoodDefinitions((current) =>
-          mergeDefinitions(
-            current,
-            registry.moods.map((item) => ({
-              slug: item.slug,
-              username: item.username,
-              apiBasePath: item.api_base_path,
-            })),
-          ),
+        setMoodDefinitions(
+          registry.moods.map((item) => ({
+            slug: item.slug,
+            username: item.username,
+            apiBasePath: item.api_base_path,
+          })),
         );
-        setHeatmapDefinitions((current) =>
-          mergeDefinitions(
-            current,
-            registry.heatmaps.map((item) => ({
-              slug: item.slug,
-              username: item.username,
-              apiBasePath: item.api_base_path,
-            })),
-          ),
+        setHeatmapDefinitions(
+          registry.heatmaps.map((item) => ({
+            slug: item.slug,
+            username: item.username,
+            apiBasePath: item.api_base_path,
+          })),
         );
-        setBitcoinMentionsDefinitions((current) =>
-          mergeDefinitions(
-            current,
-            registry.bitcoin_mentions.map((item) => ({
-              slug: item.slug,
-              username: item.username,
-            })),
-          ),
+        setBitcoinMentionsDefinitions(
+          registry.bitcoin_mentions.map((item) => ({
+            slug: item.slug,
+            username: item.username,
+            apiBasePath: item.api_base_path,
+          })),
         );
       } catch (loadError) {
-        console.warn("ChartProject author registry request failed; continuing with static config", loadError);
+        console.warn("ChartProject author registry request failed", loadError);
+      } finally {
+        if (!cancelled) {
+          setIsAuthorRegistryLoading(false);
+        }
       }
     }
 
@@ -400,6 +375,40 @@ export default function App() {
 
   function navigateUserSettings() {
     window.location.hash = "#/settings/user-settings";
+  }
+
+  if (isAuthorRegistryLoading && isRegistryBackedHash(window.location.hash)) {
+    return (
+      <AppShell
+        mode="dashboard"
+        dashboardTitle="Loading View"
+        activeBitcoinMentionsSlug={null}
+        activeAggregateMoodSlug={null}
+        activeMoodSlug={null}
+        activeOverviewSlug={null}
+        activeHeatmapSlug={null}
+        activeSettingsSection={null}
+        aggregateMoods={aggregateMoodDefinitions}
+        bitcoinMentions={sortedBitcoinMentionsDefinitions}
+        moods={sortedMoodDefinitions}
+        onNavigateHome={navigateHome}
+        onNavigateAggregateMood={navigateAggregateMood}
+        onNavigateBitcoinMentions={navigateBitcoinMentions}
+        onNavigateMood={navigateMood}
+        onNavigateOverview={navigateOverview}
+        onNavigateHeatmap={navigateHeatmap}
+        onNavigateGlobalSettings={navigateGlobalSettings}
+        onNavigateUserSettings={navigateUserSettings}
+        overviews={sortedOverviewDefinitions}
+        heatmaps={sortedHeatmapDefinitions}
+      >
+        <section className="dashboard-page">
+          <article className="panel panel-accent dashboard-workspace">
+            <DashboardLoadingState />
+          </article>
+        </section>
+      </AppShell>
+    );
   }
 
   if (route.kind === "home") {

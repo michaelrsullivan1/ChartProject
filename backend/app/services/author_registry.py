@@ -7,6 +7,7 @@ import re
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.core.tracked_authors import TRACKED_AUTHOR_SEEDS
 from app.db.session import SessionLocal
 from app.models.managed_author_view import ManagedAuthorView
 from app.models.tweet import Tweet
@@ -55,6 +56,16 @@ class SyncManagedAuthorViewRequest:
     ensure_analysis_starts: bool = True
 
 
+@dataclass(slots=True)
+class SyncTrackedAuthorsRequest:
+    dry_run: bool = False
+
+
+@dataclass(slots=True)
+class AuditTrackedAuthorsRequest:
+    pass
+
+
 def build_public_author_registry(
     *,
     session_factory: sessionmaker[Session] = SessionLocal,
@@ -64,7 +75,10 @@ def build_public_author_registry(
         rows = session.execute(
             select(ManagedAuthorView, User)
             .join(User, User.id == ManagedAuthorView.user_id)
-            .where(ManagedAuthorView.published.is_(True))
+            .where(
+                ManagedAuthorView.is_tracked.is_(True),
+                ManagedAuthorView.published.is_(True),
+            )
             .order_by(
                 ManagedAuthorView.sort_order.asc().nullslast(),
                 func.lower(ManagedAuthorView.slug).asc(),
@@ -87,6 +101,7 @@ def build_public_author_registry(
                 "username": user.username,
                 "display_name": user.display_name,
                 "slug": mav.slug,
+                "is_tracked": bool(mav.is_tracked),
                 "published": bool(mav.published),
                 "sort_order": mav.sort_order,
                 "analysis_start": starts,
@@ -110,6 +125,7 @@ def build_public_author_registry(
                     "bitcoin_mentions": {
                         "enabled": bool(mav.enable_bitcoin_mentions),
                         "ready": readiness["bitcoin_mentions_ready"],
+                        "api_base_path": f"/api/views/authors/{mav.slug}/bitcoin-mentions",
                     },
                 },
             }
@@ -144,6 +160,7 @@ def build_public_author_registry(
                     {
                         "slug": mav.slug,
                         "username": user.username,
+                        "api_base_path": f"/api/views/authors/{mav.slug}/bitcoin-mentions",
                     }
                 )
 
@@ -186,6 +203,7 @@ def build_admin_author_registry(
                     "username": user.username,
                     "display_name": user.display_name,
                     "slug": mav.slug,
+                    "is_tracked": bool(mav.is_tracked),
                     "published": bool(mav.published),
                     "sort_order": mav.sort_order,
                     "enable_overview": bool(mav.enable_overview),
@@ -277,6 +295,7 @@ def build_update_managed_author_view(
                 "username": user.username,
                 "display_name": user.display_name,
                 "slug": managed_author.slug,
+                "is_tracked": bool(managed_author.is_tracked),
                 "published": bool(managed_author.published),
                 "sort_order": managed_author.sort_order,
                 "enable_overview": bool(managed_author.enable_overview),
@@ -325,6 +344,7 @@ def sync_managed_author_view_for_username(
             existing = ManagedAuthorView(
                 user_id=user.id,
                 slug=slug,
+                is_tracked=False,
                 published=request.published,
             )
             created = True
@@ -353,11 +373,276 @@ def sync_managed_author_view_for_username(
                 "username": user.username,
                 "display_name": user.display_name,
                 "slug": existing.slug,
+                "is_tracked": bool(existing.is_tracked),
                 "published": bool(existing.published),
                 "sort_order": existing.sort_order,
                 "analysis_start": starts,
                 "readiness": readiness,
             },
+        }
+    finally:
+        session.close()
+
+
+def sync_tracked_authors(
+    request: SyncTrackedAuthorsRequest,
+    *,
+    session_factory: sessionmaker[Session] = SessionLocal,
+) -> dict[str, object]:
+    session = session_factory()
+    try:
+        created = 0
+        updated = 0
+        unchanged = 0
+        results: list[dict[str, object]] = []
+
+        for seed in TRACKED_AUTHOR_SEEDS:
+            user = session.scalar(
+                select(User).where(func.lower(User.username) == seed.username.lower())
+            )
+            if user is None:
+                raise RuntimeError(
+                    f"Tracked author seed username={seed.username!r} was not found in canonical users."
+                )
+
+            managed_author = session.scalar(
+                select(ManagedAuthorView).where(ManagedAuthorView.user_id == user.id)
+            )
+            first_tweet_at = _load_first_tweet_at(session, user_id=int(user.id))
+
+            if managed_author is None:
+                _assert_slug_available(session, slug=seed.slug)
+                session.add(
+                    ManagedAuthorView(
+                        user_id=user.id,
+                        slug=seed.slug,
+                        is_tracked=True,
+                        published=True,
+                        sort_order=seed.sort_order,
+                        enable_overview=True,
+                        enable_moods=True,
+                        enable_heatmap=True,
+                        enable_bitcoin_mentions=True,
+                        overview_analysis_start=first_tweet_at,
+                        mood_analysis_start=first_tweet_at,
+                        heatmap_analysis_start=first_tweet_at,
+                    )
+                )
+                created += 1
+                results.append(
+                    {
+                        "username": user.username,
+                        "slug": seed.slug,
+                        "status": "created",
+                    }
+                )
+                continue
+
+            changed_fields: list[str] = []
+            if managed_author.slug != seed.slug:
+                _assert_slug_available(session, slug=seed.slug, exclude_user_id=int(user.id))
+                managed_author.slug = seed.slug
+                changed_fields.append("slug")
+            if not managed_author.is_tracked:
+                managed_author.is_tracked = True
+                changed_fields.append("is_tracked")
+            if not managed_author.published:
+                managed_author.published = True
+                changed_fields.append("published")
+            if managed_author.sort_order != seed.sort_order:
+                managed_author.sort_order = seed.sort_order
+                changed_fields.append("sort_order")
+            if not managed_author.enable_overview:
+                managed_author.enable_overview = True
+                changed_fields.append("enable_overview")
+            if not managed_author.enable_moods:
+                managed_author.enable_moods = True
+                changed_fields.append("enable_moods")
+            if not managed_author.enable_heatmap:
+                managed_author.enable_heatmap = True
+                changed_fields.append("enable_heatmap")
+            if not managed_author.enable_bitcoin_mentions:
+                managed_author.enable_bitcoin_mentions = True
+                changed_fields.append("enable_bitcoin_mentions")
+            if managed_author.overview_analysis_start is None and first_tweet_at is not None:
+                managed_author.overview_analysis_start = first_tweet_at
+                changed_fields.append("overview_analysis_start")
+            if managed_author.mood_analysis_start is None and first_tweet_at is not None:
+                managed_author.mood_analysis_start = first_tweet_at
+                changed_fields.append("mood_analysis_start")
+            if managed_author.heatmap_analysis_start is None and first_tweet_at is not None:
+                managed_author.heatmap_analysis_start = first_tweet_at
+                changed_fields.append("heatmap_analysis_start")
+
+            if changed_fields:
+                updated += 1
+                results.append(
+                    {
+                        "username": user.username,
+                        "slug": managed_author.slug,
+                        "status": "updated",
+                        "changed_fields": changed_fields,
+                    }
+                )
+            else:
+                unchanged += 1
+                results.append(
+                    {
+                        "username": user.username,
+                        "slug": managed_author.slug,
+                        "status": "unchanged",
+                    }
+                )
+
+        if request.dry_run:
+            session.rollback()
+        else:
+            session.commit()
+
+        return {
+            "view": "tracked-author-sync",
+            "dry_run": request.dry_run,
+            "tracked_author_seed_count": len(TRACKED_AUTHOR_SEEDS),
+            "created_count": created,
+            "updated_count": updated,
+            "unchanged_count": unchanged,
+            "results": results,
+        }
+    finally:
+        session.close()
+
+
+def audit_tracked_authors(
+    _request: AuditTrackedAuthorsRequest | None = None,
+    *,
+    session_factory: sessionmaker[Session] = SessionLocal,
+) -> dict[str, object]:
+    session = session_factory()
+    try:
+        expected_by_username = {seed.username.casefold(): seed for seed in TRACKED_AUTHOR_SEEDS}
+        expected_by_slug = {seed.slug: seed for seed in TRACKED_AUTHOR_SEEDS}
+        issues: list[dict[str, object]] = []
+
+        canonical_rows = session.execute(
+            select(User.id, User.username)
+            .where(func.lower(User.username).in_(list(expected_by_username.keys())))
+            .order_by(func.lower(User.username).asc())
+        ).all()
+        canonical_by_username = {row.username.casefold(): row for row in canonical_rows}
+        for seed in TRACKED_AUTHOR_SEEDS:
+            if seed.username.casefold() not in canonical_by_username:
+                issues.append(
+                    {
+                        "severity": "fail",
+                        "username": seed.username,
+                        "slug": seed.slug,
+                        "issue": "missing_canonical_user",
+                    }
+                )
+
+        tracked_rows = session.execute(
+            select(ManagedAuthorView, User)
+            .join(User, User.id == ManagedAuthorView.user_id)
+            .where(ManagedAuthorView.is_tracked.is_(True))
+            .order_by(func.lower(ManagedAuthorView.slug).asc())
+        ).all()
+        tracked_by_username = {user.username.casefold(): (mav, user) for mav, user in tracked_rows}
+
+        for seed in TRACKED_AUTHOR_SEEDS:
+            row = tracked_by_username.get(seed.username.casefold())
+            if row is None:
+                issues.append(
+                    {
+                        "severity": "fail",
+                        "username": seed.username,
+                        "slug": seed.slug,
+                        "issue": "missing_tracked_managed_author_view",
+                    }
+                )
+                continue
+
+            mav, user = row
+            if mav.slug != seed.slug:
+                issues.append(
+                    {
+                        "severity": "fail",
+                        "username": user.username,
+                        "expected_slug": seed.slug,
+                        "actual_slug": mav.slug,
+                        "issue": "slug_mismatch",
+                    }
+                )
+            if not mav.published:
+                issues.append(
+                    {
+                        "severity": "fail",
+                        "username": user.username,
+                        "slug": mav.slug,
+                        "issue": "not_published",
+                    }
+                )
+            if mav.sort_order != seed.sort_order:
+                issues.append(
+                    {
+                        "severity": "warn",
+                        "username": user.username,
+                        "slug": mav.slug,
+                        "expected_sort_order": seed.sort_order,
+                        "actual_sort_order": mav.sort_order,
+                        "issue": "sort_order_mismatch",
+                    }
+                )
+            for field_name in (
+                "enable_overview",
+                "enable_moods",
+                "enable_heatmap",
+                "enable_bitcoin_mentions",
+            ):
+                if not getattr(mav, field_name):
+                    issues.append(
+                        {
+                            "severity": "fail",
+                            "username": user.username,
+                            "slug": mav.slug,
+                            "issue": f"{field_name}_disabled",
+                        }
+                    )
+
+        for mav, user in tracked_rows:
+            if user.username.casefold() not in expected_by_username:
+                issues.append(
+                    {
+                        "severity": "warn",
+                        "username": user.username,
+                        "slug": mav.slug,
+                        "issue": "extra_tracked_author_not_in_seed",
+                    }
+                )
+            if mav.slug not in expected_by_slug:
+                issues.append(
+                    {
+                        "severity": "warn",
+                        "username": user.username,
+                        "slug": mav.slug,
+                        "issue": "extra_tracked_slug_not_in_seed",
+                    }
+                )
+
+        return {
+            "view": "tracked-author-audit",
+            "tracked_author_seed_count": len(TRACKED_AUTHOR_SEEDS),
+            "tracked_author_db_count": len(tracked_rows),
+            "ok": not any(issue["severity"] == "fail" for issue in issues),
+            "issues": issues,
+            "tracked_authors": [
+                {
+                    "username": user.username,
+                    "slug": mav.slug,
+                    "published": bool(mav.published),
+                    "sort_order": mav.sort_order,
+                }
+                for mav, user in tracked_rows
+            ],
         }
     finally:
         session.close()

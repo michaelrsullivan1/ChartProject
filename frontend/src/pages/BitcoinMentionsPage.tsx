@@ -9,9 +9,7 @@ import {
   type HoverSnapshot,
 } from "../components/BitcoinMentionsHistoryChart";
 import { DashboardLoadingState } from "../components/DashboardLoadingState";
-import {
-  type BitcoinMentionsDefinition,
-} from "../config/bitcoinMentions";
+import { type BitcoinMentionsDefinition } from "../lib/authorDefinitions";
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -69,7 +67,7 @@ export function BitcoinMentionsPage({
     async function load() {
       try {
         const detailResponse = await fetchAuthorBitcoinMentions(
-          bitcoinMentions.username,
+          bitcoinMentions.apiBasePath,
           "bitcoin",
           fixedBuyAmountUsd,
         );
@@ -113,7 +111,7 @@ export function BitcoinMentionsPage({
     return () => {
       cancelled = true;
     };
-  }, [bitcoinMentions.username]);
+  }, [bitcoinMentions.apiBasePath]);
 
   return (
     <section className="content-stack bitcoin-mentions-page">

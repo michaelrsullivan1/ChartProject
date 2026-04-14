@@ -7,6 +7,7 @@ export type AuthorRegistryDefinition = {
 export type BitcoinMentionsRegistryDefinition = {
   slug: string;
   username: string;
+  api_base_path: string;
 };
 
 export type AuthorRegistryResponse = {
@@ -57,6 +58,7 @@ export type AuthorRegistryResponse = {
       bitcoin_mentions: {
         enabled: boolean;
         ready: boolean;
+        api_base_path: string;
       };
     };
   }>;

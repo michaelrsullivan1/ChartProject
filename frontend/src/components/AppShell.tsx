@@ -7,19 +7,19 @@ import {
 import {
   type BitcoinMentionsDefinition,
   getBitcoinMentionsLabel,
-} from "../config/bitcoinMentions";
+} from "../lib/authorDefinitions";
 import {
   type HeatmapDefinition,
   getHeatmapLabel,
-} from "../config/heatmaps";
+} from "../lib/authorDefinitions";
 import {
   type MoodDefinition,
   getMoodLabel,
-} from "../config/moods";
+} from "../lib/authorDefinitions";
 import {
   type OverviewDefinition,
   getOverviewLabel,
-} from "../config/overviews";
+} from "../lib/authorDefinitions";
 
 type AppShellProps = {
   mode: "home" | "dashboard";

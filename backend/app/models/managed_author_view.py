@@ -13,6 +13,7 @@ class ManagedAuthorView(TimestampMixin, Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), unique=True, nullable=False, index=True)
     slug: Mapped[str] = mapped_column(String(128), unique=True, nullable=False, index=True)
+    is_tracked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
     published: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
     sort_order: Mapped[int | None] = mapped_column(Integer, index=True)
 

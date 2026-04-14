@@ -18,7 +18,7 @@ import {
 import { ChartControlSelect } from "../components/ChartControlSelect";
 import { DashboardLoadingState } from "../components/DashboardLoadingState";
 import { getMoodDescriptionByLabel } from "../config/aggregateMoods";
-import { type MoodDefinition } from "../config/moods";
+import { type MoodDefinition } from "../lib/authorDefinitions";
 import { buildMoodDeviationSeries } from "../lib/moods";
 import { type SentimentMode } from "../lib/sentiment";
 

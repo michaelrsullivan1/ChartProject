@@ -429,6 +429,21 @@ def managed_author_heatmap_top_liked_tweets(
     )
 
 
+@router.get("/authors/{slug}/bitcoin-mentions")
+def managed_author_bitcoin_mentions(
+    slug: str,
+    phrase: str = Query(default="bitcoin"),
+    buy_amount_usd: float = Query(default=10.0, gt=0),
+) -> dict[str, object]:
+    context = resolve_managed_author_by_slug(slug, require_published=True)
+    return _build_author_bitcoin_mentions(
+        username=context.username,
+        phrase=phrase,
+        buy_amount_usd=buy_amount_usd,
+        view_name=f"{context.slug}-bitcoin-mentions",
+    )
+
+
 @router.get("/michael-saylor-overview")
 def michael_saylor_overview(
     granularity: str = Query(default="week", pattern="^(day|week)$"),

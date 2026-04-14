@@ -113,17 +113,16 @@ export type BitcoinMentionsLeaderboardResponse = {
 };
 
 export async function fetchAuthorBitcoinMentions(
-  username: string,
+  apiBasePath: string,
   phrase = "bitcoin",
   buyAmountUsd = 10,
   signal?: AbortSignal,
 ): Promise<AuthorBitcoinMentionsResponse> {
   const params = new URLSearchParams({
-    username,
     phrase,
     buy_amount_usd: String(buyAmountUsd),
   });
-  const response = await fetch(`/api/views/bitcoin-mentions?${params.toString()}`, { signal });
+  const response = await fetch(`${apiBasePath}?${params.toString()}`, { signal });
 
   if (!response.ok) {
     throw new Error(`Bitcoin mentions request failed with status ${response.status}`);
