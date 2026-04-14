@@ -115,6 +115,17 @@ function getRouteFromHash(hash: string, definitions: RouteDefinitions): AppRoute
     return mood ? { kind: "mood", mood } : { kind: "not-found" };
   }
 
+  if (hash === "#/narratives" || hash === "#/heatmaps") {
+    const heatmap = definitions.heatmaps[0];
+    return heatmap ? { kind: "heatmap", heatmap } : { kind: "not-found" };
+  }
+
+  if (hash.startsWith("#/narratives/")) {
+    const slug = decodeURIComponent(hash.slice("#/narratives/".length));
+    const heatmap = findBySlug(definitions.heatmaps, slug);
+    return heatmap ? { kind: "heatmap", heatmap } : { kind: "not-found" };
+  }
+
   if (hash.startsWith("#/heatmaps/")) {
     const slug = decodeURIComponent(hash.slice("#/heatmaps/".length));
     const heatmap = findBySlug(definitions.heatmaps, slug);

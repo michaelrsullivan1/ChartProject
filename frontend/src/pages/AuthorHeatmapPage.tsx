@@ -172,7 +172,7 @@ export function AuthorHeatmapPage({
 
         setPayload(null);
         setError(
-          loadError instanceof Error ? loadError.message : "Unknown heat map fetch failure",
+          loadError instanceof Error ? loadError.message : "Unknown narrative fetch failure",
         );
       } finally {
         if (!cancelled) {
@@ -558,7 +558,7 @@ export function AuthorHeatmapPage({
           </section>
 
           <div
-            aria-label="Resize heat map sections"
+            aria-label="Resize narrative sections"
             aria-orientation="horizontal"
             aria-valuemax={100}
             aria-valuemin={0}
@@ -575,7 +575,7 @@ export function AuthorHeatmapPage({
             onPointerDown={beginHeatmapResize}
             role="separator"
             tabIndex={0}
-            title="Drag to resize the heat map and pinned phrase sections"
+            title="Drag to resize the narrative and pinned phrase sections"
           >
             <span className="heatmap-resize-grip" aria-hidden="true">
               <span />
@@ -923,7 +923,7 @@ function KeywordTrendChart({
           <div className="heatmap-trend-copy">
             <p className="chart-control-eyebrow">Pinned Phrases</p>
             <p className="heatmap-selection-title">
-              {activePhrase ? formatPhraseLabel(activePhrase) : "Pin a phrase from the heat map"}
+              {activePhrase ? formatPhraseLabel(activePhrase) : "Pin a phrase from the narrative"}
             </p>
             <div className="heatmap-pin-list">
             {pinnedPhrases.map((phrase, index) => (
@@ -991,7 +991,7 @@ function KeywordTrendChart({
           </div>
         ) : null}
         {pinnedPhrases.length === 0 ? (
-          <div className="heatmap-grid-empty">Click a phrase in the heat map to pin it here.</div>
+          <div className="heatmap-grid-empty">Click a phrase in the narrative to pin it here.</div>
         ) : null}
         {pinnedPhrases.length > 0 && isLoading && visibleTrendPayloads.length === 0 ? (
           <div className="heatmap-grid-empty">Loading pinned phrase trends...</div>
@@ -1030,7 +1030,7 @@ function PhraseTweetPanel({
 
       {!activePhrase ? (
         <p className="top-tweet-status">
-          Pin a phrase in the heat map to inspect matching tweets.
+          Pin a phrase in the narrative to inspect matching tweets.
         </p>
       ) : null}
 

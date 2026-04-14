@@ -935,7 +935,7 @@ textarea {
   display: grid;
   gap: 8px;
   margin-top: 10px;
-  max-height: min(52vh, 420px);
+  max-height: min(60vh, 500px);
   overflow-y: auto;
   padding-right: 4px;
   scrollbar-gutter: stable;

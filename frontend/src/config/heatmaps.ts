@@ -222,7 +222,7 @@ export function findHeatmapBySlug(slug: string): HeatmapDefinition | undefined {
 }
 
 export function getHeatmapHash(slug: string): string {
-  return `#/heatmaps/${slug}`;
+  return `#/narratives/${slug}`;
 }
 
 export function getHeatmapLabel(heatmap: HeatmapDefinition): string {
@@ -234,5 +234,5 @@ export function getHeatmapLabel(heatmap: HeatmapDefinition): string {
 }
 
 export function getHeatmapTitle(heatmap: HeatmapDefinition): string {
-  return `${getHeatmapLabel(heatmap)} Heat Map`;
+  return `${getHeatmapLabel(heatmap)} Narrative`;
 }

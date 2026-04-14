@@ -32,8 +32,6 @@ const chartCurrencyFormatter = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 0,
 });
 
-const integerFormatter = new Intl.NumberFormat("en-US");
-
 const fullDateFormatter = new Intl.DateTimeFormat("en-US", {
   month: "short",
   day: "numeric",
@@ -313,13 +311,7 @@ function AggregateMoodChartSection({
   const currentMoodDeviation = getCurrentMoodDeviation(moodDeviationSeries, moodPayload.range.end);
   const moodExtremes = getMoodExtremes(moodDeviationSeries, moodPayload.range.end);
   const selectedMoodSummary = moodPayload.summary.moods[selectedMoodLabel];
-  const cohortUserCount =
-    moodPayload.summary.cohort_user_count ?? moodPayload.cohort?.user_count ?? 0;
   const cohortSelection = moodPayload.cohort?.selection ?? payload.cohort?.selection;
-  const selectedCohortName =
-    cohortSelection?.type === "tag"
-      ? (cohortSelection.tag_name ?? formatMoodLabel(cohortSelection.tag_slug ?? ""))
-      : "All tracked users";
   const pinnedCohortOption =
     pinnedCohortKey === null
       ? null
@@ -330,18 +322,6 @@ function AggregateMoodChartSection({
   return (
     <>
       <div className="metric-strip metric-strip-dashboard">
-        <article className="metric-card">
-          <p className="metric-label">Tracked users</p>
-          <p className="metric-value">{integerFormatter.format(cohortUserCount)}</p>
-          <p className="metric-note">{selectedCohortName}</p>
-        </article>
-        <article className="metric-card">
-          <p className="metric-label">Analyzed posts</p>
-          <p className="metric-value">
-            {integerFormatter.format(moodPayload.summary.scored_tweet_count)}
-          </p>
-          <p className="metric-note">Scored posts across the tracked cohort</p>
-        </article>
         <article className="metric-card">
           <p className="metric-label">Tracked mood</p>
           <p className="metric-value">{formatMoodLabel(selectedMoodLabel)}</p>

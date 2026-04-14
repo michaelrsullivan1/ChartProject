@@ -249,7 +249,7 @@ export function AppShell({
             }
             type="button"
           >
-            Heat Maps
+            Narratives
           </button>
           {openMenu === "heatmaps" ? (
             <div
