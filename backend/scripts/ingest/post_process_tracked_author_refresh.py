@@ -45,6 +45,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
+    overall_started_at = datetime.now(UTC).replace(microsecond=0)
     fetch_results_path = Path(args.fetch_results).expanduser().resolve()
     fetch_results_payload = load_json_payload(fetch_results_path)
     if fetch_results_payload.get("view") != "tracked-author-refresh-fetch-results":
@@ -104,6 +105,7 @@ def main() -> None:
     payload = {
         "view": "tracked-author-refresh-post-process-results",
         "generated_at": datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+        "started_at": overall_started_at.isoformat().replace("+00:00", "Z"),
         "fetch_results_path": str(fetch_results_path),
         "dry_run": args.dry_run,
         "eligible_count": len(eligible_items),
@@ -111,6 +113,9 @@ def main() -> None:
         "failure_count": failure_count,
         "results": results,
     }
+    overall_completed_at = datetime.now(UTC).replace(microsecond=0)
+    payload["completed_at"] = overall_completed_at.isoformat().replace("+00:00", "Z")
+    payload["elapsed_seconds"] = int((overall_completed_at - overall_started_at).total_seconds())
     write_json_payload(results_path, payload)
 
     print(f"\nTracked author refresh post-process results written to {results_path}")
@@ -119,6 +124,7 @@ def main() -> None:
             "eligible_count": payload["eligible_count"],
             "success_count": payload["success_count"],
             "failure_count": payload["failure_count"],
+            "elapsed": _format_elapsed_seconds(int(payload["elapsed_seconds"])),
         }
     )
     failed = [item for item in results if item["status"] == "failed"]
@@ -126,6 +132,16 @@ def main() -> None:
         print("\nFailed users:")
         for item in failed:
             print(f"  - {item['username']} (exit_code={item['exit_code']})")
+
+
+def _format_elapsed_seconds(total_seconds: int) -> str:
+    minutes, seconds = divmod(max(total_seconds, 0), 60)
+    hours, minutes = divmod(minutes, 60)
+    if hours:
+        return f"{hours}h {minutes}m {seconds}s"
+    if minutes:
+        return f"{minutes}m {seconds}s"
+    return f"{seconds}s"
 
 
 if __name__ == "__main__":
