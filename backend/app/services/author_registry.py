@@ -773,7 +773,11 @@ def resolve_managed_author_by_slug(
             raise RuntimeError(f"No managed author view found for slug={normalized_slug!r}.")
         managed_author, user = row
 
-        starts = _resolve_analysis_starts(session, managed_author_view=managed_author, user_id=int(user.id))
+        default_start = _load_first_tweet_at(session, user_id=int(user.id))
+        starts = _resolve_analysis_starts(
+            managed_author_view=managed_author,
+            default_start=default_start,
+        )
         return ManagedAuthorContext(
             user_id=int(user.id),
             username=user.username,
