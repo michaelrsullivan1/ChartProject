@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 import json
 from pathlib import Path
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.db.session import SessionLocal
@@ -185,6 +185,7 @@ def load_tracked_author_by_username(
 def summarize_refresh_fetch_runs(
     session: Session,
     *,
+    username: str,
     target_user_platform_id: str,
     planned_since: datetime,
     planned_until: datetime,
@@ -196,10 +197,15 @@ def summarize_refresh_fetch_runs(
             IngestionRun.endpoint_name == ADVANCED_SEARCH_ENDPOINT_NAME,
             IngestionRun.status == "completed",
             IngestionRun.import_type == "refresh",
-            IngestionRun.target_user_platform_id == target_user_platform_id,
             IngestionRun.started_at >= started_at_floor,
             IngestionRun.requested_since >= planned_since,
             IngestionRun.requested_until <= planned_until,
+            or_(
+                IngestionRun.target_user_platform_id == target_user_platform_id,
+                func.lower(IngestionRun.notes).like(
+                    _build_advanced_search_notes_username_like(username)
+                ),
+            ),
         )
         .order_by(IngestionRun.requested_since.asc(), IngestionRun.id.asc())
     ).scalars().all()
@@ -235,9 +241,7 @@ def _load_latest_completed_requested_until(
             IngestionRun.endpoint_name == ADVANCED_SEARCH_ENDPOINT_NAME,
             IngestionRun.status == "completed",
             IngestionRun.requested_until.is_not(None),
-            func.lower(IngestionRun.notes).like(
-                f"%query 'from:{username.strip().lower()} since:%"
-            ),
+            func.lower(IngestionRun.notes).like(_build_advanced_search_notes_username_like(username)),
         )
     )
 
@@ -280,6 +284,10 @@ def _build_fetch_command_preview(
     if skip_user_info:
         command.append("--skip-user-info")
     return command
+
+
+def _build_advanced_search_notes_username_like(username: str) -> str:
+    return f"%query 'from:{username.strip().lower()}%since:%"
 
 
 def _to_filename_timestamp(value: datetime) -> str:

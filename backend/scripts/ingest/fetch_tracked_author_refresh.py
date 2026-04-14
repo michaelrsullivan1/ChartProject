@@ -112,6 +112,7 @@ def main() -> None:
                     )
                     fetch_summary = summarize_refresh_fetch_runs(
                         session,
+                        username=username,
                         target_user_platform_id=user.platform_user_id,
                         planned_since=parse_iso_timestamp(str(item["since"])),
                         planned_until=parse_iso_timestamp(str(item["until"])),

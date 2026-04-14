@@ -82,6 +82,9 @@ Important behavior:
 
 - this step only fetches raw data
 - user info refresh is skipped by default unless the plan was created with `--refresh-user-info`
+- fetch-results summarization supports both cases:
+  - runs linked by `target_user_platform_id`
+  - runs created with `--skip-user-info`, matched back by username/query notes
 - the fetch-results manifest records which authors succeeded and how many new raw tweets were archived
 
 ## Step 3: Post-Process
@@ -110,6 +113,17 @@ Important behavior:
 - validation remains mandatory because it is part of `run-user-post-ingest-batch.sh`
 - authors with zero new raw tweets are skipped automatically
 
+What `post-process` runs per eligible author:
+
+- `python3 backend/scripts/normalize/normalize_archived_user.py --username <handle>`
+- `python3 backend/scripts/validate/validate_normalized_user.py --username <handle>`
+- `python3 backend/scripts/enrich/score_tweet_sentiment.py --username <handle>`
+- `python3 backend/scripts/enrich/score_tweet_moods.py --username <handle>`
+- `python3 backend/scripts/enrich/extract_tweet_keywords.py --username <handle> --analysis-start <resolved-first-normalized-tweet>`
+- `python3 backend/scripts/views/sync_managed_author_view.py --username <handle> --published`
+
+It does **not** fetch new raw tweets and it does **not** rebuild snapshots.
+
 ## Manual Full-History Catch-Up
 
 If the plan manifest reports a tracked author as requiring manual full-history ingest first, run the normal history command manually for that author:
@@ -131,6 +145,31 @@ Then rerun the tracked-author refresh planner.
 - `fetch` and `post-process` are safe to rerun from their manifest files.
 - The refresh manifests are stored in-repo under `data/exports/refresh-plans/`.
 - Legacy hardcoded backend author routes still exist for compatibility, but the frontend author definitions no longer depend on the removed static config files.
+
+## Troubleshooting Older Fetch-Results Manifests
+
+If you created a fetch-results manifest before the fetch summarizer fix, you might see:
+
+- `success_count` looks correct
+- but every result has `completed_window_run_count = 0`
+- `run_ids = []`
+- `new_raw_tweets = 0`
+
+That means the underlying fetch subprocesses likely succeeded, but the manifest failed to correlate the created ingestion runs back to the planned authors.
+
+Repair the manifest without calling the provider again:
+
+```bash
+python3 backend/scripts/ingest/repair_tracked_author_refresh_fetch_results.py \
+  --fetch-results data/exports/refresh-plans/<plan-name>.fetch-results.json
+```
+
+Then use the repaired manifest for post-process:
+
+```bash
+python3 backend/scripts/ingest/post_process_tracked_author_refresh.py \
+  --fetch-results data/exports/refresh-plans/<plan-name>.fetch-results.repaired.json
+```
 
 ## Author Registry Cache
 

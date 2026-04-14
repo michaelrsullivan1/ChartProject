@@ -355,6 +355,9 @@ For each planned author:
   - `window_months = 1`
   - `page_delay_seconds = 0.025` unless overridden later
 - skip user-info refresh by default for v1
+- fetch-results summarization must still work when user-info refresh is skipped
+  - first prefer matching completed runs by `target_user_platform_id`
+  - fall back to matching advanced-search runs by username/query notes when `target_user_platform_id` is null
 
 The fetch command should not automatically run normalization or enrichment.
 
@@ -442,6 +445,8 @@ Only include authors where:
 
 This is intentionally similar to the existing post-ingest batch flow, but scoped to authors that actually changed.
 
+It should reuse `./scripts/run-user-post-ingest-batch.sh --username <handle>` and should not rerun raw fetches or snapshot rebuilds.
+
 #### Results Path
 
 Recommended path pattern:
@@ -470,6 +475,7 @@ Recommended handling:
 - planner targets backend tracked authors only
 - planner excludes authors without prior successful advanced-search runs and reports them
 - fetch continues after per-author failures
+- fetch-results correctly summarize created runs whether or not user-info refresh was skipped
 - post-process runs only for successful fetches with nonzero new raw tweets
 - validation runs for every processed author
 
