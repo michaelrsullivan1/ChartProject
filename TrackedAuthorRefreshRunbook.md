@@ -100,7 +100,11 @@ What it does:
 
 - reads the fetch-results manifest
 - selects only authors with successful fetches and nonzero new raw tweets
-- runs `./scripts/run-user-post-ingest-batch.sh --username <handle>` for each eligible author
+- runs normalize and validation per eligible author
+- runs sentiment scoring in one batch across preprocess-ready authors
+- runs mood scoring in one batch across preprocess-ready authors
+- runs keyword extraction and managed-author sync per successful author
+- rebuilds the author-registry snapshot once after successful syncs
 - continues if one author fails
 - writes a post-process results manifest next to the fetch-results file
 
@@ -127,6 +131,7 @@ What `post-process` runs:
 - `python3 backend/scripts/cache/rebuild_author_registry_snapshot.py`
 
 It does **not** fetch new raw tweets and it does **not** rebuild snapshots.
+It does **not** fetch new raw tweets and it does **not** rebuild aggregate mood snapshots.
 
 ## Manual Full-History Catch-Up
 
@@ -148,7 +153,8 @@ Then rerun the tracked-author refresh planner.
 
 - `fetch` and `post-process` are safe to rerun from their manifest files.
 - The refresh manifests are stored in-repo under `data/exports/refresh-plans/`.
-- Legacy hardcoded backend author routes still exist for compatibility, but the frontend author definitions no longer depend on the removed static config files.
+- Author-registry snapshot refresh is included in post-process.
+- Aggregate mood snapshots still require a separate rebuild command.
 
 ## Troubleshooting Older Fetch-Results Manifests
 
@@ -174,6 +180,17 @@ Then use the repaired manifest for post-process:
 python3 backend/scripts/ingest/post_process_tracked_author_refresh.py \
   --fetch-results data/exports/refresh-plans/<plan-name>.fetch-results.repaired.json
 ```
+
+## First Refresh Run Checklist
+
+For a first refresh run in a new environment or after script changes:
+
+- run `plan`
+- run `fetch`
+- inspect fetch-results summary and verify `run_ids` and `new_raw_tweets` look reasonable
+- if all users show `run_ids = []` and `new_raw_tweets = 0`, run the repair script above
+- run `post-process` using the repaired manifest when needed
+- rebuild aggregate snapshots after post-process
 
 ## Author Registry Cache
 

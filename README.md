@@ -409,6 +409,42 @@ Current local BTC coverage begins on `2014-12-01T00:00:00Z` because that is wher
 The raw ingest scripts live under [backend/scripts/ingest](/Users/michaelsullivan/Code/ChartProject/backend/scripts/ingest).
 
 For the current one-command-at-a-time operator workflow for ingesting a single user, see [TweetIngestionRunbook.md](/Users/michaelsullivan/Code/ChartProject/TweetIngestionRunbook.md).
+For tracked-author batch refreshes, see [TrackedAuthorRefreshRunbook.md](/Users/michaelsullivan/Code/ChartProject/TrackedAuthorRefreshRunbook.md).
+
+### Tracked-author refresh workflow
+
+Use this sequence for tracked-author refreshes:
+
+1. plan
+2. fetch
+3. post-process
+
+Commands:
+
+```bash
+python3 backend/scripts/ingest/plan_tracked_author_refresh.py
+python3 backend/scripts/ingest/fetch_tracked_author_refresh.py --plan data/exports/refresh-plans/<plan-name>.json
+python3 backend/scripts/ingest/post_process_tracked_author_refresh.py --fetch-results data/exports/refresh-plans/<plan-name>.fetch-results.json
+```
+
+If an older fetch-results manifest reports all users with `run_ids = []` and `new_raw_tweets = 0`, repair it before post-process:
+
+```bash
+python3 backend/scripts/ingest/repair_tracked_author_refresh_fetch_results.py \
+  --fetch-results data/exports/refresh-plans/<plan-name>.fetch-results.json
+python3 backend/scripts/ingest/post_process_tracked_author_refresh.py \
+  --fetch-results data/exports/refresh-plans/<plan-name>.fetch-results.repaired.json
+```
+
+Cache responsibilities after refresh:
+
+- post-process refreshes the author-registry snapshot
+- aggregate mood snapshots still require:
+
+```bash
+cd backend
+python3 scripts/cache/rebuild_aggregate_snapshots.py --delete-stale
+```
 
 Before running any ingest, normalization, validation, or enrichment command:
 

@@ -58,6 +58,12 @@ I can do a similar thing here with mnav and see what numbers are getting thrown 
 
 Explain things like: "What is an OG" and "What is a pleb"... have this show up on the aggregate page when you are selecting these groups
 
+### Remove Tracked Authors Files
+
+I removed so much of this tracked author stuff so I have basically no mentions of the people I have in here in the codebase. But I still have them basically always sit out in this one file right here.
+
+`tracked_authors.py`
+
 
 
 
