@@ -54,6 +54,10 @@ I can sort by cohort and then look through the tweets and do price mentions and 
 I can do a similar thing here with mnav and see what numbers are getting thrown around and talked about for mnav generally. And this predictions, but which ones are talked about.
 
 
+### Add User Cohort Definitions 
+
+Explain things like: "What is an OG" and "What is a pleb"... have this show up on the aggregate page when you are selecting these groups
+
 
 
 
