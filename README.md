@@ -374,12 +374,9 @@ The current chart flow is registry-first for managed authors. Core endpoints:
 /api/user-settings/users/{user_id}/cohort-tags
 ```
 
-Legacy dedicated subject endpoints (for example `/api/views/michael-saylor-overview`) are still present during migration, but new users should be onboarded through registry-backed slug endpoints.
-
 Current behavior:
 
 - registry-backed slug routes support newly ingested users without manual route wiring
-- legacy dedicated routes remain for existing hardcoded subjects during migration
 - the chart endpoint supports `granularity=day` or `granularity=week`
 - the current frontend page requests `granularity=week`
 - tweet counts include all authored tweets, including replies and quote tweets
