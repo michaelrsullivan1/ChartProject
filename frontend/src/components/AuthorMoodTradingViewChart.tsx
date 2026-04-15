@@ -430,9 +430,9 @@ export function AuthorMoodTradingViewChart({
           <div className="chart-toggle-group" role="group" aria-label="Mood smoothing mode">
             {(
               [
-                ["weighted-4w", "4W weighted"],
-                ["weighted-8w", "8W weighted"],
-                ["weighted-12w", "12W weighted"],
+                ["weighted-4w", "4W WMA"],
+                ["weighted-8w", "8W WMA"],
+                ["weighted-12w", "12W WMA"],
                 ["raw", "Raw"],
               ] as const
             ).map(([mode, label]) => (
@@ -447,8 +447,7 @@ export function AuthorMoodTradingViewChart({
             ))}
           </div>
           <p className="chart-control-note">
-            Smoothed modes use trailing weekly averages weighted by {smoothingWeightLabel}, so
-            lower-coverage weeks carry less influence.
+            WMA modes weight trailing weekly averages by {smoothingWeightLabel}.
           </p>
         </div>
         {moodDefinition ? (

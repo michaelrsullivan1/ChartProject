@@ -369,7 +369,7 @@ function AggregateMoodChartSection({
           payload={chartPayload}
           moodPayload={moodPayload}
           comparisonMoodPayload={comparisonMoodPayload}
-          comparisonMoodLabel={comparisonCohortName}
+          comparisonMoodLabel={null}
           comparisonMoodColor={COMPARISON_LINE_COLOR}
           showWatermark={showWatermark}
           showMoodSelector={false}

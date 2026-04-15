@@ -65,5 +65,8 @@ I removed so much of this tracked author stuff so I have basically no mentions o
 `tracked_authors.py`
 
 
+### Far Back Data Pruning
+
+When I go far back in the data set and some of these users Some of the lines get really crazy because people have much less tweets during specific periods I think I should try to clean this up a little bit Both for aggregates and individuals and try to call the data and make it a little bit better formatted
 
 
