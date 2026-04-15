@@ -447,6 +447,13 @@ This is intentionally similar to the existing post-ingest batch flow, but scoped
 
 It should reuse `./scripts/run-user-post-ingest-batch.sh --username <handle>` and should not rerun raw fetches or snapshot rebuilds.
 
+Optimization note for tracked refresh batches:
+
+- normalization and validation may still run per user
+- sentiment scoring should batch all preprocess-ready usernames into one invocation so the model loads once
+- mood scoring should batch all preprocess-ready usernames into one invocation so the model loads once
+- managed author rows may sync per user, but the public author-registry snapshot should rebuild once after the full batch
+
 #### Results Path
 
 Recommended path pattern:

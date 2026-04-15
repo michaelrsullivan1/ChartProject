@@ -63,6 +63,7 @@ class SyncManagedAuthorViewRequest:
     username: str
     published: bool = True
     ensure_analysis_starts: bool = True
+    rebuild_snapshot: bool = True
 
 
 @dataclass(slots=True)
@@ -456,7 +457,8 @@ def sync_managed_author_view_for_username(
 
         session.commit()
         session.refresh(existing)
-        rebuild_public_author_registry_snapshot(session_factory=session_factory)
+        if request.rebuild_snapshot:
+            rebuild_public_author_registry_snapshot(session_factory=session_factory)
 
         default_start = _load_first_tweet_at(session, user_id=int(user.id))
         readiness = _load_author_readiness(session, user_id=int(user.id))

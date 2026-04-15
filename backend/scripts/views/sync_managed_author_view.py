@@ -37,6 +37,12 @@ def parse_args() -> argparse.Namespace:
         default=True,
         help="Populate missing per-view analysis starts from the first canonical tweet timestamp.",
     )
+    parser.add_argument(
+        "--rebuild-snapshot",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Rebuild the public author-registry snapshot after syncing this author.",
+    )
     return parser.parse_args()
 
 
@@ -47,6 +53,7 @@ def main() -> None:
             username=args.username,
             published=args.published,
             ensure_analysis_starts=args.ensure_analysis_starts,
+            rebuild_snapshot=args.rebuild_snapshot,
         )
     )
     pprint(payload)

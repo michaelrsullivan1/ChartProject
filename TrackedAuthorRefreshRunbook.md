@@ -112,15 +112,19 @@ Important behavior:
 
 - validation remains mandatory because it is part of `run-user-post-ingest-batch.sh`
 - authors with zero new raw tweets are skipped automatically
+- the tracked refresh post-process batches sentiment scoring across all preprocess-ready users in one command
+- the tracked refresh post-process batches mood scoring across all preprocess-ready users in one command
+- managed author rows are synced per user, but the public author-registry snapshot is rebuilt once at the end
 
-What `post-process` runs per eligible author:
+What `post-process` runs:
 
 - `python3 backend/scripts/normalize/normalize_archived_user.py --username <handle>`
 - `python3 backend/scripts/validate/validate_normalized_user.py --username <handle>`
-- `python3 backend/scripts/enrich/score_tweet_sentiment.py --username <handle>`
-- `python3 backend/scripts/enrich/score_tweet_moods.py --username <handle>`
+- `python3 backend/scripts/enrich/score_tweet_sentiment.py --username <all preprocess-ready handles...>`
+- `python3 backend/scripts/enrich/score_tweet_moods.py --username <all preprocess-ready handles...>`
 - `python3 backend/scripts/enrich/extract_tweet_keywords.py --username <handle> --analysis-start <resolved-first-normalized-tweet>`
-- `python3 backend/scripts/views/sync_managed_author_view.py --username <handle> --published`
+- `python3 backend/scripts/views/sync_managed_author_view.py --username <handle> --published --no-rebuild-snapshot`
+- `python3 backend/scripts/cache/rebuild_author_registry_snapshot.py`
 
 It does **not** fetch new raw tweets and it does **not** rebuild snapshots.
 
