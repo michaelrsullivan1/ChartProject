@@ -32,6 +32,12 @@ def parse_args() -> argparse.Namespace:
         help="Whether the author should be published in the registry output.",
     )
     parser.add_argument(
+        "--tracked",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Whether the author should be tracked in the public registry output.",
+    )
+    parser.add_argument(
         "--ensure-analysis-starts",
         action=argparse.BooleanOptionalAction,
         default=True,
@@ -52,6 +58,7 @@ def main() -> None:
         SyncManagedAuthorViewRequest(
             username=args.username,
             published=args.published,
+            tracked=args.tracked,
             ensure_analysis_starts=args.ensure_analysis_starts,
             rebuild_snapshot=args.rebuild_snapshot,
         )

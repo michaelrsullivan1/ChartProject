@@ -62,6 +62,7 @@ class UpdateManagedAuthorViewRequest:
 class SyncManagedAuthorViewRequest:
     username: str
     published: bool = True
+    tracked: bool = True
     ensure_analysis_starts: bool = True
     rebuild_snapshot: bool = True
 
@@ -441,11 +442,14 @@ def sync_managed_author_view_for_username(
             existing = ManagedAuthorView(
                 user_id=user.id,
                 slug=slug,
-                is_tracked=False,
+                is_tracked=request.tracked,
                 published=request.published,
             )
             created = True
             session.add(existing)
+
+        existing.published = request.published
+        existing.is_tracked = request.tracked
 
         if request.ensure_analysis_starts:
             if existing.overview_analysis_start is None:
