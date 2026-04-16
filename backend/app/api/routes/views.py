@@ -10,6 +10,12 @@ from app.services.aggregate_mood_view import (
     build_cached_aggregate_mood_overview,
     build_cached_aggregate_mood_view,
 )
+from app.services.aggregate_narrative_view import (
+    AggregateNarrativeCohortsRequest,
+    AggregateNarrativeViewRequest,
+    build_cached_aggregate_narrative_cohorts,
+    build_cached_aggregate_narrative_view,
+)
 from app.services.author_bitcoin_mentions_view import (
     AuthorBitcoinMentionsViewRequest,
     BitcoinMentionsLeaderboardRequest,
@@ -187,6 +193,32 @@ def _build_aggregate_market_series(
         AggregateMoodMarketSeriesRequest(
             range_start=range_start,
             range_end=range_end,
+            view_name=view_name,
+        )
+    )
+
+
+def _build_aggregate_narratives(
+    *,
+    view_name: str,
+    granularity: str,
+    cohort_tag: str | None = None,
+) -> dict[str, object]:
+    return build_cached_aggregate_narrative_view(
+        AggregateNarrativeViewRequest(
+            granularity=granularity,
+            cohort_tag_slug=cohort_tag,
+            view_name=view_name,
+        )
+    )
+
+
+def _build_aggregate_narratives_cohorts(
+    *,
+    view_name: str,
+) -> dict[str, object]:
+    return build_cached_aggregate_narrative_cohorts(
+        AggregateNarrativeCohortsRequest(
             view_name=view_name,
         )
     )
@@ -498,6 +530,25 @@ def aggregate_moods_cohorts(
     return _build_aggregate_moods_cohorts(
         view_name="aggregate-moods-cohorts",
         model_key=model_key,
+    )
+
+
+@router.get("/aggregate-narratives")
+def aggregate_narratives(
+    granularity: str = Query(default="week", pattern="^(week)$"),
+    cohort_tag: str | None = Query(default=None),
+) -> dict[str, object]:
+    return _build_aggregate_narratives(
+        view_name="aggregate-narratives",
+        granularity=granularity,
+        cohort_tag=cohort_tag,
+    )
+
+
+@router.get("/aggregate-narratives/cohorts")
+def aggregate_narratives_cohorts() -> dict[str, object]:
+    return _build_aggregate_narratives_cohorts(
+        view_name="aggregate-narratives-cohorts",
     )
 
 

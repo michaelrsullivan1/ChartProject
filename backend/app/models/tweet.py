@@ -33,3 +33,6 @@ class Tweet(TimestampMixin, Base):
     sentiment_scores: Mapped[list["TweetSentimentScore"]] = relationship(back_populates="tweet")
     mood_scores: Mapped[list["TweetMoodScore"]] = relationship(back_populates="tweet")
     keywords: Mapped[list["TweetKeyword"]] = relationship(back_populates="tweet")
+    narrative_matches: Mapped[list["TweetNarrativeMatch"]] = relationship(
+        back_populates="tweet"
+    )

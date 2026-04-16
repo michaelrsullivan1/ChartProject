@@ -95,6 +95,7 @@ def main() -> None:
             dry_run=True,
             eligible_count=len(eligible_items),
             author_registry_snapshot_rebuild=None,
+            aggregate_narrative_snapshot_rebuild=None,
         )
         write_json_payload(results_path, payload)
         _print_summary(results_path=results_path, payload=payload)
@@ -230,13 +231,32 @@ def main() -> None:
             _mark_failed(result, failed_step="sync_managed_author_view", exit_code=sync_exit_code)
             continue
 
+        narrative_exit_code = _run_command(
+            [
+                "python3",
+                "backend/scripts/enrich/sync_managed_narrative_matches.py",
+                "--username",
+                username,
+            ]
+        )
+        result["sync_managed_narrative_matches_exit_code"] = narrative_exit_code
+        if narrative_exit_code != 0:
+            _mark_failed(
+                result,
+                failed_step="sync_managed_narrative_matches",
+                exit_code=narrative_exit_code,
+            )
+            continue
+
         result["keywords_extracted"] = True
         result["managed_author_synced"] = True
+        result["managed_narratives_synced"] = True
         result["status"] = "completed"
         result["completed_at"] = _to_iso(datetime.now(UTC))
         synced_usernames.append(username)
 
     author_registry_snapshot_rebuild: dict[str, object] | None = None
+    aggregate_narrative_snapshot_rebuild: dict[str, object] | None = None
     if synced_usernames:
         print(
             f"\nRebuilding author registry snapshot once after syncing {len(synced_usernames)} users"
@@ -253,6 +273,21 @@ def main() -> None:
             "synced_user_count": len(synced_usernames),
         }
 
+        print(
+            f"Rebuilding aggregate narrative snapshots once after syncing {len(synced_usernames)} users"
+        )
+        aggregate_narrative_snapshot_exit_code = _run_command(
+            [
+                "python3",
+                "backend/scripts/cache/rebuild_aggregate_narrative_snapshots.py",
+            ]
+        )
+        aggregate_narrative_snapshot_rebuild = {
+            "status": "completed" if aggregate_narrative_snapshot_exit_code == 0 else "failed",
+            "exit_code": aggregate_narrative_snapshot_exit_code,
+            "synced_user_count": len(synced_usernames),
+        }
+
     payload = _build_payload(
         results_by_username=results_by_username,
         ordered_usernames=ordered_usernames,
@@ -261,6 +296,7 @@ def main() -> None:
         dry_run=False,
         eligible_count=len(eligible_items),
         author_registry_snapshot_rebuild=author_registry_snapshot_rebuild,
+        aggregate_narrative_snapshot_rebuild=aggregate_narrative_snapshot_rebuild,
     )
     write_json_payload(results_path, payload)
     _print_summary(results_path=results_path, payload=payload)
@@ -275,6 +311,7 @@ def _build_payload(
     dry_run: bool,
     eligible_count: int,
     author_registry_snapshot_rebuild: dict[str, object] | None,
+    aggregate_narrative_snapshot_rebuild: dict[str, object] | None,
 ) -> dict[str, object]:
     results = [results_by_username[username] for username in ordered_usernames]
     success_count = sum(1 for item in results if item.get("status") == "completed")
@@ -292,6 +329,7 @@ def _build_payload(
         "success_count": success_count,
         "failure_count": failure_count,
         "author_registry_snapshot_rebuild": author_registry_snapshot_rebuild,
+        "aggregate_narrative_snapshot_rebuild": aggregate_narrative_snapshot_rebuild,
         "results": results,
     }
 
@@ -307,6 +345,9 @@ def _print_summary(*, results_path: Path, payload: dict[str, object]) -> None:
     snapshot_rebuild = payload.get("author_registry_snapshot_rebuild")
     if isinstance(snapshot_rebuild, dict):
         summary["author_registry_snapshot_rebuild"] = snapshot_rebuild["status"]
+    aggregate_narrative_snapshot_rebuild = payload.get("aggregate_narrative_snapshot_rebuild")
+    if isinstance(aggregate_narrative_snapshot_rebuild, dict):
+        summary["aggregate_narrative_snapshot_rebuild"] = aggregate_narrative_snapshot_rebuild["status"]
     pprint(summary)
 
     failed = [item for item in payload["results"] if item.get("status") == "failed"]

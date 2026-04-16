@@ -21,7 +21,9 @@ Runs these steps in order for one user:
   5) score_tweet_moods
   6) extract_tweet_keywords
   7) sync_managed_author_view
-  8) rebuild_aggregate_snapshots (optional; default on)
+  8) sync_managed_narrative_matches
+  9) rebuild_aggregate_snapshots (optional; default on)
+ 10) rebuild_aggregate_narrative_snapshots (optional; default on)
 
 Notes:
   - This script intentionally does NOT run fetch_user_tweets_history.py.
@@ -178,9 +180,16 @@ run_step "7" "sync_managed_author_view" \
     --published \
     --tracked
 
+run_step "8" "sync_managed_narrative_matches" \
+  python3 backend/scripts/enrich/sync_managed_narrative_matches.py \
+    --username "$USERNAME"
+
 if [[ "$REBUILD_SNAPSHOTS" == "true" ]]; then
-  run_step "8" "rebuild_aggregate_snapshots" \
+  run_step "9" "rebuild_aggregate_snapshots" \
     python3 backend/scripts/cache/rebuild_aggregate_snapshots.py --delete-stale
+
+  run_step "10" "rebuild_aggregate_narrative_snapshots" \
+    python3 backend/scripts/cache/rebuild_aggregate_narrative_snapshots.py
 fi
 
 echo
@@ -188,4 +197,5 @@ echo "Post-ingest batch completed for username=${USERNAME}"
 if [[ "$REBUILD_SNAPSHOTS" == "false" ]]; then
   echo "Reminder: run snapshot rebuild separately when ready:"
   echo "  python3 backend/scripts/cache/rebuild_aggregate_snapshots.py --delete-stale"
+  echo "  python3 backend/scripts/cache/rebuild_aggregate_narrative_snapshots.py"
 fi

@@ -1411,6 +1411,14 @@ textarea {
   background: #c6bfb4;
 }
 
+.chart-swatch-narrative-primary {
+  background: #7af0b6;
+}
+
+.chart-swatch-narrative-comparison {
+  background: #c6bfb4;
+}
+
 .chart-caption {
   margin: 0;
   color: var(--muted);
@@ -2285,6 +2293,72 @@ textarea {
 .settings-mood-placeholder {
   display: grid;
   gap: 16px;
+}
+
+.settings-narrative-list {
+  display: grid;
+  gap: 12px;
+}
+
+.settings-narrative-card {
+  display: grid;
+  gap: 12px;
+  padding: 16px 18px;
+  border: 1px solid rgba(var(--line-rgb), 0.1);
+  border-radius: 18px;
+  background: rgba(var(--surface-0-rgb), 0.24);
+}
+
+.settings-narrative-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.settings-narrative-name,
+.settings-narrative-meta,
+.settings-narrative-phrase {
+  margin: 0;
+}
+
+.settings-narrative-name {
+  color: var(--text-primary);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.settings-narrative-meta {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.settings-narrative-phrase {
+  color: var(--text-primary);
+  font-size: 0.92rem;
+  word-break: break-word;
+}
+
+.settings-narrative-edit-row {
+  display: grid;
+  gap: 10px;
+}
+
+.settings-narrative-button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.settings-narrative-edit-button,
+.settings-narrative-cancel-button {
+  width: auto;
+}
+
+.settings-narrative-cancel-button {
+  padding: 10px 14px;
+  border-radius: 999px;
 }
 
 .settings-toggle-card {

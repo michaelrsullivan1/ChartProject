@@ -26,6 +26,7 @@ type AppShellProps = {
   dashboardTitle?: string;
   activeBitcoinMentionsSlug: string | null;
   activeAggregateMoodSlug: string | null;
+  activeAggregateNarratives: boolean;
   activeMoodSlug: string | null;
   activeOverviewSlug: string | null;
   activeHeatmapSlug: string | null;
@@ -37,6 +38,7 @@ type AppShellProps = {
   heatmaps: HeatmapDefinition[];
   onNavigateHome: () => void;
   onNavigateAggregateMood: (slug: string) => void;
+  onNavigateAggregateNarratives: () => void;
   onNavigateBitcoinMentions: (slug: string) => void;
   onNavigateMood: (slug: string) => void;
   onNavigateOverview: (slug: string) => void;
@@ -51,6 +53,7 @@ export function AppShell({
   dashboardTitle,
   activeBitcoinMentionsSlug,
   activeAggregateMoodSlug,
+  activeAggregateNarratives,
   activeMoodSlug,
   activeOverviewSlug,
   activeHeatmapSlug,
@@ -62,6 +65,7 @@ export function AppShell({
   heatmaps,
   onNavigateHome,
   onNavigateAggregateMood,
+  onNavigateAggregateNarratives,
   onNavigateBitcoinMentions,
   onNavigateMood,
   onNavigateOverview,
@@ -79,6 +83,7 @@ export function AppShell({
     setOpenMenu(null);
   }, [
     activeAggregateMoodSlug,
+    activeAggregateNarratives,
     activeBitcoinMentionsSlug,
     activeHeatmapSlug,
     activeMoodSlug,
@@ -210,6 +215,13 @@ export function AppShell({
             </div>
           ) : null}
         </div>
+        <button
+          className={`page-nav-link${activeAggregateNarratives ? " is-active" : ""}`}
+          onClick={onNavigateAggregateNarratives}
+          type="button"
+        >
+          Aggregate Narratives
+        </button>
         <div className="overview-dropdown">
           <button
             aria-expanded={openMenu === "overviews"}
