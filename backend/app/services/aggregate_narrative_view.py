@@ -173,13 +173,33 @@ def build_aggregate_narrative_view(
             floor_to_week(latest_tweet_at),
         )
         week_index = {week: index for index, week in enumerate(weeks)}
+        weekly_total_tweet_counts = [0] * len(weeks)
         counts_by_narrative_id = {
             narrative.id: [0] * len(weeks)
             for narrative in narratives
         }
 
+        week_start_expr = func.date_trunc("week", Tweet.created_at_platform).label("week_start")
+        weekly_tweet_rows = session.execute(
+            select(
+                week_start_expr,
+                func.count(Tweet.id).label("total_tweet_count"),
+            )
+            .where(Tweet.author_user_id.in_(cohort_user_ids))
+            .group_by(week_start_expr)
+            .order_by(week_start_expr.asc())
+        ).all()
+        for week_start, total_tweet_count in weekly_tweet_rows:
+            normalized_week = floor_to_week(week_start.astimezone(UTC))
+            index = week_index.get(normalized_week)
+            if index is None:
+                continue
+            weekly_total_tweet_counts[index] = int(total_tweet_count)
+
+        total_tweets_in_range = sum(weekly_total_tweet_counts)
+        latest_period_total_tweets = weekly_total_tweet_counts[-1] if weekly_total_tweet_counts else 0
+
         if narratives:
-            week_start_expr = func.date_trunc("week", Tweet.created_at_platform).label("week_start")
             weekly_counts_subquery = (
                 select(
                     TweetNarrativeMatch.managed_narrative_id.label("managed_narrative_id"),
@@ -221,6 +241,31 @@ def build_aggregate_narrative_view(
         narrative_payloads = []
         for narrative in narratives:
             weekly_counts = counts_by_narrative_id.get(narrative.id, [0] * len(weeks))
+            total_matching_tweets = sum(weekly_counts)
+            latest_period_count = weekly_counts[-1] if weekly_counts else 0
+            peak_period_count = max(weekly_counts) if weekly_counts else 0
+            peak_period_index = (
+                weekly_counts.index(peak_period_count)
+                if weekly_counts
+                else None
+            )
+            peak_period_total_tweets = (
+                weekly_total_tweet_counts[peak_period_index]
+                if peak_period_index is not None
+                else 0
+            )
+            peak_period_mention_rate = (
+                max(
+                    _safe_rate(matching_tweet_count, total_tweet_count)
+                    for matching_tweet_count, total_tweet_count in zip(
+                        weekly_counts,
+                        weekly_total_tweet_counts,
+                        strict=False,
+                    )
+                )
+                if weekly_counts
+                else 0.0
+            )
             narrative_payloads.append(
                 {
                     "id": int(narrative.id),
@@ -228,14 +273,28 @@ def build_aggregate_narrative_view(
                     "name": narrative.name,
                     "phrase": narrative.phrase,
                     "summary": {
-                        "total_matching_tweets": sum(weekly_counts),
-                        "latest_period_count": weekly_counts[-1] if weekly_counts else 0,
-                        "peak_period_count": max(weekly_counts) if weekly_counts else 0,
+                        "total_matching_tweets": total_matching_tweets,
+                        "total_tweet_count": total_tweets_in_range,
+                        "total_mention_rate": _safe_rate(total_matching_tweets, total_tweets_in_range),
+                        "latest_period_count": latest_period_count,
+                        "latest_period_total_tweets": latest_period_total_tweets,
+                        "latest_period_mention_rate": _safe_rate(
+                            latest_period_count,
+                            latest_period_total_tweets,
+                        ),
+                        "peak_period_count": peak_period_count,
+                        "peak_period_total_tweets": peak_period_total_tweets,
+                        "peak_period_mention_rate": peak_period_mention_rate,
                     },
                     "series": [
                         {
                             "period_start": week.isoformat().replace("+00:00", "Z"),
                             "matching_tweet_count": weekly_counts[index],
+                            "total_tweet_count": weekly_total_tweet_counts[index],
+                            "mention_rate": _safe_rate(
+                                weekly_counts[index],
+                                weekly_total_tweet_counts[index],
+                            ),
                         }
                         for index, week in enumerate(weeks)
                     ],
@@ -252,6 +311,7 @@ def build_aggregate_narrative_view(
             "cohort": {
                 "user_count": len(cohort_usernames),
                 "usernames": cohort_usernames,
+                "total_tweet_count": total_tweets_in_range,
                 "selection": cohort_selection,
             },
             "granularity": "week",
@@ -259,6 +319,13 @@ def build_aggregate_narrative_view(
                 "start": weeks[0].isoformat().replace("+00:00", "Z"),
                 "end": weeks[-1].isoformat().replace("+00:00", "Z"),
             },
+            "cohort_series": [
+                {
+                    "period_start": week.isoformat().replace("+00:00", "Z"),
+                    "total_tweet_count": weekly_total_tweet_counts[index],
+                }
+                for index, week in enumerate(weeks)
+            ],
             "default_narrative_slug": narrative_payloads[0]["slug"] if narrative_payloads else None,
             "narratives": narrative_payloads,
         }
@@ -280,12 +347,28 @@ def build_cached_aggregate_narrative_view(
             model_key=MANAGED_NARRATIVE_MODEL_KEY,
             session_factory=session_factory,
         )
-        if snapshot is not None:
+        if snapshot is not None and _aggregate_narrative_snapshot_supports_metric_toggle(snapshot):
             return snapshot
 
-    return attach_generated_at(
-        build_aggregate_narrative_view(request, session_factory=session_factory)
-    )
+    payload = build_aggregate_narrative_view(request, session_factory=session_factory)
+    if granularity == "week":
+        generated_at = datetime.now(UTC)
+        upsert_aggregate_snapshot(
+            view_type=AGGREGATE_NARRATIVE_SERIES_VIEW_TYPE,
+            cohort_tag_slug=request.cohort_tag_slug,
+            granularity=granularity,
+            model_key=MANAGED_NARRATIVE_MODEL_KEY,
+            payload=payload,
+            build_meta={
+                "narrative_count": len(payload.get("narratives", [])),
+                "refresh_reason": "cache_miss_or_schema_upgrade",
+            },
+            generated_at=generated_at,
+            session_factory=session_factory,
+        )
+        return attach_generated_at(payload, generated_at=generated_at)
+
+    return attach_generated_at(payload)
 
 
 def rebuild_aggregate_narrative_snapshots(
@@ -391,6 +474,39 @@ def _build_week_series(start: datetime, end: datetime) -> list[datetime]:
         weeks.append(current)
         current += timedelta(days=7)
     return weeks
+
+
+def _safe_rate(numerator: int, denominator: int) -> float:
+    if denominator <= 0:
+        return 0.0
+    return round(float(numerator) / float(denominator), 6)
+
+
+def _aggregate_narrative_snapshot_supports_metric_toggle(snapshot: dict[str, object]) -> bool:
+    narratives = snapshot.get("narratives")
+    if not isinstance(narratives, list):
+        return False
+    if not narratives:
+        return True
+
+    first_narrative = narratives[0]
+    if not isinstance(first_narrative, dict):
+        return False
+
+    summary = first_narrative.get("summary")
+    if not isinstance(summary, dict) or "total_mention_rate" not in summary:
+        return False
+
+    series = first_narrative.get("series")
+    if not isinstance(series, list):
+        return False
+    if not series:
+        return True
+
+    first_series_point = series[0]
+    if not isinstance(first_series_point, dict):
+        return False
+    return "mention_rate" in first_series_point
 
 
 def _resolve_aggregate_narrative_cohort_user_scope(

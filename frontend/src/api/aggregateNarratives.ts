@@ -25,6 +25,7 @@ export type AggregateNarrativeResponse = {
   cohort: {
     user_count: number;
     usernames: string[];
+    total_tweet_count?: number;
     selection: {
       type: "all" | "tag";
       tag_slug: string | null;
@@ -36,6 +37,10 @@ export type AggregateNarrativeResponse = {
     start: string;
     end: string;
   };
+  cohort_series?: Array<{
+    period_start: string;
+    total_tweet_count: number;
+  }>;
   default_narrative_slug: string | null;
   narratives: Array<{
     id: number;
@@ -44,12 +49,20 @@ export type AggregateNarrativeResponse = {
     phrase: string;
     summary: {
       total_matching_tweets: number;
+      total_tweet_count?: number;
+      total_mention_rate?: number;
       latest_period_count: number;
+      latest_period_total_tweets?: number;
+      latest_period_mention_rate?: number;
       peak_period_count: number;
+      peak_period_total_tweets?: number;
+      peak_period_mention_rate?: number;
     };
     series: Array<{
       period_start: string;
       matching_tweet_count: number;
+      total_tweet_count?: number;
+      mention_rate?: number;
     }>;
   }>;
 };

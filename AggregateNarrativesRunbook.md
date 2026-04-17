@@ -49,6 +49,18 @@ The two systems intentionally coexist.
 
 These are the current implementation rules.
 
+### Sidebar metric toggle
+
+Aggregate Narratives now supports a metric toggle:
+
+- `Mention Rate`
+- `Raw Count`
+
+The toggle is shared for both:
+
+- selected cohort series
+- pinned cohort comparison series
+
 ### Phrase source of truth
 
 Managed narratives are stored in the database and edited from Global Settings.
@@ -82,6 +94,10 @@ The metric is:
 It is **not**:
 
 - number of times the phrase appears inside tweets
+
+When the metric toggle is set to `Mention Rate`, the formula is:
+
+- `mention_rate = matching_tweet_count / total_tweet_count_for_cohort_week`
 
 ### Granularity
 
@@ -156,6 +172,7 @@ Use the top navigation `Aggregate Narratives` page to:
 - view the managed narrative list in a dropdown
 - select a cohort
 - pin a cohort comparison
+- toggle between `Mention Rate` and `Raw Count`
 - inspect weekly volume history
 
 ## Normal Workflow
