@@ -22,20 +22,7 @@ import { type MoodDefinition } from "../lib/authorDefinitions";
 import { buildMoodDeviationSeries } from "../lib/moods";
 import { type SentimentMode } from "../lib/sentiment";
 
-const chartCurrencyFormatter = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-  maximumFractionDigits: 0,
-});
-
 const integerFormatter = new Intl.NumberFormat("en-US");
-
-const fullDateFormatter = new Intl.DateTimeFormat("en-US", {
-  month: "short",
-  day: "numeric",
-  year: "numeric",
-  timeZone: "UTC",
-});
 
 const compactDateFormatter = new Intl.DateTimeFormat("en-US", {
   month: "short",
@@ -244,7 +231,6 @@ export function AuthorMoodPage({ mood, showWatermark }: AuthorMoodPageProps) {
             )}
             selectedAggregateComparisonKey={selectedAggregateComparisonKey}
             onAggregateComparisonKeyChange={setSelectedAggregateComparisonKey}
-            btcSpotPayload={btcSpotPayload}
             showWatermark={showWatermark}
             selectedMoodLabel={selectedMoodLabel}
             onMoodLabelChange={setSelectedMoodLabel}
@@ -268,7 +254,6 @@ function AuthorMoodChartSection({
   aggregateComparisonOptions,
   selectedAggregateComparisonKey,
   onAggregateComparisonKeyChange,
-  btcSpotPayload,
   showWatermark,
   selectedMoodLabel,
   onMoodLabelChange,
@@ -285,7 +270,6 @@ function AuthorMoodChartSection({
   aggregateComparisonOptions: AggregateComparisonOption[];
   selectedAggregateComparisonKey: string;
   onAggregateComparisonKeyChange: (key: string) => void;
-  btcSpotPayload: BtcSpotPriceResponse | null;
   showWatermark: boolean;
   selectedMoodLabel: string;
   onMoodLabelChange: (label: string) => void;
@@ -296,10 +280,6 @@ function AuthorMoodChartSection({
   sentimentMode: SentimentMode;
   onSentimentModeChange: (mode: SentimentMode) => void;
 }) {
-  const latestBtcPoint = payload.btc_series[payload.btc_series.length - 1];
-  const latestBtcDailyClose = latestBtcPoint?.price_usd ?? 0;
-  const btcLastIso = latestBtcPoint?.timestamp ?? payload.range.end;
-  const latestBtc = btcSpotPayload?.price_usd ?? latestBtcDailyClose;
   const moodDeviationSeries = buildMoodDeviationSeries(
     moodPayload,
     selectedMoodLabel,
@@ -307,7 +287,6 @@ function AuthorMoodChartSection({
   );
   const currentMoodDeviation = getCurrentMoodDeviation(moodDeviationSeries, moodPayload.range.end);
   const moodExtremes = getMoodExtremes(moodDeviationSeries, moodPayload.range.end);
-  const selectedMoodSummary = moodPayload.summary.moods[selectedMoodLabel];
   const moodDescription = getMoodDescriptionByLabel(selectedMoodLabel);
   const selectedAggregateComparison =
     aggregateComparisonOptions.find((option) => option.key === selectedAggregateComparisonKey) ?? null;
@@ -332,20 +311,6 @@ function AuthorMoodChartSection({
           <p className="metric-label">Tracked mood</p>
           <p className="metric-value">{formatMoodLabel(selectedMoodLabel)}</p>
           <p className="metric-note">Selected from the stored model labels</p>
-        </article>
-        <article className="metric-card">
-          <p className="metric-label">Baseline mood score</p>
-          <p className="metric-value">{formatPercent(selectedMoodSummary?.average_score ?? 0)}</p>
-          <p className="metric-note">Per-account average absolute score</p>
-        </article>
-        <article className="metric-card">
-          <p className="metric-label">Latest BTC Price</p>
-          <p className="metric-value">{chartCurrencyFormatter.format(latestBtc)}</p>
-          <p className="metric-note">
-            {btcSpotPayload
-              ? `Coinbase spot on ${formatFullDate(btcSpotPayload.fetched_at)}`
-              : `Price on ${formatFullDate(btcLastIso)}`}
-          </p>
         </article>
         <article className="metric-card">
           <p className="metric-label">Current Mood Deviation</p>
@@ -529,16 +494,8 @@ function normalizeOptionalQueryParam(value: string | null): string | null {
   return trimmedValue.length > 0 ? trimmedValue : null;
 }
 
-function formatFullDate(value: string | number): string {
-  return fullDateFormatter.format(normalizeDateValue(value));
-}
-
 function formatCompactDate(value: string): string {
   return compactDateFormatter.format(new Date(value));
-}
-
-function formatPercent(value: number): string {
-  return `${(value * 100).toFixed(1)}%`;
 }
 
 function formatSignedPercent(value: number): string {
@@ -637,8 +594,4 @@ function formatMoodLabel(value: string): string {
     .filter(Boolean)
     .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
     .join(" ");
-}
-
-function normalizeDateValue(value: string | number): Date | number {
-  return typeof value === "string" ? new Date(value) : value;
 }
