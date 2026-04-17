@@ -51,18 +51,27 @@ export type AggregateNarrativeResponse = {
       total_matching_tweets: number;
       total_tweet_count?: number;
       total_mention_rate?: number;
+      total_matching_users?: number;
+      total_user_count?: number;
+      total_user_penetration_rate?: number;
       latest_period_count: number;
       latest_period_total_tweets?: number;
       latest_period_mention_rate?: number;
+      latest_period_matching_users?: number;
+      latest_period_user_penetration_rate?: number;
       peak_period_count: number;
       peak_period_total_tweets?: number;
       peak_period_mention_rate?: number;
+      peak_period_matching_users?: number;
+      peak_period_user_penetration_rate?: number;
     };
     series: Array<{
       period_start: string;
       matching_tweet_count: number;
       total_tweet_count?: number;
       mention_rate?: number;
+      matching_user_count?: number;
+      user_penetration_rate?: number;
     }>;
   }>;
 };

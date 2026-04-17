@@ -173,9 +173,18 @@ def build_aggregate_narrative_view(
             floor_to_week(latest_tweet_at),
         )
         week_index = {week: index for index, week in enumerate(weeks)}
+        cohort_user_count = len(cohort_user_ids)
         weekly_total_tweet_counts = [0] * len(weeks)
         counts_by_narrative_id = {
             narrative.id: [0] * len(weeks)
+            for narrative in narratives
+        }
+        user_counts_by_narrative_id = {
+            narrative.id: [0] * len(weeks)
+            for narrative in narratives
+        }
+        total_matching_users_by_narrative_id = {
+            narrative.id: 0
             for narrative in narratives
         }
 
@@ -200,11 +209,29 @@ def build_aggregate_narrative_view(
         latest_period_total_tweets = weekly_total_tweet_counts[-1] if weekly_total_tweet_counts else 0
 
         if narratives:
+            total_matching_user_rows = session.execute(
+                select(
+                    TweetNarrativeMatch.managed_narrative_id.label("managed_narrative_id"),
+                    func.count(func.distinct(Tweet.author_user_id)).label("total_matching_user_count"),
+                )
+                .join(Tweet, Tweet.id == TweetNarrativeMatch.tweet_id)
+                .where(
+                    Tweet.author_user_id.in_(cohort_user_ids),
+                    TweetNarrativeMatch.managed_narrative_id.in_(
+                        [narrative.id for narrative in narratives]
+                    ),
+                )
+                .group_by(TweetNarrativeMatch.managed_narrative_id)
+            ).all()
+            for narrative_id, total_matching_user_count in total_matching_user_rows:
+                total_matching_users_by_narrative_id[int(narrative_id)] = int(total_matching_user_count)
+
             weekly_counts_subquery = (
                 select(
                     TweetNarrativeMatch.managed_narrative_id.label("managed_narrative_id"),
                     week_start_expr,
                     func.count().label("matching_tweet_count"),
+                    func.count(func.distinct(Tweet.author_user_id)).label("matching_user_count"),
                 )
                 .join(Tweet, Tweet.id == TweetNarrativeMatch.tweet_id)
                 .where(
@@ -224,6 +251,7 @@ def build_aggregate_narrative_view(
                     weekly_counts_subquery.c.managed_narrative_id,
                     weekly_counts_subquery.c.week_start,
                     weekly_counts_subquery.c.matching_tweet_count,
+                    weekly_counts_subquery.c.matching_user_count,
                 )
                 .order_by(
                     weekly_counts_subquery.c.managed_narrative_id.asc(),
@@ -231,19 +259,24 @@ def build_aggregate_narrative_view(
                 )
             ).all()
 
-            for narrative_id, week_start, matching_tweet_count in rows:
+            for narrative_id, week_start, matching_tweet_count, matching_user_count in rows:
                 normalized_week = floor_to_week(week_start.astimezone(UTC))
                 index = week_index.get(normalized_week)
                 if index is None:
                     continue
                 counts_by_narrative_id[int(narrative_id)][index] = int(matching_tweet_count)
+                user_counts_by_narrative_id[int(narrative_id)][index] = int(matching_user_count)
 
         narrative_payloads = []
         for narrative in narratives:
             weekly_counts = counts_by_narrative_id.get(narrative.id, [0] * len(weeks))
+            weekly_user_counts = user_counts_by_narrative_id.get(narrative.id, [0] * len(weeks))
             total_matching_tweets = sum(weekly_counts)
+            total_matching_users = total_matching_users_by_narrative_id.get(narrative.id, 0)
             latest_period_count = weekly_counts[-1] if weekly_counts else 0
+            latest_period_matching_users = weekly_user_counts[-1] if weekly_user_counts else 0
             peak_period_count = max(weekly_counts) if weekly_counts else 0
+            peak_period_matching_users = max(weekly_user_counts) if weekly_user_counts else 0
             peak_period_index = (
                 weekly_counts.index(peak_period_count)
                 if weekly_counts
@@ -276,15 +309,28 @@ def build_aggregate_narrative_view(
                         "total_matching_tweets": total_matching_tweets,
                         "total_tweet_count": total_tweets_in_range,
                         "total_mention_rate": _safe_rate(total_matching_tweets, total_tweets_in_range),
+                        "total_matching_users": total_matching_users,
+                        "total_user_count": cohort_user_count,
+                        "total_user_penetration_rate": _safe_rate(total_matching_users, cohort_user_count),
                         "latest_period_count": latest_period_count,
                         "latest_period_total_tweets": latest_period_total_tweets,
                         "latest_period_mention_rate": _safe_rate(
                             latest_period_count,
                             latest_period_total_tweets,
                         ),
+                        "latest_period_matching_users": latest_period_matching_users,
+                        "latest_period_user_penetration_rate": _safe_rate(
+                            latest_period_matching_users,
+                            cohort_user_count,
+                        ),
                         "peak_period_count": peak_period_count,
                         "peak_period_total_tweets": peak_period_total_tweets,
                         "peak_period_mention_rate": peak_period_mention_rate,
+                        "peak_period_matching_users": peak_period_matching_users,
+                        "peak_period_user_penetration_rate": _safe_rate(
+                            peak_period_matching_users,
+                            cohort_user_count,
+                        ),
                     },
                     "series": [
                         {
@@ -294,6 +340,11 @@ def build_aggregate_narrative_view(
                             "mention_rate": _safe_rate(
                                 weekly_counts[index],
                                 weekly_total_tweet_counts[index],
+                            ),
+                            "matching_user_count": weekly_user_counts[index],
+                            "user_penetration_rate": _safe_rate(
+                                weekly_user_counts[index],
+                                cohort_user_count,
                             ),
                         }
                         for index, week in enumerate(weeks)
@@ -494,7 +545,11 @@ def _aggregate_narrative_snapshot_supports_metric_toggle(snapshot: dict[str, obj
         return False
 
     summary = first_narrative.get("summary")
-    if not isinstance(summary, dict) or "total_mention_rate" not in summary:
+    if (
+        not isinstance(summary, dict)
+        or "total_mention_rate" not in summary
+        or "total_user_penetration_rate" not in summary
+    ):
         return False
 
     series = first_narrative.get("series")
@@ -506,7 +561,10 @@ def _aggregate_narrative_snapshot_supports_metric_toggle(snapshot: dict[str, obj
     first_series_point = series[0]
     if not isinstance(first_series_point, dict):
         return False
-    return "mention_rate" in first_series_point
+    return (
+        "mention_rate" in first_series_point
+        and "user_penetration_rate" in first_series_point
+    )
 
 
 def _resolve_aggregate_narrative_cohort_user_scope(

@@ -101,7 +101,7 @@ const mentionRateFormatter = new Intl.NumberFormat("en-US", {
 });
 
 type CohortSelectionKey = string;
-type NarrativeMetricMode = "raw_count" | "mention_rate";
+type NarrativeMetricMode = "raw_count" | "mention_rate" | "user_penetration";
 
 type AggregateNarrativeCohortOption = {
   key: CohortSelectionKey;
@@ -250,12 +250,36 @@ export function AggregateNarrativesPage({ showWatermark }: AggregateNarrativesPa
   const selectedPeakMentionRate = selectedNarrative
     ? resolvePeakMentionRate(selectedNarrative)
     : 0;
+  const selectedTotalUserPenetrationRate = selectedNarrative
+    ? resolveSummaryUserPenetrationRate(selectedNarrative.summary, payload?.cohort.user_count ?? 0)
+    : 0;
+  const selectedLatestUserPenetrationRate = selectedNarrative
+    ? resolveLatestUserPenetrationRate(selectedNarrative, payload?.cohort.user_count ?? 0)
+    : 0;
+  const selectedPeakUserPenetrationRate = selectedNarrative
+    ? resolvePeakUserPenetrationRate(selectedNarrative, payload?.cohort.user_count ?? 0)
+    : 0;
   const selectedTotalTweetCount =
     selectedNarrative?.summary.total_tweet_count ?? payload?.cohort.total_tweet_count ?? 0;
   const selectedLatestTotalTweetCount =
     selectedNarrative?.summary.latest_period_total_tweets ??
     selectedNarrative?.series[selectedNarrative.series.length - 1]?.total_tweet_count ??
     0;
+  const selectedTotalMatchingUsers =
+    selectedNarrative?.summary.total_matching_users ??
+    0;
+  const selectedLatestMatchingUsers =
+    selectedNarrative?.summary.latest_period_matching_users ??
+    selectedNarrative?.series[selectedNarrative.series.length - 1]?.matching_user_count ??
+    0;
+  const selectedPeakMatchingUsers =
+    selectedNarrative?.summary.peak_period_matching_users ??
+    (selectedNarrative?.series.length
+      ? selectedNarrative.series.reduce(
+          (peak, point) => Math.max(peak, point.matching_user_count ?? 0),
+          0,
+        )
+      : 0);
   const cohortOptions = buildAggregateNarrativeCohortOptions(cohortPayload?.cohorts ?? []);
   const comparisonCohortOption =
     pinnedCohortKey === null
@@ -297,48 +321,72 @@ export function AggregateNarrativesPage({ showWatermark }: AggregateNarrativesPa
                 </article>
                 <article className="metric-card">
                   <p className="metric-label">
-                    {metricMode === "mention_rate" ? "Overall Mention Rate" : "Total Matching Tweets"}
+                    {metricMode === "mention_rate"
+                      ? "Overall Mention Rate"
+                      : metricMode === "user_penetration"
+                        ? "Overall User Penetration"
+                        : "Total Matching Tweets"}
                   </p>
                   <p className="metric-value">
                     {metricMode === "mention_rate"
                       ? formatMentionRate(selectedTotalMentionRate)
-                      : integerFormatter.format(selectedNarrative.summary.total_matching_tweets)}
+                      : metricMode === "user_penetration"
+                        ? formatMentionRate(selectedTotalUserPenetrationRate)
+                        : integerFormatter.format(selectedNarrative.summary.total_matching_tweets)}
                   </p>
                   <p className="metric-note">
                     {metricMode === "mention_rate"
                       ? `${integerFormatter.format(selectedNarrative.summary.total_matching_tweets)} matching tweets out of ${integerFormatter.format(selectedTotalTweetCount)} total`
-                      : "One count per tweet containing the phrase"}
+                      : metricMode === "user_penetration"
+                        ? `${integerFormatter.format(selectedTotalMatchingUsers)} matching users out of ${integerFormatter.format(payload?.cohort.user_count ?? 0)} cohort users`
+                        : "One count per tweet containing the phrase"}
                   </p>
                 </article>
                 <article className="metric-card">
                   <p className="metric-label">
-                    {metricMode === "mention_rate" ? "Latest Weekly Mention Rate" : "Latest Weekly Count"}
+                    {metricMode === "mention_rate"
+                      ? "Latest Weekly Mention Rate"
+                      : metricMode === "user_penetration"
+                        ? "Latest Weekly User Penetration"
+                        : "Latest Weekly Count"}
                   </p>
                   <p className="metric-value">
                     {metricMode === "mention_rate"
                       ? formatMentionRate(selectedLatestMentionRate)
-                      : integerFormatter.format(selectedNarrative.summary.latest_period_count)}
+                      : metricMode === "user_penetration"
+                        ? formatMentionRate(selectedLatestUserPenetrationRate)
+                        : integerFormatter.format(selectedNarrative.summary.latest_period_count)}
                   </p>
                   <p className="metric-note">
                     Week of {formatCompactDate(payload.range.end)}{" "}
                     {metricMode === "mention_rate"
                       ? `(${integerFormatter.format(selectedNarrative.summary.latest_period_count)} / ${integerFormatter.format(selectedLatestTotalTweetCount)} tweets)`
-                      : ""}
+                      : metricMode === "user_penetration"
+                        ? `(${integerFormatter.format(selectedLatestMatchingUsers)} / ${integerFormatter.format(payload.cohort.user_count)} users)`
+                        : ""}
                   </p>
                 </article>
                 <article className="metric-card">
                   <p className="metric-label">
-                    {metricMode === "mention_rate" ? "Peak Weekly Mention Rate" : "Peak Weekly Count"}
+                    {metricMode === "mention_rate"
+                      ? "Peak Weekly Mention Rate"
+                      : metricMode === "user_penetration"
+                        ? "Peak Weekly User Penetration"
+                        : "Peak Weekly Count"}
                   </p>
                   <p className="metric-value">
                     {metricMode === "mention_rate"
                       ? formatMentionRate(selectedPeakMentionRate)
-                      : integerFormatter.format(selectedNarrative.summary.peak_period_count)}
+                      : metricMode === "user_penetration"
+                        ? formatMentionRate(selectedPeakUserPenetrationRate)
+                        : integerFormatter.format(selectedNarrative.summary.peak_period_count)}
                   </p>
                   <p className="metric-note">
                     {metricMode === "mention_rate"
                       ? "Highest weekly share of cohort tweet volume"
-                      : "Highest weekly volume in selected range"}
+                      : metricMode === "user_penetration"
+                        ? `Highest weekly user reach (${integerFormatter.format(selectedPeakMatchingUsers)} users)`
+                        : "Highest weekly volume in selected range"}
                   </p>
                 </article>
                 <article className="metric-card">
@@ -379,13 +427,21 @@ export function AggregateNarrativesPage({ showWatermark }: AggregateNarrativesPa
                   <span className="chart-legend-item">
                     <span className="chart-swatch chart-swatch-narrative-primary" />
                     {payload.cohort.selection.tag_name ?? "All tracked users"}{" "}
-                    {metricMode === "mention_rate" ? "weekly mention rate" : "weekly matching tweets"}
+                    {metricMode === "mention_rate"
+                      ? "weekly mention rate"
+                      : metricMode === "user_penetration"
+                        ? "weekly user penetration"
+                        : "weekly matching tweets"}
                   </span>
                   {comparisonNarrative && comparisonCohortOption ? (
                     <span className="chart-legend-item">
                       <span className="chart-swatch chart-swatch-narrative-comparison" />
                       {comparisonCohortOption.tagName}{" "}
-                      {metricMode === "mention_rate" ? "mention-rate comparison" : "count comparison"}
+                      {metricMode === "mention_rate"
+                        ? "mention-rate comparison"
+                        : metricMode === "user_penetration"
+                          ? "user-penetration comparison"
+                          : "count comparison"}
                     </span>
                   ) : null}
                 </div>
@@ -439,9 +495,11 @@ function AggregateNarrativeHistoryChart({
         value:
           metricMode === "mention_rate"
             ? resolveSeriesMentionRate(point) * 100
-            : point.matching_tweet_count,
+            : metricMode === "user_penetration"
+              ? resolveSeriesUserPenetrationRate(point, payload.cohort.user_count) * 100
+              : point.matching_tweet_count,
       })),
-    [metricMode, selectedNarrative.series],
+    [metricMode, payload.cohort.user_count, selectedNarrative.series],
   );
   const comparisonSeries = useMemo<LineData<Time>[]>(
     () =>
@@ -451,10 +509,12 @@ function AggregateNarrativeHistoryChart({
             value:
               metricMode === "mention_rate"
                 ? resolveSeriesMentionRate(point) * 100
-                : point.matching_tweet_count,
+                : metricMode === "user_penetration"
+                  ? resolveSeriesUserPenetrationRate(point, payload.cohort.user_count) * 100
+                  : point.matching_tweet_count,
           }))
         : [],
-    [comparisonNarrative, metricMode],
+    [comparisonNarrative, metricMode, payload.cohort.user_count],
   );
   useEffect(() => {
     const container = containerRef.current;
@@ -544,34 +604,31 @@ function AggregateNarrativeHistoryChart({
         <div className="chart-control-card">
           <p className="chart-control-eyebrow">Selection</p>
           <p className="chart-control-note">
-            Viewing weekly {metricMode === "mention_rate" ? "mention rate" : "matching tweet volume"} for{" "}
+            Viewing weekly{" "}
+            {metricMode === "mention_rate"
+              ? "mention rate"
+              : metricMode === "user_penetration"
+                ? "user penetration"
+                : "matching tweet volume"}{" "}
+            for{" "}
             <strong>{payload.cohort.selection.tag_name ?? "All tracked users"}</strong>.
           </p>
           {comparisonCohortName ? (
             <p className="chart-control-note">
               Comparing against <strong>{comparisonCohortName}</strong> with{" "}
-              {metricMode === "mention_rate" ? "rate-normalized values" : "raw counts"}.
+              {metricMode === "mention_rate" || metricMode === "user_penetration"
+                ? "rate-normalized values"
+                : "raw counts"}.
             </p>
           ) : null}
           <p className="chart-control-note">
             Snapshot: {generatedAt ? timestampFormatter.format(new Date(generatedAt)) : "Live"}
           </p>
         </div>
-      </aside>
 
-      <div className="chart-stage">
-        {showWatermark ? (
-          <div aria-hidden="true" className="chart-watermark">
-            <span className="chart-watermark-handle">{CHART_WATERMARK_HANDLE}</span>
-          </div>
-        ) : null}
-        <div className="tradingview-chart" ref={containerRef} />
-      </div>
-
-      <aside className="chart-sidebar">
         <div className="chart-control-card">
           <p className="chart-control-eyebrow">Metric</p>
-          <div className="chart-toggle-group">
+          <div className="chart-toggle-group chart-toggle-group-vertical">
             <button
               className={`chart-toggle-button${metricMode === "mention_rate" ? " is-active" : ""}`}
               onClick={() => onMetricModeChange("mention_rate")}
@@ -586,12 +643,30 @@ function AggregateNarrativeHistoryChart({
             >
               Raw Count
             </button>
+            <button
+              className={`chart-toggle-button${metricMode === "user_penetration" ? " is-active" : ""}`}
+              onClick={() => onMetricModeChange("user_penetration")}
+              type="button"
+            >
+              User Penetration
+            </button>
           </div>
           <p className="chart-control-note">
             This toggle applies to both the selected cohort and any pinned cohort comparison.
           </p>
         </div>
+      </aside>
 
+      <div className="chart-stage">
+        {showWatermark ? (
+          <div aria-hidden="true" className="chart-watermark">
+            <span className="chart-watermark-handle">{CHART_WATERMARK_HANDLE}</span>
+          </div>
+        ) : null}
+        <div className="tradingview-chart" ref={containerRef} />
+      </div>
+
+      <aside className="chart-sidebar chart-sidebar-cohorts-only">
         <div className="chart-control-card">
           <p className="chart-control-eyebrow">User Cohorts</p>
           <div className="chart-cohort-list" role="group" aria-label="User cohorts">
@@ -705,6 +780,47 @@ function resolvePeakMentionRate(
   return narrative.series.reduce((peak, point) => Math.max(peak, resolveSeriesMentionRate(point)), 0);
 }
 
+function resolveSummaryUserPenetrationRate(
+  summary: AggregateNarrativeResponse["narratives"][number]["summary"],
+  cohortUserCount: number,
+): number {
+  if (typeof summary.total_user_penetration_rate === "number") {
+    return summary.total_user_penetration_rate;
+  }
+  return safeRate(summary.total_matching_users ?? 0, summary.total_user_count ?? cohortUserCount);
+}
+
+function resolveLatestUserPenetrationRate(
+  narrative: AggregateNarrativeResponse["narratives"][number],
+  cohortUserCount: number,
+): number {
+  if (typeof narrative.summary.latest_period_user_penetration_rate === "number") {
+    return narrative.summary.latest_period_user_penetration_rate;
+  }
+  return safeRate(
+    narrative.summary.latest_period_matching_users ??
+      narrative.series[narrative.series.length - 1]?.matching_user_count ??
+      0,
+    cohortUserCount,
+  );
+}
+
+function resolvePeakUserPenetrationRate(
+  narrative: AggregateNarrativeResponse["narratives"][number],
+  cohortUserCount: number,
+): number {
+  if (typeof narrative.summary.peak_period_user_penetration_rate === "number") {
+    return narrative.summary.peak_period_user_penetration_rate;
+  }
+  if (narrative.series.length === 0) {
+    return 0;
+  }
+  return narrative.series.reduce(
+    (peak, point) => Math.max(peak, resolveSeriesUserPenetrationRate(point, cohortUserCount)),
+    0,
+  );
+}
+
 function resolveSeriesMentionRate(
   point: AggregateNarrativeResponse["narratives"][number]["series"][number],
 ): number {
@@ -712,6 +828,16 @@ function resolveSeriesMentionRate(
     return point.mention_rate;
   }
   return safeRate(point.matching_tweet_count, point.total_tweet_count ?? 0);
+}
+
+function resolveSeriesUserPenetrationRate(
+  point: AggregateNarrativeResponse["narratives"][number]["series"][number],
+  cohortUserCount: number,
+): number {
+  if (typeof point.user_penetration_rate === "number") {
+    return point.user_penetration_rate;
+  }
+  return safeRate(point.matching_user_count ?? 0, cohortUserCount);
 }
 
 function safeRate(numerator: number, denominator: number): number {

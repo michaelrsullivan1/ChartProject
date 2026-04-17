@@ -897,6 +897,20 @@ textarea {
   grid-template-rows: auto minmax(0, 1fr);
 }
 
+.chart-sidebar-cohorts-only {
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.chart-sidebar-cohorts-only .chart-control-card {
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.chart-sidebar-cohorts-only .chart-cohort-list {
+  max-height: none;
+}
+
 .chart-control-card {
   padding: 12px 14px;
   border: 1px solid rgba(var(--line-rgb), 0.1);

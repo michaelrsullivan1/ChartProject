@@ -55,6 +55,7 @@ Aggregate Narratives now supports a metric toggle:
 
 - `Mention Rate`
 - `Raw Count`
+- `User Penetration`
 
 The toggle is shared for both:
 
@@ -98,6 +99,10 @@ It is **not**:
 When the metric toggle is set to `Mention Rate`, the formula is:
 
 - `mention_rate = matching_tweet_count / total_tweet_count_for_cohort_week`
+
+When the metric toggle is set to `User Penetration`, the formula is:
+
+- `user_penetration_rate = distinct_users_who_mentioned_phrase_in_week / total_users_in_cohort`
 
 ### Granularity
 
@@ -173,6 +178,7 @@ Use the top navigation `Aggregate Narratives` page to:
 - select a cohort
 - pin a cohort comparison
 - toggle between `Mention Rate` and `Raw Count`
+- or `User Penetration`
 - inspect weekly volume history
 
 ## Normal Workflow
