@@ -75,88 +75,96 @@ function findBySlug<T extends { slug: string }>(definitions: T[], slug: string):
   return definitions.find((definition) => definition.slug === slug);
 }
 
+function getHashPath(hash: string): string {
+  const queryIndex = hash.indexOf("?");
+  return queryIndex >= 0 ? hash.slice(0, queryIndex) : hash;
+}
+
 function isRegistryBackedHash(hash: string): boolean {
+  const path = getHashPath(hash);
   return (
-    hash === "#/bitcoin-mentions" ||
-    hash === "#/narratives" ||
-    hash === "#/heatmaps" ||
-    hash.startsWith("#/bitcoin-mentions/") ||
-    hash.startsWith("#/overviews/") ||
-    hash.startsWith("#/moods/") ||
-    hash.startsWith("#/narratives/") ||
-    hash.startsWith("#/heatmaps/")
+    path === "#/bitcoin-mentions" ||
+    path === "#/narratives" ||
+    path === "#/heatmaps" ||
+    path.startsWith("#/bitcoin-mentions/") ||
+    path.startsWith("#/overviews/") ||
+    path.startsWith("#/moods/") ||
+    path.startsWith("#/narratives/") ||
+    path.startsWith("#/heatmaps/")
   );
 }
 
 function getRouteFromHash(hash: string, definitions: RouteDefinitions): AppRoute {
-  if (hash === "" || hash === "#" || hash === "#/") {
+  const path = getHashPath(hash);
+
+  if (path === "" || path === "#" || path === "#/") {
     return { kind: "home" };
   }
 
-  if (hash === "#/bitcoin-mentions") {
+  if (path === "#/bitcoin-mentions") {
     const bitcoinMentions = definitions.bitcoinMentions[0];
     return bitcoinMentions ? { kind: "bitcoin-mentions", bitcoinMentions } : { kind: "not-found" };
   }
 
-  if (hash === "#/aggregate-moods") {
+  if (path === "#/aggregate-moods") {
     const aggregateMood = aggregateMoodDefinitions[0];
     return aggregateMood ? { kind: "aggregate-mood", aggregateMood } : { kind: "not-found" };
   }
 
-  if (hash === "#/aggregate-narratives") {
+  if (path === "#/aggregate-narratives") {
     return { kind: "aggregate-narratives" };
   }
 
-  if (hash.startsWith("#/bitcoin-mentions/")) {
-    const slug = decodeURIComponent(hash.slice("#/bitcoin-mentions/".length));
+  if (path.startsWith("#/bitcoin-mentions/")) {
+    const slug = decodeURIComponent(path.slice("#/bitcoin-mentions/".length));
     const bitcoinMentions = findBySlug(definitions.bitcoinMentions, slug);
     return bitcoinMentions ? { kind: "bitcoin-mentions", bitcoinMentions } : { kind: "not-found" };
   }
 
-  if (hash.startsWith("#/aggregate-moods/")) {
-    const slug = decodeURIComponent(hash.slice("#/aggregate-moods/".length));
+  if (path.startsWith("#/aggregate-moods/")) {
+    const slug = decodeURIComponent(path.slice("#/aggregate-moods/".length));
     const aggregateMood = findAggregateMoodBySlug(slug);
     return aggregateMood ? { kind: "aggregate-mood", aggregateMood } : { kind: "not-found" };
   }
 
-  if (hash.startsWith("#/overviews/")) {
-    const slug = decodeURIComponent(hash.slice("#/overviews/".length));
+  if (path.startsWith("#/overviews/")) {
+    const slug = decodeURIComponent(path.slice("#/overviews/".length));
     const overview = findBySlug(definitions.overviews, slug);
     return overview ? { kind: "overview", overview } : { kind: "not-found" };
   }
 
-  if (hash.startsWith("#/moods/")) {
-    const slug = decodeURIComponent(hash.slice("#/moods/".length));
+  if (path.startsWith("#/moods/")) {
+    const slug = decodeURIComponent(path.slice("#/moods/".length));
     const mood = findBySlug(definitions.moods, slug);
     return mood ? { kind: "mood", mood } : { kind: "not-found" };
   }
 
-  if (hash === "#/narratives" || hash === "#/heatmaps") {
+  if (path === "#/narratives" || path === "#/heatmaps") {
     const heatmap = definitions.heatmaps[0];
     return heatmap ? { kind: "heatmap", heatmap } : { kind: "not-found" };
   }
 
-  if (hash.startsWith("#/narratives/")) {
-    const slug = decodeURIComponent(hash.slice("#/narratives/".length));
+  if (path.startsWith("#/narratives/")) {
+    const slug = decodeURIComponent(path.slice("#/narratives/".length));
     const heatmap = findBySlug(definitions.heatmaps, slug);
     return heatmap ? { kind: "heatmap", heatmap } : { kind: "not-found" };
   }
 
-  if (hash.startsWith("#/heatmaps/")) {
-    const slug = decodeURIComponent(hash.slice("#/heatmaps/".length));
+  if (path.startsWith("#/heatmaps/")) {
+    const slug = decodeURIComponent(path.slice("#/heatmaps/".length));
     const heatmap = findBySlug(definitions.heatmaps, slug);
     return heatmap ? { kind: "heatmap", heatmap } : { kind: "not-found" };
   }
 
-  if (hash === "#/settings") {
+  if (path === "#/settings") {
     return { kind: "settings", section: "global" };
   }
 
-  if (hash === "#/settings/global-settings") {
+  if (path === "#/settings/global-settings") {
     return { kind: "settings", section: "global" };
   }
 
-  if (hash === "#/settings/user-settings") {
+  if (path === "#/settings/user-settings") {
     return { kind: "settings", section: "user" };
   }
 

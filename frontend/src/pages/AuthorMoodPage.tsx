@@ -48,6 +48,8 @@ const AGGREGATE_MOODS_API_BASE_PATH = "/api/views/aggregate-moods";
 const NO_AGGREGATE_COMPARISON_KEY = "__no_aggregate_comparison__";
 const ALL_AGGREGATE_COHORT_KEY = "__all_aggregate_users__";
 const AGGREGATE_COMPARISON_COLOR = "rgba(198, 191, 180, 0.8)";
+const MOOD_QUERY_PARAM = "mood";
+const AGGREGATE_QUERY_PARAM = "aggregate";
 
 type AggregateComparisonOption = {
   key: string;
@@ -78,8 +80,43 @@ export function AuthorMoodPage({ mood, showWatermark }: AuthorMoodPageProps) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    setSelectedAggregateComparisonKey(NO_AGGREGATE_COMPARISON_KEY);
+    const urlState = readAuthorMoodUrlState(window.location.hash, mood.slug);
+    setSelectedMoodLabel(urlState.moodLabel ?? "");
+    setSelectedAggregateComparisonKey(
+      urlState.aggregateComparisonKey ?? NO_AGGREGATE_COMPARISON_KEY,
+    );
   }, [mood.slug]);
+
+  useEffect(() => {
+    function handleHashChange() {
+      const urlState = readAuthorMoodUrlState(window.location.hash, mood.slug);
+      setSelectedMoodLabel(urlState.moodLabel ?? "");
+      setSelectedAggregateComparisonKey(
+        urlState.aggregateComparisonKey ?? NO_AGGREGATE_COMPARISON_KEY,
+      );
+    }
+
+    window.addEventListener("hashchange", handleHashChange);
+    return () => {
+      window.removeEventListener("hashchange", handleHashChange);
+    };
+  }, [mood.slug]);
+
+  useEffect(() => {
+    if (!selectedMoodLabel) {
+      return;
+    }
+
+    const nextHash = buildAuthorMoodHash(
+      mood.slug,
+      selectedMoodLabel,
+      selectedAggregateComparisonKey,
+    );
+
+    if (window.location.hash !== nextHash) {
+      window.location.hash = nextHash;
+    }
+  }, [mood.slug, selectedMoodLabel, selectedAggregateComparisonKey]);
 
   useEffect(() => {
     let cancelled = false;
@@ -430,6 +467,66 @@ function buildAggregateComparisonOptions(
 
 function aggregateComparisonKeyToTagSlug(value: string): string | null {
   return value === ALL_AGGREGATE_COHORT_KEY || value === NO_AGGREGATE_COMPARISON_KEY ? null : value;
+}
+
+function buildAuthorMoodHash(
+  moodSlug: string,
+  selectedMoodLabel: string,
+  selectedAggregateComparisonKey: string,
+): string {
+  const query = new URLSearchParams();
+  query.set(MOOD_QUERY_PARAM, selectedMoodLabel);
+  if (selectedAggregateComparisonKey !== NO_AGGREGATE_COMPARISON_KEY) {
+    query.set(AGGREGATE_QUERY_PARAM, selectedAggregateComparisonKey);
+  }
+
+  const serializedQuery = query.toString();
+  return `#/moods/${encodeURIComponent(moodSlug)}${serializedQuery ? `?${serializedQuery}` : ""}`;
+}
+
+function readAuthorMoodUrlState(
+  hash: string,
+  expectedMoodSlug: string,
+): {
+  moodLabel: string | null;
+  aggregateComparisonKey: string | null;
+} {
+  const normalizedHash = hash.startsWith("#") ? hash.slice(1) : hash;
+  const queryIndex = normalizedHash.indexOf("?");
+  const path = queryIndex >= 0 ? normalizedHash.slice(0, queryIndex) : normalizedHash;
+  if (!path.startsWith("/moods/")) {
+    return {
+      moodLabel: null,
+      aggregateComparisonKey: null,
+    };
+  }
+
+  const moodSlug = decodeURIComponent(path.slice("/moods/".length));
+  if (moodSlug !== expectedMoodSlug) {
+    return {
+      moodLabel: null,
+      aggregateComparisonKey: null,
+    };
+  }
+
+  const queryString = queryIndex >= 0 ? normalizedHash.slice(queryIndex + 1) : "";
+  const params = new URLSearchParams(queryString);
+  const moodLabel = normalizeOptionalQueryParam(params.get(MOOD_QUERY_PARAM));
+  const aggregateComparisonKey = normalizeOptionalQueryParam(params.get(AGGREGATE_QUERY_PARAM));
+
+  return {
+    moodLabel,
+    aggregateComparisonKey,
+  };
+}
+
+function normalizeOptionalQueryParam(value: string | null): string | null {
+  if (value === null) {
+    return null;
+  }
+
+  const trimmedValue = value.trim();
+  return trimmedValue.length > 0 ? trimmedValue : null;
 }
 
 function formatFullDate(value: string | number): string {
