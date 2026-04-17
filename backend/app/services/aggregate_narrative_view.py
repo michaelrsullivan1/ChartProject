@@ -179,24 +179,35 @@ def build_aggregate_narrative_view(
         }
 
         if narratives:
-            rows = session.execute(
+            week_start_expr = func.date_trunc("week", Tweet.created_at_platform).label("week_start")
+            weekly_counts_subquery = (
                 select(
-                    TweetNarrativeMatch.managed_narrative_id,
-                    func.date_trunc("week", Tweet.created_at_platform).label("week_start"),
+                    TweetNarrativeMatch.managed_narrative_id.label("managed_narrative_id"),
+                    week_start_expr,
                     func.count().label("matching_tweet_count"),
                 )
                 .join(Tweet, Tweet.id == TweetNarrativeMatch.tweet_id)
                 .where(
                     Tweet.author_user_id.in_(cohort_user_ids),
-                    TweetNarrativeMatch.managed_narrative_id.in_([narrative.id for narrative in narratives]),
+                    TweetNarrativeMatch.managed_narrative_id.in_(
+                        [narrative.id for narrative in narratives]
+                    ),
                 )
                 .group_by(
                     TweetNarrativeMatch.managed_narrative_id,
-                    func.date_trunc("week", Tweet.created_at_platform),
+                    week_start_expr,
+                )
+                .subquery()
+            )
+            rows = session.execute(
+                select(
+                    weekly_counts_subquery.c.managed_narrative_id,
+                    weekly_counts_subquery.c.week_start,
+                    weekly_counts_subquery.c.matching_tweet_count,
                 )
                 .order_by(
-                    TweetNarrativeMatch.managed_narrative_id.asc(),
-                    func.date_trunc("week", Tweet.created_at_platform).asc(),
+                    weekly_counts_subquery.c.managed_narrative_id.asc(),
+                    weekly_counts_subquery.c.week_start.asc(),
                 )
             ).all()
 

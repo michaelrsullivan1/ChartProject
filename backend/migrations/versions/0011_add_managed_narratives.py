@@ -1,7 +1,7 @@
 """add managed narratives
 
 Revision ID: 0011_add_managed_narratives
-Revises: 0010_add_is_tracked_to_managed_author_views
+Revises: 0010_managed_author_is_tracked
 Create Date: 2026-04-16 00:00:00.000000
 """
 
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 revision: str = "0011_add_managed_narratives"
-down_revision: Union[str, None] = "0010_add_is_tracked_to_managed_author_views"
+down_revision: Union[str, None] = "0010_managed_author_is_tracked"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
