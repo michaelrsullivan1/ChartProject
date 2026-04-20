@@ -22,6 +22,8 @@ import { CHART_WATERMARK_HANDLE } from "../lib/watermark";
 const ALL_COHORT_KEY = "__all_tracked_users__";
 const PRIMARY_LINE_COLOR = "#7af0b6";
 const COMPARISON_LINE_COLOR = "rgba(198, 191, 180, 0.88)";
+const DEFAULT_NARRATIVE_WINDOW_DAYS = 365;
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 const chartOptions = {
   layout: {
@@ -516,6 +518,14 @@ function AggregateNarrativeHistoryChart({
         : [],
     [comparisonNarrative, metricMode, payload.cohort.user_count],
   );
+  const defaultVisibleRange = useMemo(
+    () =>
+      buildRecentTimeVisibleRange(
+        selectedNarrative.series.map((point) => point.period_start),
+        DEFAULT_NARRATIVE_WINDOW_DAYS,
+      ),
+    [selectedNarrative.series],
+  );
   useEffect(() => {
     const container = containerRef.current;
     if (!container) {
@@ -561,14 +571,17 @@ function AggregateNarrativeHistoryChart({
       scaleMargins: { top: 0.12, bottom: 0.18 },
       minimumWidth: 72,
     });
-    chart.timeScale().fitContent();
+    if (defaultVisibleRange) {
+      chart.timeScale().setVisibleRange(defaultVisibleRange);
+    } else {
+      chart.timeScale().fitContent();
+    }
 
     function handleResize() {
       chart.applyOptions({
         width: chartContainer.clientWidth,
         height: chartContainer.clientHeight,
       });
-      chart.timeScale().fitContent();
     }
 
     window.addEventListener("resize", handleResize);
@@ -577,7 +590,7 @@ function AggregateNarrativeHistoryChart({
       comparisonLine = null;
       chart.remove();
     };
-  }, [comparisonSeries, selectedSeries]);
+  }, [comparisonSeries, defaultVisibleRange, selectedSeries]);
 
   return (
     <div className="tradingview-chart-shell">
@@ -735,6 +748,30 @@ function cohortKeyToTagSlug(value: CohortSelectionKey): string | null {
 
 function toBusinessDay(value: string): string {
   return value.slice(0, 10);
+}
+
+function buildRecentTimeVisibleRange(
+  isoTimestamps: string[],
+  windowDays: number,
+): { from: Time; to: Time } | null {
+  if (isoTimestamps.length === 0) {
+    return null;
+  }
+
+  const epochTimes = isoTimestamps
+    .map((timestamp) => Date.parse(timestamp))
+    .filter((epoch): epoch is number => Number.isFinite(epoch));
+  if (epochTimes.length === 0) {
+    return null;
+  }
+
+  const latestTime = Math.max(...epochTimes);
+  const earliestTime = Math.min(...epochTimes);
+  const rangeStart = Math.max(earliestTime, latestTime - windowDays * MS_PER_DAY);
+  return {
+    from: toBusinessDay(new Date(rangeStart).toISOString()),
+    to: toBusinessDay(new Date(latestTime).toISOString()),
+  };
 }
 
 function formatCompactDate(value: string): string {
