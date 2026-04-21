@@ -545,7 +545,23 @@ Batch alternative after ingest:
 ./scripts/run-user-post-ingest-batch.sh --username someuser --analysis-start 2020-08-01T00:00:00Z
 ```
 
-This runs steps 2-7 in order (including managed author registry sync as step 7), then you still run aggregate snapshot rebuild separately.
+By default, this runs steps 2-10, including both aggregate snapshot rebuild steps.
+
+If you are ingesting many users in one session, skip per-user snapshot rebuilds and rebuild once at the end:
+
+```bash
+./scripts/run-user-post-ingest-batch.sh \
+  --username someuser \
+  --analysis-start 2020-08-01T00:00:00Z \
+  --no-rebuild-snapshots
+```
+
+After all users are processed, run one shared rebuild pass:
+
+```bash
+python3 backend/scripts/cache/rebuild_aggregate_snapshots.py --delete-stale
+python3 backend/scripts/cache/rebuild_aggregate_narrative_snapshots.py
+```
 
 ## Aggregate snapshot workflow
 
