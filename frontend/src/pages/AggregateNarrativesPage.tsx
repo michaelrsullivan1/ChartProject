@@ -298,27 +298,6 @@ export function AggregateNarrativesPage({ showWatermark }: AggregateNarrativesPa
   const selectedPeakUserPenetrationRate = selectedNarrative
     ? resolvePeakUserPenetrationRate(selectedNarrative, payload?.cohort.user_count ?? 0)
     : 0;
-  const selectedTotalTweetCount =
-    selectedNarrative?.summary.total_tweet_count ?? payload?.cohort.total_tweet_count ?? 0;
-  const selectedLatestTotalTweetCount =
-    selectedNarrative?.summary.latest_period_total_tweets ??
-    selectedNarrative?.series[selectedNarrative.series.length - 1]?.total_tweet_count ??
-    0;
-  const selectedTotalMatchingUsers =
-    selectedNarrative?.summary.total_matching_users ??
-    0;
-  const selectedLatestMatchingUsers =
-    selectedNarrative?.summary.latest_period_matching_users ??
-    selectedNarrative?.series[selectedNarrative.series.length - 1]?.matching_user_count ??
-    0;
-  const selectedPeakMatchingUsers =
-    selectedNarrative?.summary.peak_period_matching_users ??
-    (selectedNarrative?.series.length
-      ? selectedNarrative.series.reduce(
-          (peak, point) => Math.max(peak, point.matching_user_count ?? 0),
-          0,
-        )
-      : 0);
   const cohortOptions = buildAggregateNarrativeCohortOptions(cohortPayload?.cohorts ?? []);
   const comparisonCohortOption =
     pinnedCohortKey === null
@@ -347,15 +326,11 @@ export function AggregateNarrativesPage({ showWatermark }: AggregateNarrativesPa
                 <article className="metric-card">
                   <p className="metric-label">Tracked Narrative</p>
                   <p className="metric-value">{selectedNarrative.name}</p>
-                  <p className="metric-note">{selectedNarrative.phrase}</p>
                 </article>
                 <article className="metric-card">
                   <p className="metric-label">Selected Cohort</p>
                   <p className="metric-value">
                     {payload.cohort.selection.tag_name ?? "All tracked users"}
-                  </p>
-                  <p className="metric-note">
-                    {integerFormatter.format(payload.cohort.user_count)} users in scope
                   </p>
                 </article>
                 <article className="metric-card">
@@ -373,13 +348,6 @@ export function AggregateNarrativesPage({ showWatermark }: AggregateNarrativesPa
                         ? formatMentionRate(selectedTotalUserPenetrationRate)
                         : integerFormatter.format(selectedNarrative.summary.total_matching_tweets)}
                   </p>
-                  <p className="metric-note">
-                    {metricMode === "mention_rate"
-                      ? `${integerFormatter.format(selectedNarrative.summary.total_matching_tweets)} matching tweets out of ${integerFormatter.format(selectedTotalTweetCount)} total`
-                      : metricMode === "user_penetration"
-                        ? `${integerFormatter.format(selectedTotalMatchingUsers)} matching users out of ${integerFormatter.format(payload?.cohort.user_count ?? 0)} cohort users`
-                        : "One count per tweet containing the phrase"}
-                  </p>
                 </article>
                 <article className="metric-card">
                   <p className="metric-label">
@@ -395,14 +363,6 @@ export function AggregateNarrativesPage({ showWatermark }: AggregateNarrativesPa
                       : metricMode === "user_penetration"
                         ? formatMentionRate(selectedLatestUserPenetrationRate)
                         : integerFormatter.format(selectedNarrative.summary.latest_period_count)}
-                  </p>
-                  <p className="metric-note">
-                    Week of {formatCompactDate(payload.range.end)}{" "}
-                    {metricMode === "mention_rate"
-                      ? `(${integerFormatter.format(selectedNarrative.summary.latest_period_count)} / ${integerFormatter.format(selectedLatestTotalTweetCount)} tweets)`
-                      : metricMode === "user_penetration"
-                        ? `(${integerFormatter.format(selectedLatestMatchingUsers)} / ${integerFormatter.format(payload.cohort.user_count)} users)`
-                        : ""}
                   </p>
                 </article>
                 <article className="metric-card">
@@ -420,23 +380,11 @@ export function AggregateNarrativesPage({ showWatermark }: AggregateNarrativesPa
                         ? formatMentionRate(selectedPeakUserPenetrationRate)
                         : integerFormatter.format(selectedNarrative.summary.peak_period_count)}
                   </p>
-                  <p className="metric-note">
-                    {metricMode === "mention_rate"
-                      ? "Highest weekly share of cohort tweet volume"
-                      : metricMode === "user_penetration"
-                        ? `Highest weekly user reach (${integerFormatter.format(selectedPeakMatchingUsers)} users)`
-                        : "Highest weekly volume in selected range"}
-                  </p>
                 </article>
                 <article className="metric-card">
                   <p className="metric-label">Snapshot Refreshed</p>
                   <p className="metric-value">
                     {payload.generated_at ? formatCompactDate(payload.generated_at) : "Live"}
-                  </p>
-                  <p className="metric-note">
-                    {payload.generated_at
-                      ? timestampFormatter.format(new Date(payload.generated_at))
-                      : "Built on demand"}
                   </p>
                 </article>
               </div>
