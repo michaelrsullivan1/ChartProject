@@ -96,6 +96,15 @@ python3 backend/scripts/ingest/post_process_tracked_author_refresh.py \
   --fetch-results data/exports/refresh-plans/<plan-name>.fetch-results.json
 ```
 
+Faster refresh mode (defer non-critical sync work):
+
+```bash
+python3 backend/scripts/ingest/post_process_tracked_author_refresh.py \
+  --fetch-results data/exports/refresh-plans/<plan-name>.fetch-results.json \
+  --skip-managed-author-sync \
+  --skip-managed-narrative-sync
+```
+
 What it does:
 
 - reads the fetch-results manifest
@@ -107,6 +116,7 @@ What it does:
 - rebuilds the author-registry snapshot once after successful syncs
 - continues if one author fails
 - writes a post-process results manifest next to the fetch-results file
+- prints top elapsed stages in the summary so bottlenecks are visible per run
 
 Default output:
 
@@ -119,6 +129,7 @@ Important behavior:
 - the tracked refresh post-process batches sentiment scoring across all preprocess-ready users in one command
 - the tracked refresh post-process batches mood scoring across all preprocess-ready users in one command
 - managed author rows are synced per user, but the public author-registry snapshot is rebuilt once at the end
+- if you skip per-user syncs, run the deferred sync commands listed below after post-process
 
 What `post-process` runs:
 
@@ -128,10 +139,31 @@ What `post-process` runs:
 - `python3 backend/scripts/enrich/score_tweet_moods.py --username <all preprocess-ready handles...>`
 - `python3 backend/scripts/enrich/extract_tweet_keywords.py --username <handle> --analysis-start <resolved-first-normalized-tweet>`
 - `python3 backend/scripts/views/sync_managed_author_view.py --username <handle> --published --no-rebuild-snapshot`
+- `python3 backend/scripts/enrich/sync_managed_narrative_matches.py --username <handle>`
 - `python3 backend/scripts/cache/rebuild_author_registry_snapshot.py`
+- `python3 backend/scripts/cache/rebuild_aggregate_narrative_snapshots.py`
 
 It does **not** fetch new raw tweets and it does **not** rebuild snapshots.
 It does **not** fetch new raw tweets and it does **not** rebuild aggregate mood snapshots.
+
+### Optional Post-Process Flags
+
+- `--skip-keywords`: skip per-user keyword extraction
+- `--skip-managed-author-sync`: skip per-user managed author sync and skip author-registry snapshot rebuild
+- `--skip-managed-narrative-sync`: skip per-user managed narrative sync and skip aggregate narrative snapshot rebuild
+- `--skip-author-registry-snapshot`: run per-user managed author sync but skip the final author-registry snapshot rebuild
+- `--skip-aggregate-narrative-snapshot`: run per-user managed narrative sync but skip the final aggregate narrative snapshot rebuild
+
+### Deferred Sync Commands (When Using Skip Flags)
+
+If you run `post-process` with `--skip-managed-author-sync` and/or `--skip-managed-narrative-sync`, run these once at the end:
+
+```bash
+python3 backend/scripts/views/seed_tracked_author_views.py
+python3 backend/scripts/cache/rebuild_author_registry_snapshot.py
+python3 backend/scripts/enrich/sync_managed_narrative_matches.py
+python3 backend/scripts/cache/rebuild_aggregate_narrative_snapshots.py
+```
 
 ## Manual Full-History Catch-Up
 

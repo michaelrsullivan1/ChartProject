@@ -261,7 +261,7 @@ export function AppShell({
             }
             type="button"
           >
-            Narratives
+            User Narratives
           </button>
           {openMenu === "heatmaps" ? (
             <div

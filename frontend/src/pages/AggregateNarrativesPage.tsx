@@ -24,6 +24,9 @@ const PRIMARY_LINE_COLOR = "#7af0b6";
 const COMPARISON_LINE_COLOR = "rgba(198, 191, 180, 0.88)";
 const DEFAULT_NARRATIVE_WINDOW_DAYS = 365;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
+const COHORT_QUERY_PARAM = "cohort";
+const PINNED_QUERY_PARAM = "pinned";
+const NARRATIVE_QUERY_PARAM = "narrative";
 
 const chartOptions = {
   layout: {
@@ -117,17 +120,52 @@ type AggregateNarrativesPageProps = {
 };
 
 export function AggregateNarrativesPage({ showWatermark }: AggregateNarrativesPageProps) {
+  const initialUrlState = useMemo(
+    () => readAggregateNarrativesUrlState(window.location.hash),
+    [],
+  );
   const [payload, setPayload] = useState<AggregateNarrativeResponse | null>(null);
   const [comparisonPayload, setComparisonPayload] = useState<AggregateNarrativeResponse | null>(
     null,
   );
   const [cohortPayload, setCohortPayload] = useState<AggregateNarrativeCohortsResponse | null>(null);
-  const [selectedCohortKey, setSelectedCohortKey] = useState<CohortSelectionKey>(ALL_COHORT_KEY);
-  const [pinnedCohortKey, setPinnedCohortKey] = useState<CohortSelectionKey | null>(null);
-  const [selectedNarrativeSlug, setSelectedNarrativeSlug] = useState<string | null>(null);
+  const [selectedCohortKey, setSelectedCohortKey] = useState<CohortSelectionKey>(
+    initialUrlState.selectedCohortKey ?? ALL_COHORT_KEY,
+  );
+  const [pinnedCohortKey, setPinnedCohortKey] = useState<CohortSelectionKey | null>(
+    initialUrlState.pinnedCohortKey ?? null,
+  );
+  const [selectedNarrativeSlug, setSelectedNarrativeSlug] = useState<string | null>(
+    initialUrlState.selectedNarrativeSlug ?? null,
+  );
   const [metricMode, setMetricMode] = useState<NarrativeMetricMode>("mention_rate");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    function handleHashChange() {
+      const urlState = readAggregateNarrativesUrlState(window.location.hash);
+      setSelectedCohortKey(urlState.selectedCohortKey ?? ALL_COHORT_KEY);
+      setPinnedCohortKey(urlState.pinnedCohortKey ?? null);
+      setSelectedNarrativeSlug(urlState.selectedNarrativeSlug ?? null);
+    }
+
+    window.addEventListener("hashchange", handleHashChange);
+    return () => {
+      window.removeEventListener("hashchange", handleHashChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    const nextHash = buildAggregateNarrativesSelectionHash(
+      selectedCohortKey,
+      pinnedCohortKey,
+      selectedNarrativeSlug,
+    );
+    if (window.location.hash !== nextHash) {
+      window.location.hash = nextHash;
+    }
+  }, [pinnedCohortKey, selectedCohortKey, selectedNarrativeSlug]);
 
   useEffect(() => {
     let cancelled = false;
@@ -199,7 +237,6 @@ export function AggregateNarrativesPage({ showWatermark }: AggregateNarrativesPa
 
   useEffect(() => {
     if (!payload) {
-      setSelectedNarrativeSlug(null);
       return;
     }
 
@@ -744,6 +781,62 @@ function isValidCohortKey(
 
 function cohortKeyToTagSlug(value: CohortSelectionKey): string | null {
   return value === ALL_COHORT_KEY ? null : value;
+}
+
+function buildAggregateNarrativesSelectionHash(
+  selectedCohortKey: CohortSelectionKey,
+  pinnedCohortKey: CohortSelectionKey | null,
+  selectedNarrativeSlug: string | null,
+): string {
+  const query = new URLSearchParams();
+  query.set(COHORT_QUERY_PARAM, selectedCohortKey);
+  if (pinnedCohortKey !== null) {
+    query.set(PINNED_QUERY_PARAM, pinnedCohortKey);
+  }
+  if (selectedNarrativeSlug !== null) {
+    query.set(NARRATIVE_QUERY_PARAM, selectedNarrativeSlug);
+  }
+
+  const serializedQuery = query.toString();
+  return `#/aggregate-narratives${serializedQuery ? `?${serializedQuery}` : ""}`;
+}
+
+function readAggregateNarrativesUrlState(hash: string): {
+  selectedCohortKey: CohortSelectionKey | null;
+  pinnedCohortKey: CohortSelectionKey | null;
+  selectedNarrativeSlug: string | null;
+} {
+  const normalizedHash = hash.startsWith("#") ? hash.slice(1) : hash;
+  const queryIndex = normalizedHash.indexOf("?");
+  const path = queryIndex >= 0 ? normalizedHash.slice(0, queryIndex) : normalizedHash;
+  if (path !== "/aggregate-narratives") {
+    return {
+      selectedCohortKey: null,
+      pinnedCohortKey: null,
+      selectedNarrativeSlug: null,
+    };
+  }
+
+  const queryString = queryIndex >= 0 ? normalizedHash.slice(queryIndex + 1) : "";
+  const params = new URLSearchParams(queryString);
+  const selectedCohortKey = normalizeOptionalQueryParam(params.get(COHORT_QUERY_PARAM));
+  const pinnedCohortKey = normalizeOptionalQueryParam(params.get(PINNED_QUERY_PARAM));
+  const selectedNarrativeSlug = normalizeOptionalQueryParam(params.get(NARRATIVE_QUERY_PARAM));
+
+  return {
+    selectedCohortKey,
+    pinnedCohortKey,
+    selectedNarrativeSlug,
+  };
+}
+
+function normalizeOptionalQueryParam(value: string | null): string | null {
+  if (value === null) {
+    return null;
+  }
+
+  const trimmedValue = value.trim();
+  return trimmedValue.length > 0 ? trimmedValue : null;
 }
 
 function toBusinessDay(value: string): string {
