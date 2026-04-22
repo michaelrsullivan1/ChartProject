@@ -78,8 +78,16 @@ export function AppShell({
   onNavigateUserSettings,
   children,
 }: AppShellProps) {
+  const podcastUsers = [{ slug: "michael-saylor", label: "Michael Saylor" }] as const;
   const [openMenu, setOpenMenu] = useState<
-    "aggregate-moods" | "bitcoin-mentions" | "moods" | "overviews" | "heatmaps" | "settings" | null
+    | "user-podcasts"
+    | "aggregate-moods"
+    | "bitcoin-mentions"
+    | "moods"
+    | "overviews"
+    | "heatmaps"
+    | "settings"
+    | null
   >(null);
   const navRef = useRef<HTMLDivElement | null>(null);
 
@@ -130,13 +138,39 @@ export function AppShell({
         >
           Foundation
         </button>
-        <button
-          className={`page-nav-link${activePodcastPersonSlug !== null ? " is-active" : ""}`}
-          onClick={() => onNavigatePodcastPerson(activePodcastPersonSlug ?? "michael-saylor")}
-          type="button"
-        >
-          Podcast Pilot
-        </button>
+        <div className="overview-dropdown">
+          <button
+            aria-expanded={openMenu === "user-podcasts"}
+            className={`page-nav-link${activePodcastPersonSlug !== null ? " is-active" : ""}`}
+            onClick={() =>
+              setOpenMenu((current) => (current === "user-podcasts" ? null : "user-podcasts"))
+            }
+            type="button"
+          >
+            User Podcasts
+          </button>
+          {openMenu === "user-podcasts" ? (
+            <div
+              className={`overview-dropdown-menu${isDashboardNav ? " overview-dropdown-menu-dashboard" : ""}`}
+              role="menu"
+            >
+              {podcastUsers.map((user) => (
+                <button
+                  key={user.slug}
+                  className={`overview-dropdown-item${activePodcastPersonSlug === user.slug ? " is-active" : ""}`}
+                  onClick={() => {
+                    setOpenMenu(null);
+                    onNavigatePodcastPerson(user.slug);
+                  }}
+                  role="menuitem"
+                  type="button"
+                >
+                  {user.label}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
         <div className="overview-dropdown">
           <button
             aria-expanded={openMenu === "bitcoin-mentions"}

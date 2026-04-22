@@ -516,10 +516,12 @@ export default function App() {
   }
 
   if (route.kind === "podcast-person") {
+    const personLabel =
+      route.personSlug === "michael-saylor" ? "Michael Saylor" : route.personSlug;
     return (
       <AppShell
         mode="dashboard"
-        dashboardTitle={`Podcast Pilot: ${route.personSlug}`}
+        dashboardTitle={`User Podcasts: ${personLabel}`}
         activePodcastPersonSlug={route.personSlug}
         activeBitcoinMentionsSlug={null}
         activeAggregateMoodSlug={null}
