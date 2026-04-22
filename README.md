@@ -10,6 +10,8 @@ Related architecture notes:
 - [Podcast Exploration Map](/Users/michaelsullivan/Code/ChartProject/docs/architecture/podcast-exploration-map.md)
 - [Podcast Visual Directions](/Users/michaelsullivan/Code/ChartProject/docs/architecture/podcast-visual-directions.md)
 - [Podcast Person-First Implementation Plan](/Users/michaelsullivan/Code/ChartProject/docs/architecture/podcast-person-first-implementation-plan.md)
+- [Podcast Snapshot Layout Audit](/Users/michaelsullivan/Code/ChartProject/docs/architecture/podcast-snapshot-layout-audit.md)
+- [Podcast Schema Refinement](/Users/michaelsullivan/Code/ChartProject/docs/architecture/podcast-schema-refinement.md)
 
 ## Current state
 
@@ -187,6 +189,27 @@ Force-clear and rebuild aggregate snapshots when you want an immediate full refr
 ```bash
 cd backend
 python3 scripts/cache/rebuild_aggregate_snapshots.py --clear-first --delete-stale
+```
+
+Apply the latest database migrations, including the podcast schema:
+
+```bash
+cd backend
+../.venv/bin/alembic upgrade head
+```
+
+Run the first-pass podcast snapshot import after the Belief Engines archive has been extracted:
+
+```bash
+cd backend
+../.venv/bin/python scripts/ingest/import_podcast_snapshot.py
+```
+
+Dry-run a smaller import slice when iterating on the loader:
+
+```bash
+cd backend
+../.venv/bin/python scripts/ingest/import_podcast_snapshot.py --limit-shows 2 --limit-persons 5 --dry-run
 ```
 
 Check the Postgres container:

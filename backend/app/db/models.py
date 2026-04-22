@@ -5,6 +5,11 @@ from app.models.managed_author_view import ManagedAuthorView
 from app.models.managed_narrative import ManagedNarrative
 from app.models.market_price_point import MarketPricePoint
 from app.models.raw_ingestion_artifact import RawIngestionArtifact
+from app.models.podcast_appearance import PodcastAppearance
+from app.models.podcast_belief import PodcastBelief
+from app.models.podcast_episode import PodcastEpisode
+from app.models.podcast_person import PodcastPerson
+from app.models.podcast_show import PodcastShow
 from app.models.tweet_mood_score import TweetMoodScore
 from app.models.tweet import Tweet
 from app.models.tweet_narrative_match import TweetNarrativeMatch
@@ -21,6 +26,11 @@ __all__ = [
     "ManagedAuthorView",
     "ManagedNarrative",
     "MarketPricePoint",
+    "PodcastAppearance",
+    "PodcastBelief",
+    "PodcastEpisode",
+    "PodcastPerson",
+    "PodcastShow",
     "RawIngestionArtifact",
     "TweetMoodScore",
     "Tweet",
