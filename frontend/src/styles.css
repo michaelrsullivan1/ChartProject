@@ -2008,6 +2008,61 @@ textarea {
   background: rgba(var(--surface-0-rgb), 0.22);
 }
 
+.podcast-topic-table-shell {
+  max-height: min(62vh, 720px);
+  overflow-y: auto;
+}
+
+.podcast-topic-legend-list {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+  max-height: min(36vh, 360px);
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.podcast-topic-legend-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.podcast-topic-legend-button {
+  width: 100%;
+  border: 1px solid rgba(var(--line-rgb), 0.12);
+  border-radius: 10px;
+  background: rgba(var(--surface-0-rgb), 0.35);
+  cursor: pointer;
+  text-align: left;
+  padding: 6px 8px;
+  transition:
+    border-color 120ms ease,
+    background 120ms ease,
+    transform 120ms ease;
+}
+
+.podcast-topic-legend-button:hover {
+  border-color: rgba(var(--accent-rgb), 0.3);
+  background: rgba(var(--surface-0-rgb), 0.55);
+  transform: translateY(-1px);
+}
+
+.podcast-topic-legend-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  box-shadow: 0 0 0 1px rgba(var(--line-rgb), 0.25);
+}
+
+.podcast-topic-legend-label {
+  min-width: 0;
+  color: var(--text-base);
+  font-size: 0.8rem;
+  line-height: 1.2;
+}
+
 .bitcoin-table {
   width: 100%;
   border-collapse: collapse;

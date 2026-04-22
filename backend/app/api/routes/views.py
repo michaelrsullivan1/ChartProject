@@ -48,6 +48,10 @@ from app.services.podcast_person_view import (
     PodcastPersonViewRequest,
     build_podcast_person_view,
 )
+from app.services.podcast_narrative_mix_view import (
+    PodcastNarrativeMixViewRequest,
+    build_podcast_narrative_mix_view,
+)
 from app.services.sentiment import DEFAULT_SENTIMENT_MODEL
 
 
@@ -486,6 +490,18 @@ def podcast_person_view(person_slug: str) -> dict[str, object]:
         PodcastPersonViewRequest(
             person_slug=person_slug,
             view_name="podcast-person-view",
+        )
+    )
+
+
+@router.get("/podcasts/persons/{person_slug}/narrative-mix")
+def podcast_person_narrative_mix_view(
+    person_slug: str,
+) -> dict[str, object]:
+    return build_podcast_narrative_mix_view(
+        PodcastNarrativeMixViewRequest(
+            person_slug=person_slug,
+            view_name="podcast-person-narrative-mix-view",
         )
     )
 
