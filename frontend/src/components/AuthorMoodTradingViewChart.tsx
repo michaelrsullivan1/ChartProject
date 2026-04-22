@@ -278,7 +278,7 @@ export function AuthorMoodTradingViewChart({
       const comparisonSeries = chart.addSeries(
         LineSeries,
         {
-          title: comparisonMoodLabel ?? "",
+          title: "",
           color: comparisonMoodColor,
           lineWidth: 2,
           lineType: LineType.Simple,

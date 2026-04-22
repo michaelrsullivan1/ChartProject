@@ -4,6 +4,13 @@ ChartProject is a local-first X/Twitter research archive and visualization syste
 
 The architecture source of truth is [ProjectPlan.md](/Users/michaelsullivan/Code/ChartProject/ProjectPlan.md).
 
+Related architecture notes:
+
+- [Podcast Transcripts Investigation](/Users/michaelsullivan/Code/ChartProject/docs/architecture/podcast-transcripts-investigation.md)
+- [Podcast Exploration Map](/Users/michaelsullivan/Code/ChartProject/docs/architecture/podcast-exploration-map.md)
+- [Podcast Visual Directions](/Users/michaelsullivan/Code/ChartProject/docs/architecture/podcast-visual-directions.md)
+- [Podcast Person-First Implementation Plan](/Users/michaelsullivan/Code/ChartProject/docs/architecture/podcast-person-first-implementation-plan.md)
+
 ## Current state
 
 One full local flow is working end-to-end:
