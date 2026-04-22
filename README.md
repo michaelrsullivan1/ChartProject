@@ -13,6 +13,7 @@ Related architecture notes:
 - [Podcast Snapshot Layout Audit](/Users/michaelsullivan/Code/ChartProject/docs/architecture/podcast-snapshot-layout-audit.md)
 - [Podcast Schema Refinement](/Users/michaelsullivan/Code/ChartProject/docs/architecture/podcast-schema-refinement.md)
 - [Podcast Implementation Status](/Users/michaelsullivan/Code/ChartProject/docs/architecture/podcast-implementation-status-2026-04-22.md)
+- [Podcast Future Ingest Guardrails](/Users/michaelsullivan/Code/ChartProject/docs/architecture/podcast-future-ingest-guardrails.md)
 
 ## Current state
 
