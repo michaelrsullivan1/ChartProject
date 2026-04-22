@@ -12,6 +12,7 @@ Related architecture notes:
 - [Podcast Person-First Implementation Plan](/Users/michaelsullivan/Code/ChartProject/docs/architecture/podcast-person-first-implementation-plan.md)
 - [Podcast Snapshot Layout Audit](/Users/michaelsullivan/Code/ChartProject/docs/architecture/podcast-snapshot-layout-audit.md)
 - [Podcast Schema Refinement](/Users/michaelsullivan/Code/ChartProject/docs/architecture/podcast-schema-refinement.md)
+- [Podcast Implementation Status](/Users/michaelsullivan/Code/ChartProject/docs/architecture/podcast-implementation-status-2026-04-22.md)
 
 ## Current state
 

@@ -43,6 +43,7 @@ import { AggregateNarrativesPage } from "./pages/AggregateNarrativesPage";
 import { BitcoinMentionsPage } from "./pages/BitcoinMentionsPage";
 import { AuthorOverviewPage } from "./pages/MichaelSaylorVsBtcPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
+import { PodcastPersonPage } from "./pages/PodcastPersonPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { UserSettingsPage } from "./pages/UserSettingsPage";
 import {
@@ -55,6 +56,7 @@ import type { HealthResponse } from "./types/health";
 
 type AppRoute =
   | { kind: "home" }
+  | { kind: "podcast-person"; personSlug: string }
   | { kind: "aggregate-mood"; aggregateMood: AggregateMoodDefinition }
   | { kind: "aggregate-narratives" }
   | { kind: "bitcoin-mentions"; bitcoinMentions: BitcoinMentionsDefinition }
@@ -99,6 +101,11 @@ function getRouteFromHash(hash: string, definitions: RouteDefinitions): AppRoute
 
   if (path === "" || path === "#" || path === "#/") {
     return { kind: "home" };
+  }
+
+  if (path.startsWith("#/podcasts/")) {
+    const personSlug = decodeURIComponent(path.slice("#/podcasts/".length));
+    return personSlug ? { kind: "podcast-person", personSlug } : { kind: "not-found" };
   }
 
   if (path === "#/bitcoin-mentions") {
@@ -367,6 +374,10 @@ export default function App() {
     window.location.hash = getOverviewHash(slug);
   }
 
+  function navigatePodcastPerson(slug: string) {
+    window.location.hash = `#/podcasts/${encodeURIComponent(slug)}`;
+  }
+
   function navigateAggregateMood(slug: string) {
     window.location.hash = getAggregateMoodHash(slug);
   }
@@ -400,6 +411,7 @@ export default function App() {
       <AppShell
         mode="dashboard"
         dashboardTitle="Loading View"
+        activePodcastPersonSlug={null}
         activeBitcoinMentionsSlug={null}
         activeAggregateMoodSlug={null}
         activeAggregateNarratives={false}
@@ -411,6 +423,7 @@ export default function App() {
         bitcoinMentions={sortedBitcoinMentionsDefinitions}
         moods={sortedMoodDefinitions}
         onNavigateHome={navigateHome}
+        onNavigatePodcastPerson={navigatePodcastPerson}
         onNavigateAggregateMood={navigateAggregateMood}
         onNavigateAggregateNarratives={navigateAggregateNarratives}
         onNavigateBitcoinMentions={navigateBitcoinMentions}
@@ -435,6 +448,7 @@ export default function App() {
     return (
       <AppShell
         mode="home"
+        activePodcastPersonSlug={null}
         activeBitcoinMentionsSlug={null}
         activeAggregateMoodSlug={null}
         activeAggregateNarratives={false}
@@ -446,6 +460,7 @@ export default function App() {
         bitcoinMentions={sortedBitcoinMentionsDefinitions}
         moods={sortedMoodDefinitions}
         onNavigateHome={navigateHome}
+        onNavigatePodcastPerson={navigatePodcastPerson}
         onNavigateAggregateMood={navigateAggregateMood}
         onNavigateAggregateNarratives={navigateAggregateNarratives}
         onNavigateBitcoinMentions={navigateBitcoinMentions}
@@ -467,6 +482,7 @@ export default function App() {
       <AppShell
         mode="dashboard"
         dashboardTitle={getOverviewTitle(route.overview)}
+        activePodcastPersonSlug={null}
         activeBitcoinMentionsSlug={null}
         activeAggregateMoodSlug={null}
         activeAggregateNarratives={false}
@@ -478,6 +494,7 @@ export default function App() {
         bitcoinMentions={sortedBitcoinMentionsDefinitions}
         moods={sortedMoodDefinitions}
         onNavigateHome={navigateHome}
+        onNavigatePodcastPerson={navigatePodcastPerson}
         onNavigateAggregateMood={navigateAggregateMood}
         onNavigateAggregateNarratives={navigateAggregateNarratives}
         onNavigateBitcoinMentions={navigateBitcoinMentions}
@@ -498,11 +515,46 @@ export default function App() {
     );
   }
 
+  if (route.kind === "podcast-person") {
+    return (
+      <AppShell
+        mode="dashboard"
+        dashboardTitle={`Podcast Pilot: ${route.personSlug}`}
+        activePodcastPersonSlug={route.personSlug}
+        activeBitcoinMentionsSlug={null}
+        activeAggregateMoodSlug={null}
+        activeAggregateNarratives={false}
+        activeMoodSlug={null}
+        activeOverviewSlug={null}
+        activeHeatmapSlug={null}
+        activeSettingsSection={null}
+        aggregateMoods={aggregateMoodDefinitions}
+        bitcoinMentions={sortedBitcoinMentionsDefinitions}
+        moods={sortedMoodDefinitions}
+        onNavigateHome={navigateHome}
+        onNavigatePodcastPerson={navigatePodcastPerson}
+        onNavigateAggregateMood={navigateAggregateMood}
+        onNavigateAggregateNarratives={navigateAggregateNarratives}
+        onNavigateBitcoinMentions={navigateBitcoinMentions}
+        onNavigateMood={navigateMood}
+        onNavigateOverview={navigateOverview}
+        onNavigateHeatmap={navigateHeatmap}
+        onNavigateGlobalSettings={navigateGlobalSettings}
+        onNavigateUserSettings={navigateUserSettings}
+        overviews={sortedOverviewDefinitions}
+        heatmaps={sortedHeatmapDefinitions}
+      >
+        <PodcastPersonPage key={route.personSlug} personSlug={route.personSlug} />
+      </AppShell>
+    );
+  }
+
   if (route.kind === "mood") {
     return (
       <AppShell
         mode="dashboard"
         dashboardTitle={getMoodTitle(route.mood)}
+        activePodcastPersonSlug={null}
         activeBitcoinMentionsSlug={null}
         activeAggregateMoodSlug={null}
         activeAggregateNarratives={false}
@@ -514,6 +566,7 @@ export default function App() {
         bitcoinMentions={sortedBitcoinMentionsDefinitions}
         moods={sortedMoodDefinitions}
         onNavigateHome={navigateHome}
+        onNavigatePodcastPerson={navigatePodcastPerson}
         onNavigateAggregateMood={navigateAggregateMood}
         onNavigateAggregateNarratives={navigateAggregateNarratives}
         onNavigateBitcoinMentions={navigateBitcoinMentions}
@@ -535,6 +588,7 @@ export default function App() {
       <AppShell
         mode="dashboard"
         dashboardTitle={getAggregateMoodTitle(route.aggregateMood)}
+        activePodcastPersonSlug={null}
         activeBitcoinMentionsSlug={null}
         activeAggregateMoodSlug={route.aggregateMood.slug}
         activeAggregateNarratives={false}
@@ -546,6 +600,7 @@ export default function App() {
         bitcoinMentions={sortedBitcoinMentionsDefinitions}
         moods={sortedMoodDefinitions}
         onNavigateHome={navigateHome}
+        onNavigatePodcastPerson={navigatePodcastPerson}
         onNavigateAggregateMood={navigateAggregateMood}
         onNavigateAggregateNarratives={navigateAggregateNarratives}
         onNavigateBitcoinMentions={navigateBitcoinMentions}
@@ -571,6 +626,7 @@ export default function App() {
       <AppShell
         mode="dashboard"
         dashboardTitle={getHeatmapTitle(route.heatmap)}
+        activePodcastPersonSlug={null}
         activeBitcoinMentionsSlug={null}
         activeAggregateMoodSlug={null}
         activeAggregateNarratives={false}
@@ -582,6 +638,7 @@ export default function App() {
         bitcoinMentions={sortedBitcoinMentionsDefinitions}
         moods={sortedMoodDefinitions}
         onNavigateHome={navigateHome}
+        onNavigatePodcastPerson={navigatePodcastPerson}
         onNavigateAggregateMood={navigateAggregateMood}
         onNavigateAggregateNarratives={navigateAggregateNarratives}
         onNavigateBitcoinMentions={navigateBitcoinMentions}
@@ -607,6 +664,7 @@ export default function App() {
       <AppShell
         mode="dashboard"
         dashboardTitle="Aggregate Narratives"
+        activePodcastPersonSlug={null}
         activeBitcoinMentionsSlug={null}
         activeAggregateMoodSlug={null}
         activeAggregateNarratives={true}
@@ -618,6 +676,7 @@ export default function App() {
         bitcoinMentions={sortedBitcoinMentionsDefinitions}
         moods={sortedMoodDefinitions}
         onNavigateHome={navigateHome}
+        onNavigatePodcastPerson={navigatePodcastPerson}
         onNavigateAggregateMood={navigateAggregateMood}
         onNavigateAggregateNarratives={navigateAggregateNarratives}
         onNavigateBitcoinMentions={navigateBitcoinMentions}
@@ -639,6 +698,7 @@ export default function App() {
       <AppShell
         mode="dashboard"
         dashboardTitle={getBitcoinMentionsTitle(route.bitcoinMentions)}
+        activePodcastPersonSlug={null}
         activeBitcoinMentionsSlug={route.bitcoinMentions.slug}
         activeAggregateMoodSlug={null}
         activeAggregateNarratives={false}
@@ -650,6 +710,7 @@ export default function App() {
         bitcoinMentions={sortedBitcoinMentionsDefinitions}
         moods={sortedMoodDefinitions}
         onNavigateHome={navigateHome}
+        onNavigatePodcastPerson={navigatePodcastPerson}
         onNavigateAggregateMood={navigateAggregateMood}
         onNavigateAggregateNarratives={navigateAggregateNarratives}
         onNavigateBitcoinMentions={navigateBitcoinMentions}
@@ -675,6 +736,7 @@ export default function App() {
       <AppShell
         mode="dashboard"
         dashboardTitle={route.section === "global" ? "Global Settings" : "User Settings"}
+        activePodcastPersonSlug={null}
         activeBitcoinMentionsSlug={null}
         activeAggregateMoodSlug={null}
         activeAggregateNarratives={false}
@@ -686,6 +748,7 @@ export default function App() {
         bitcoinMentions={sortedBitcoinMentionsDefinitions}
         moods={sortedMoodDefinitions}
         onNavigateHome={navigateHome}
+        onNavigatePodcastPerson={navigatePodcastPerson}
         onNavigateAggregateMood={navigateAggregateMood}
         onNavigateAggregateNarratives={navigateAggregateNarratives}
         onNavigateBitcoinMentions={navigateBitcoinMentions}
@@ -717,6 +780,7 @@ export default function App() {
     <AppShell
       mode="dashboard"
       dashboardTitle="Overview Not Found"
+      activePodcastPersonSlug={null}
       activeBitcoinMentionsSlug={null}
       activeAggregateMoodSlug={null}
       activeAggregateNarratives={false}
@@ -728,6 +792,7 @@ export default function App() {
       bitcoinMentions={sortedBitcoinMentionsDefinitions}
       moods={sortedMoodDefinitions}
       onNavigateHome={navigateHome}
+      onNavigatePodcastPerson={navigatePodcastPerson}
       onNavigateAggregateMood={navigateAggregateMood}
       onNavigateAggregateNarratives={navigateAggregateNarratives}
       onNavigateBitcoinMentions={navigateBitcoinMentions}

@@ -71,6 +71,17 @@ def load_json(path: Path) -> dict[str, object]:
     return json.loads(path.read_text())
 
 
+def load_global_belief_record(
+    extracted_root: Path,
+    source_belief_id: str,
+) -> dict[str, object] | None:
+    belief_prefix = source_belief_id[2:6]
+    belief_path = extracted_root / "beliefs" / belief_prefix / f"{source_belief_id}.json"
+    if not belief_path.exists():
+        return None
+    return load_json(belief_path)
+
+
 def slug_to_display_name(slug: str) -> str:
     return slug.replace("-", " ").strip().title()
 
@@ -261,12 +272,14 @@ def upsert_appearance(
 def upsert_belief(
     session: Session,
     *,
+    extracted_root: Path,
     person: PodcastPerson,
     episode: PodcastEpisode,
     show: PodcastShow,
     record: dict[str, object],
 ) -> None:
     source_belief_id = str(record.get("id"))
+    global_record = load_global_belief_record(extracted_root, source_belief_id)
     belief = session.scalar(
         select(PodcastBelief).where(PodcastBelief.source_belief_id == source_belief_id)
     )
@@ -284,22 +297,103 @@ def upsert_belief(
     belief.podcast_person_id = person.id
     belief.podcast_episode_id = episode.id
     belief.podcast_show_id = show.id
-    belief.quote = str(record.get("quote") or "")
-    belief.atomic_belief = str(record.get("atomic_belief") or "")
-    belief.topic = record.get("topic") if isinstance(record.get("topic"), str) else None
-    belief.domain = record.get("domain") if isinstance(record.get("domain"), str) else None
-    belief.worldview = record.get("worldview") if isinstance(record.get("worldview"), str) else None
-    belief.core_axiom = (
-        record.get("core_axiom") if isinstance(record.get("core_axiom"), str) else None
+    belief.quote = str(
+        choose_first_non_empty(
+            global_record.get("quote_text") if global_record else None,
+            record.get("quote"),
+            "",
+        )
     )
-    belief.weights_json = record.get("weights") if isinstance(record.get("weights"), list) else None
+    belief.atomic_belief = str(record.get("atomic_belief") or "")
+    belief.topic = (
+        choose_first_non_empty(
+            global_record.get("topic") if global_record else None,
+            record.get("topic"),
+        )
+        if isinstance(
+            choose_first_non_empty(
+                global_record.get("topic") if global_record else None,
+                record.get("topic"),
+            ),
+            str,
+        )
+        else None
+    )
+    belief.domain = (
+        record.get("domain") if isinstance(record.get("domain"), str) else None
+    )
+    belief.worldview = (
+        choose_first_non_empty(
+            global_record.get("worldview") if global_record else None,
+            record.get("worldview"),
+        )
+        if isinstance(
+            choose_first_non_empty(
+                global_record.get("worldview") if global_record else None,
+                record.get("worldview"),
+            ),
+            str,
+        )
+        else None
+    )
+    belief.core_axiom = (
+        choose_first_non_empty(
+            global_record.get("core_axiom") if global_record else None,
+            record.get("core_axiom"),
+        )
+        if isinstance(
+            choose_first_non_empty(
+                global_record.get("core_axiom") if global_record else None,
+                record.get("core_axiom"),
+            ),
+            str,
+        )
+        else None
+    )
+    weights_value = choose_first_non_empty(
+        global_record.get("weights") if global_record else None,
+        record.get("weights"),
+    )
+    belief.weights_json = weights_value if isinstance(weights_value, list) else None
     belief.timestamp_start_seconds = (
-        float(record["timestamp_start"]) if record.get("timestamp_start") is not None else None
+        float(
+            choose_first_non_empty(
+                global_record.get("timestamp_start") if global_record else None,
+                record.get("timestamp_start"),
+            )
+        )
+        if choose_first_non_empty(
+            global_record.get("timestamp_start") if global_record else None,
+            record.get("timestamp_start"),
+        )
+        is not None
+        else None
     )
     belief.timestamp_end_seconds = (
-        float(record["timestamp_end"]) if record.get("timestamp_end") is not None else None
+        float(
+            choose_first_non_empty(
+                global_record.get("timestamp_end") if global_record else None,
+                record.get("timestamp_end"),
+            )
+        )
+        if choose_first_non_empty(
+            global_record.get("timestamp_end") if global_record else None,
+            record.get("timestamp_end"),
+        )
+        is not None
+        else None
     )
     belief.source_created_at = parse_timestamp(record.get("created_at"))
+
+
+def build_person_maps(session: Session) -> tuple[dict[str, PodcastPerson], dict[str, PodcastEpisode], dict[str, PodcastShow]]:
+    persons = list(session.scalars(select(PodcastPerson)))
+    episodes = list(session.scalars(select(PodcastEpisode)))
+    shows = list(session.scalars(select(PodcastShow)))
+    persons_by_source_id = {person.source_person_id: person for person in persons}
+    episodes_by_source_id = {episode.source_episode_id: episode for episode in episodes}
+    shows_by_source_slug = {show.source_slug: show for show in shows}
+    return persons_by_source_id, episodes_by_source_id, shows_by_source_slug
 
 
 def load_episode_maps(session: Session) -> tuple[dict[str, PodcastEpisode], dict[str, PodcastShow]]:
@@ -343,6 +437,8 @@ def main() -> None:
 
         session.flush()
         episodes_by_source_id, shows_by_source_slug = load_episode_maps(session)
+        existing_belief_ids = set(session.scalars(select(PodcastBelief.source_belief_id)))
+        staged_belief_ids = set(existing_belief_ids)
 
         for person_dir in iter_person_dirs(person_root, limit_persons=args.limit_persons):
             profile_path = person_dir / "profile.json"
@@ -374,9 +470,14 @@ def main() -> None:
                     record = json.loads(normalized)
                     source_episode_id = record.get("episode_id")
                     source_show_slug = record.get("podcast_id")
+                    source_belief_id = record.get("id")
                     if not isinstance(source_episode_id, str):
                         continue
                     if not isinstance(source_show_slug, str):
+                        continue
+                    if not isinstance(source_belief_id, str):
+                        continue
+                    if source_belief_id in staged_belief_ids:
                         continue
                     episode = episodes_by_source_id.get(source_episode_id)
                     show = shows_by_source_slug.get(source_show_slug)
@@ -384,12 +485,76 @@ def main() -> None:
                         continue
                     upsert_belief(
                         session,
+                        extracted_root=extracted_root,
                         person=person,
                         episode=episode,
                         show=show,
                         record=record,
                     )
+                    staged_belief_ids.add(source_belief_id)
                     belief_count += 1
+
+        persons_by_source_id, episodes_by_source_id, shows_by_source_slug = build_person_maps(session)
+
+        for manifest_path in iter_manifest_paths(manifest_root, limit_shows=args.limit_shows):
+            manifest = load_json(manifest_path)
+            source_episode_id = str(
+                choose_first_non_empty(
+                    manifest.get("episode_id"),
+                    manifest.get("episode_slug"),
+                    manifest_path.stem,
+                )
+            )
+            source_show_slug = manifest_path.parent.name
+            episode = episodes_by_source_id.get(source_episode_id)
+            show = shows_by_source_slug.get(source_show_slug)
+            if episode is None or show is None:
+                continue
+
+            artifact_paths = manifest.get("artifacts", {}).get("beliefs", [])
+            if not isinstance(artifact_paths, list):
+                continue
+
+            for artifact_path in artifact_paths:
+                if not isinstance(artifact_path, str):
+                    continue
+                belief_path = extracted_root / artifact_path
+                if not belief_path.exists():
+                    continue
+                record = load_json(belief_path)
+                source_belief_id = record.get("id")
+                if not isinstance(source_belief_id, str):
+                    continue
+                if source_belief_id in staged_belief_ids:
+                    continue
+                speaker_slug = record.get("speaker_slug")
+                if not isinstance(speaker_slug, str):
+                    continue
+                person = persons_by_source_id.get(speaker_slug)
+                if person is None:
+                    continue
+                upsert_belief(
+                    session,
+                    extracted_root=extracted_root,
+                    person=person,
+                    episode=episode,
+                    show=show,
+                    record={
+                        "id": record.get("id"),
+                        "quote": record.get("quote_text"),
+                        "atomic_belief": record.get("atomic_belief"),
+                        "topic": record.get("topic"),
+                        "domain": record.get("domain"),
+                        "worldview": record.get("worldview"),
+                        "core_axiom": record.get("core_axiom"),
+                        "weights": record.get("weights"),
+                        "timestamp_start": record.get("timestamp_start"),
+                        "timestamp_end": record.get("timestamp_end"),
+                        "created_at": record.get("created_at"),
+                    },
+                )
+                staged_belief_ids.add(source_belief_id)
+                belief_count += 1
 
         if args.dry_run:
             session.rollback()

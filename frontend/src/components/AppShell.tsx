@@ -24,6 +24,7 @@ import {
 type AppShellProps = {
   mode: "home" | "dashboard";
   dashboardTitle?: string;
+  activePodcastPersonSlug: string | null;
   activeBitcoinMentionsSlug: string | null;
   activeAggregateMoodSlug: string | null;
   activeAggregateNarratives: boolean;
@@ -37,6 +38,7 @@ type AppShellProps = {
   overviews: OverviewDefinition[];
   heatmaps: HeatmapDefinition[];
   onNavigateHome: () => void;
+  onNavigatePodcastPerson: (slug: string) => void;
   onNavigateAggregateMood: (slug: string) => void;
   onNavigateAggregateNarratives: () => void;
   onNavigateBitcoinMentions: (slug: string) => void;
@@ -51,6 +53,7 @@ type AppShellProps = {
 export function AppShell({
   mode,
   dashboardTitle,
+  activePodcastPersonSlug,
   activeBitcoinMentionsSlug,
   activeAggregateMoodSlug,
   activeAggregateNarratives,
@@ -64,6 +67,7 @@ export function AppShell({
   overviews,
   heatmaps,
   onNavigateHome,
+  onNavigatePodcastPerson,
   onNavigateAggregateMood,
   onNavigateAggregateNarratives,
   onNavigateBitcoinMentions,
@@ -87,6 +91,7 @@ export function AppShell({
     activeBitcoinMentionsSlug,
     activeHeatmapSlug,
     activeMoodSlug,
+    activePodcastPersonSlug,
     activeOverviewSlug,
     activeSettingsSection,
     mode,
@@ -124,6 +129,13 @@ export function AppShell({
           type="button"
         >
           Foundation
+        </button>
+        <button
+          className={`page-nav-link${activePodcastPersonSlug !== null ? " is-active" : ""}`}
+          onClick={() => onNavigatePodcastPerson(activePodcastPersonSlug ?? "michael-saylor")}
+          type="button"
+        >
+          Podcast Pilot
         </button>
         <div className="overview-dropdown">
           <button

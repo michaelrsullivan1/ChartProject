@@ -44,6 +44,10 @@ from app.services.author_vs_btc_view import (
 )
 from app.services.market_data import fetch_coinbase_spot_price
 from app.services.moods import DEFAULT_MOOD_MODEL
+from app.services.podcast_person_view import (
+    PodcastPersonViewRequest,
+    build_podcast_person_view,
+)
 from app.services.sentiment import DEFAULT_SENTIMENT_MODEL
 
 
@@ -473,6 +477,16 @@ def managed_author_bitcoin_mentions(
         phrase=phrase,
         buy_amount_usd=buy_amount_usd,
         view_name=f"{context.slug}-bitcoin-mentions",
+    )
+
+
+@router.get("/podcasts/persons/{person_slug}")
+def podcast_person_view(person_slug: str) -> dict[str, object]:
+    return build_podcast_person_view(
+        PodcastPersonViewRequest(
+            person_slug=person_slug,
+            view_name="podcast-person-view",
+        )
     )
 
 
