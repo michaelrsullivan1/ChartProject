@@ -44,6 +44,9 @@ import { BitcoinMentionsPage } from "./pages/BitcoinMentionsPage";
 import { AuthorOverviewPage } from "./pages/MichaelSaylorVsBtcPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { PodcastPersonPage } from "./pages/PodcastPersonPage";
+import { UserBeliefsPage } from "./pages/UserBeliefsPage";
+import { UserNarrativeIntensityPage } from "./pages/UserNarrativeIntensityPage";
+import { UserNarrativeMixPage } from "./pages/UserNarrativeMixPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { UserSettingsPage } from "./pages/UserSettingsPage";
 import {
@@ -57,6 +60,9 @@ import type { HealthResponse } from "./types/health";
 type AppRoute =
   | { kind: "home" }
   | { kind: "podcast-person"; personSlug: string }
+  | { kind: "user-narrative-mix"; personSlug: string }
+  | { kind: "user-narrative-intensity"; personSlug: string }
+  | { kind: "user-beliefs"; personSlug: string }
   | { kind: "aggregate-mood"; aggregateMood: AggregateMoodDefinition }
   | { kind: "aggregate-narratives" }
   | { kind: "bitcoin-mentions"; bitcoinMentions: BitcoinMentionsDefinition }
@@ -106,6 +112,33 @@ function getRouteFromHash(hash: string, definitions: RouteDefinitions): AppRoute
   if (path.startsWith("#/podcasts/")) {
     const personSlug = decodeURIComponent(path.slice("#/podcasts/".length));
     return personSlug ? { kind: "podcast-person", personSlug } : { kind: "not-found" };
+  }
+
+  if (path === "#/user-narrative-mix") {
+    return { kind: "user-narrative-mix", personSlug: "michael-saylor" };
+  }
+
+  if (path.startsWith("#/user-narrative-mix/")) {
+    const personSlug = decodeURIComponent(path.slice("#/user-narrative-mix/".length));
+    return personSlug ? { kind: "user-narrative-mix", personSlug } : { kind: "not-found" };
+  }
+
+  if (path === "#/user-narrative-intensity") {
+    return { kind: "user-narrative-intensity", personSlug: "michael-saylor" };
+  }
+
+  if (path.startsWith("#/user-narrative-intensity/")) {
+    const personSlug = decodeURIComponent(path.slice("#/user-narrative-intensity/".length));
+    return personSlug ? { kind: "user-narrative-intensity", personSlug } : { kind: "not-found" };
+  }
+
+  if (path === "#/user-beliefs") {
+    return { kind: "user-beliefs", personSlug: "michael-saylor" };
+  }
+
+  if (path.startsWith("#/user-beliefs/")) {
+    const personSlug = decodeURIComponent(path.slice("#/user-beliefs/".length));
+    return personSlug ? { kind: "user-beliefs", personSlug } : { kind: "not-found" };
   }
 
   if (path === "#/bitcoin-mentions") {
@@ -522,6 +555,7 @@ export default function App() {
       <AppShell
         mode="dashboard"
         dashboardTitle={`User Podcasts: ${personLabel}`}
+        activeUserPodcastView={null}
         activePodcastPersonSlug={route.personSlug}
         activeBitcoinMentionsSlug={null}
         activeAggregateMoodSlug={null}
@@ -547,6 +581,117 @@ export default function App() {
         heatmaps={sortedHeatmapDefinitions}
       >
         <PodcastPersonPage key={route.personSlug} personSlug={route.personSlug} />
+      </AppShell>
+    );
+  }
+
+  if (route.kind === "user-narrative-mix") {
+    const personLabel =
+      route.personSlug === "michael-saylor" ? "Michael Saylor" : route.personSlug;
+    return (
+      <AppShell
+        mode="dashboard"
+        dashboardTitle={`User Narrative Mix: ${personLabel}`}
+        activeUserPodcastView="narrative-mix"
+        activePodcastPersonSlug={route.personSlug}
+        activeBitcoinMentionsSlug={null}
+        activeAggregateMoodSlug={null}
+        activeAggregateNarratives={false}
+        activeMoodSlug={null}
+        activeOverviewSlug={null}
+        activeHeatmapSlug={null}
+        activeSettingsSection={null}
+        aggregateMoods={aggregateMoodDefinitions}
+        bitcoinMentions={sortedBitcoinMentionsDefinitions}
+        moods={sortedMoodDefinitions}
+        onNavigateHome={navigateHome}
+        onNavigatePodcastPerson={navigatePodcastPerson}
+        onNavigateAggregateMood={navigateAggregateMood}
+        onNavigateAggregateNarratives={navigateAggregateNarratives}
+        onNavigateBitcoinMentions={navigateBitcoinMentions}
+        onNavigateMood={navigateMood}
+        onNavigateOverview={navigateOverview}
+        onNavigateHeatmap={navigateHeatmap}
+        onNavigateGlobalSettings={navigateGlobalSettings}
+        onNavigateUserSettings={navigateUserSettings}
+        overviews={sortedOverviewDefinitions}
+        heatmaps={sortedHeatmapDefinitions}
+      >
+        <UserNarrativeMixPage personSlug={route.personSlug} />
+      </AppShell>
+    );
+  }
+
+  if (route.kind === "user-narrative-intensity") {
+    const personLabel =
+      route.personSlug === "michael-saylor" ? "Michael Saylor" : route.personSlug;
+    return (
+      <AppShell
+        mode="dashboard"
+        dashboardTitle={`User Narrative Intensity: ${personLabel}`}
+        activeUserPodcastView="narrative-intensity"
+        activePodcastPersonSlug={route.personSlug}
+        activeBitcoinMentionsSlug={null}
+        activeAggregateMoodSlug={null}
+        activeAggregateNarratives={false}
+        activeMoodSlug={null}
+        activeOverviewSlug={null}
+        activeHeatmapSlug={null}
+        activeSettingsSection={null}
+        aggregateMoods={aggregateMoodDefinitions}
+        bitcoinMentions={sortedBitcoinMentionsDefinitions}
+        moods={sortedMoodDefinitions}
+        onNavigateHome={navigateHome}
+        onNavigatePodcastPerson={navigatePodcastPerson}
+        onNavigateAggregateMood={navigateAggregateMood}
+        onNavigateAggregateNarratives={navigateAggregateNarratives}
+        onNavigateBitcoinMentions={navigateBitcoinMentions}
+        onNavigateMood={navigateMood}
+        onNavigateOverview={navigateOverview}
+        onNavigateHeatmap={navigateHeatmap}
+        onNavigateGlobalSettings={navigateGlobalSettings}
+        onNavigateUserSettings={navigateUserSettings}
+        overviews={sortedOverviewDefinitions}
+        heatmaps={sortedHeatmapDefinitions}
+      >
+        <UserNarrativeIntensityPage personSlug={route.personSlug} />
+      </AppShell>
+    );
+  }
+
+  if (route.kind === "user-beliefs") {
+    const personLabel =
+      route.personSlug === "michael-saylor" ? "Michael Saylor" : route.personSlug;
+    return (
+      <AppShell
+        mode="dashboard"
+        dashboardTitle={`User Beliefs: ${personLabel}`}
+        activeUserPodcastView="beliefs"
+        activePodcastPersonSlug={route.personSlug}
+        activeBitcoinMentionsSlug={null}
+        activeAggregateMoodSlug={null}
+        activeAggregateNarratives={false}
+        activeMoodSlug={null}
+        activeOverviewSlug={null}
+        activeHeatmapSlug={null}
+        activeSettingsSection={null}
+        aggregateMoods={aggregateMoodDefinitions}
+        bitcoinMentions={sortedBitcoinMentionsDefinitions}
+        moods={sortedMoodDefinitions}
+        onNavigateHome={navigateHome}
+        onNavigatePodcastPerson={navigatePodcastPerson}
+        onNavigateAggregateMood={navigateAggregateMood}
+        onNavigateAggregateNarratives={navigateAggregateNarratives}
+        onNavigateBitcoinMentions={navigateBitcoinMentions}
+        onNavigateMood={navigateMood}
+        onNavigateOverview={navigateOverview}
+        onNavigateHeatmap={navigateHeatmap}
+        onNavigateGlobalSettings={navigateGlobalSettings}
+        onNavigateUserSettings={navigateUserSettings}
+        overviews={sortedOverviewDefinitions}
+        heatmaps={sortedHeatmapDefinitions}
+      >
+        <UserBeliefsPage personSlug={route.personSlug} />
       </AppShell>
     );
   }

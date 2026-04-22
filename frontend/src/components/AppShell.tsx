@@ -24,6 +24,7 @@ import {
 type AppShellProps = {
   mode: "home" | "dashboard";
   dashboardTitle?: string;
+  activeUserPodcastView?: "narrative-mix" | "narrative-intensity" | "beliefs" | null;
   activePodcastPersonSlug: string | null;
   activeBitcoinMentionsSlug: string | null;
   activeAggregateMoodSlug: string | null;
@@ -53,6 +54,7 @@ type AppShellProps = {
 export function AppShell({
   mode,
   dashboardTitle,
+  activeUserPodcastView = null,
   activePodcastPersonSlug,
   activeBitcoinMentionsSlug,
   activeAggregateMoodSlug,
@@ -80,7 +82,9 @@ export function AppShell({
 }: AppShellProps) {
   const podcastUsers = [{ slug: "michael-saylor", label: "Michael Saylor" }] as const;
   const [openMenu, setOpenMenu] = useState<
-    | "user-podcasts"
+    | "user-narrative-mix"
+    | "user-narrative-intensity"
+    | "user-beliefs"
     | "aggregate-moods"
     | "bitcoin-mentions"
     | "moods"
@@ -94,6 +98,7 @@ export function AppShell({
   useEffect(() => {
     setOpenMenu(null);
   }, [
+    activeUserPodcastView,
     activeAggregateMoodSlug,
     activeAggregateNarratives,
     activeBitcoinMentionsSlug,
@@ -128,6 +133,14 @@ export function AppShell({
     onNavigateUserSettings();
   }
 
+  function navigateToUserPodcastView(
+    view: "narrative-mix" | "narrative-intensity" | "beliefs",
+    personSlug: string,
+  ) {
+    setOpenMenu(null);
+    window.location.hash = `#/user-${view}/${encodeURIComponent(personSlug)}`;
+  }
+
   function renderNavigation(isDashboardNav: boolean) {
     return (
       <>
@@ -140,16 +153,18 @@ export function AppShell({
         </button>
         <div className="overview-dropdown">
           <button
-            aria-expanded={openMenu === "user-podcasts"}
-            className={`page-nav-link${activePodcastPersonSlug !== null ? " is-active" : ""}`}
+            aria-expanded={openMenu === "user-narrative-mix"}
+            className={`page-nav-link${activeUserPodcastView === "narrative-mix" ? " is-active" : ""}`}
             onClick={() =>
-              setOpenMenu((current) => (current === "user-podcasts" ? null : "user-podcasts"))
+              setOpenMenu((current) =>
+                current === "user-narrative-mix" ? null : "user-narrative-mix",
+              )
             }
             type="button"
           >
-            User Podcasts
+            User Narrative Mix
           </button>
-          {openMenu === "user-podcasts" ? (
+          {openMenu === "user-narrative-mix" ? (
             <div
               className={`overview-dropdown-menu${isDashboardNav ? " overview-dropdown-menu-dashboard" : ""}`}
               role="menu"
@@ -157,11 +172,70 @@ export function AppShell({
               {podcastUsers.map((user) => (
                 <button
                   key={user.slug}
-                  className={`overview-dropdown-item${activePodcastPersonSlug === user.slug ? " is-active" : ""}`}
-                  onClick={() => {
-                    setOpenMenu(null);
-                    onNavigatePodcastPerson(user.slug);
-                  }}
+                  className={`overview-dropdown-item${activeUserPodcastView === "narrative-mix" && activePodcastPersonSlug === user.slug ? " is-active" : ""}`}
+                  onClick={() => navigateToUserPodcastView("narrative-mix", user.slug)}
+                  role="menuitem"
+                  type="button"
+                >
+                  {user.label}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
+        <div className="overview-dropdown">
+          <button
+            aria-expanded={openMenu === "user-narrative-intensity"}
+            className={`page-nav-link${activeUserPodcastView === "narrative-intensity" ? " is-active" : ""}`}
+            onClick={() =>
+              setOpenMenu((current) =>
+                current === "user-narrative-intensity" ? null : "user-narrative-intensity",
+              )
+            }
+            type="button"
+          >
+            User Narrative Intensity
+          </button>
+          {openMenu === "user-narrative-intensity" ? (
+            <div
+              className={`overview-dropdown-menu${isDashboardNav ? " overview-dropdown-menu-dashboard" : ""}`}
+              role="menu"
+            >
+              {podcastUsers.map((user) => (
+                <button
+                  key={user.slug}
+                  className={`overview-dropdown-item${activeUserPodcastView === "narrative-intensity" && activePodcastPersonSlug === user.slug ? " is-active" : ""}`}
+                  onClick={() => navigateToUserPodcastView("narrative-intensity", user.slug)}
+                  role="menuitem"
+                  type="button"
+                >
+                  {user.label}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
+        <div className="overview-dropdown">
+          <button
+            aria-expanded={openMenu === "user-beliefs"}
+            className={`page-nav-link${activeUserPodcastView === "beliefs" ? " is-active" : ""}`}
+            onClick={() =>
+              setOpenMenu((current) => (current === "user-beliefs" ? null : "user-beliefs"))
+            }
+            type="button"
+          >
+            User Beliefs
+          </button>
+          {openMenu === "user-beliefs" ? (
+            <div
+              className={`overview-dropdown-menu${isDashboardNav ? " overview-dropdown-menu-dashboard" : ""}`}
+              role="menu"
+            >
+              {podcastUsers.map((user) => (
+                <button
+                  key={user.slug}
+                  className={`overview-dropdown-item${activeUserPodcastView === "beliefs" && activePodcastPersonSlug === user.slug ? " is-active" : ""}`}
+                  onClick={() => navigateToUserPodcastView("beliefs", user.slug)}
                   role="menuitem"
                   type="button"
                 >
