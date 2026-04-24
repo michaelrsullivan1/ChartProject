@@ -17,6 +17,8 @@ This is the repeatable operator flow when you want to refresh the full tracked-a
 Commands:
 
 ```bash
+python3 backend/scripts/views/audit_tracked_author_views.py
+
 python3 backend/scripts/ingest/plan_tracked_author_refresh.py
 
 python3 backend/scripts/ingest/fetch_tracked_author_refresh.py \
@@ -32,9 +34,22 @@ python3 backend/scripts/cache/rebuild_aggregate_narrative_snapshots.py
 What changed under the hood:
 
 - the command sequence above is still valid
+- run the audit first so mood-scored users cannot silently fall outside the tracked refresh scope
 - post-process now keeps normalization and validation scoped to the target author's archived raw artifacts
 - post-process now uses the refresh window for keyword extraction and managed narrative sync
 - post-process now passes `--only-missing-tweets` to keyword extraction, so reruns avoid rescanning already-tagged tweets in that refresh window
+
+If the audit fails because mood-scored users are not tracked or published, repair them with:
+
+```bash
+python3 backend/scripts/views/reconcile_mood_scored_author_views.py
+python3 backend/scripts/views/audit_tracked_author_views.py
+```
+
+Notes:
+
+- the audit script can still emit `warn` entries for extra tracked users not present in the old 42-name seed list
+- the failure you care about for refresh coverage is `excluded_mood_scored_user_count > 0`
 
 ## What The Planner Uses
 
@@ -72,9 +87,18 @@ python3 backend/scripts/ingest/plan_tracked_author_refresh.py \
 What it does:
 
 - loads the published tracked-author set from the backend registry
+- reports how many mood-scored users exist and how many are excluded from tracked refresh scope
 - computes the newest unchecked gap for each author
 - writes a JSON manifest for the fetch step
 - reports any authors that need a manual full-history ingest first
+
+If the printed summary shows `excluded_mood_scored_user_count > 0`, stop and run:
+
+```bash
+python3 backend/scripts/views/reconcile_mood_scored_author_views.py
+python3 backend/scripts/views/audit_tracked_author_views.py
+python3 backend/scripts/ingest/plan_tracked_author_refresh.py
+```
 
 ## Step 2: Fetch
 

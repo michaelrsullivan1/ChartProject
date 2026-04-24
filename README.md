@@ -454,6 +454,7 @@ Use this sequence for tracked-author refreshes:
 Commands:
 
 ```bash
+python3 backend/scripts/views/audit_tracked_author_views.py
 python3 backend/scripts/ingest/plan_tracked_author_refresh.py
 python3 backend/scripts/ingest/fetch_tracked_author_refresh.py --plan data/exports/refresh-plans/<plan-name>.json
 python3 backend/scripts/ingest/post_process_tracked_author_refresh.py --fetch-results data/exports/refresh-plans/<plan-name>.fetch-results.json
@@ -465,6 +466,13 @@ Current post-process behavior:
 - sentiment and mood scoring stay batched across all preprocess-ready users
 - keyword extraction uses the refresh manifest `since` window when available and passes `--only-missing-tweets`
 - managed narrative sync uses the same refresh window via `--created-since`
+
+If the audit or planner reports `excluded_mood_scored_user_count > 0`, repair coverage first:
+
+```bash
+python3 backend/scripts/views/reconcile_mood_scored_author_views.py
+python3 backend/scripts/views/audit_tracked_author_views.py
+```
 
 If an older fetch-results manifest reports all users with `run_ids = []` and `new_raw_tweets = 0`, repair it before post-process:
 

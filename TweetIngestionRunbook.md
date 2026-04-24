@@ -51,6 +51,7 @@ What changed under the hood:
 - the command sequence above is still valid
 - the batch script now also runs managed narrative sync before the optional rebuild steps
 - if you omit `--no-rebuild-snapshots`, the batch script now rebuilds both aggregate snapshot families for that user run
+- `sync_managed_author_view.py` still sets users to tracked and published by default, so newly scored users stay eligible for tracked refresh planning
 
 ## Preflight
 

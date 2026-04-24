@@ -1,5 +1,4 @@
 import argparse
-from datetime import UTC, datetime
 from pathlib import Path
 from pprint import pprint
 import sys
@@ -93,11 +92,18 @@ def main() -> None:
     pprint(
         {
             "tracked_author_count": payload["tracked_author_count"],
+            "mood_scored_user_count": payload["mood_scored_tracking_summary"]["mood_scored_user_count"],
+            "excluded_mood_scored_user_count": payload["mood_scored_tracking_summary"]["excluded_mood_scored_user_count"],
             "planned_count": payload["planned_count"],
             "manual_full_history_required_count": payload["manual_full_history_required_count"],
             "up_to_date_count": payload["up_to_date_count"],
         }
     )
+    if payload["mood_scored_tracking_summary"]["excluded_mood_scored_user_count"]:
+        print("\nWarning: mood-scored users are excluded from tracked refresh scope.")
+        print("Run: python3 backend/scripts/views/reconcile_mood_scored_author_views.py")
+        for item in payload["mood_scored_tracking_summary"]["excluded_users"]:
+            print(f"  - {item['username']} ({item['issue']})")
     if payload["manual_full_history_required"]:
         print("\nUsers requiring manual full-history ingest first:")
         for item in payload["manual_full_history_required"]:

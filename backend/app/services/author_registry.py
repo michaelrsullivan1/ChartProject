@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 import re
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.tracked_authors import TRACKED_AUTHOR_SEEDS
@@ -74,7 +74,14 @@ class SyncTrackedAuthorsRequest:
 
 @dataclass(slots=True)
 class AuditTrackedAuthorsRequest:
-    pass
+    model_key: str = DEFAULT_MOOD_MODEL
+
+
+@dataclass(slots=True)
+class ReconcileMoodScoredAuthorsRequest:
+    model_key: str = DEFAULT_MOOD_MODEL
+    dry_run: bool = False
+    rebuild_snapshot: bool = True
 
 
 def build_public_author_registry(
@@ -621,10 +628,11 @@ def sync_tracked_authors(
 
 
 def audit_tracked_authors(
-    _request: AuditTrackedAuthorsRequest | None = None,
+    request: AuditTrackedAuthorsRequest | None = None,
     *,
     session_factory: sessionmaker[Session] = SessionLocal,
 ) -> dict[str, object]:
+    request = request or AuditTrackedAuthorsRequest()
     session = session_factory()
     try:
         expected_by_username = {seed.username.casefold(): seed for seed in TRACKED_AUTHOR_SEEDS}
@@ -736,10 +744,26 @@ def audit_tracked_authors(
                     }
                 )
 
+        mood_scored_tracking_summary = _build_mood_scored_tracking_summary(
+            session,
+            model_key=request.model_key,
+        )
+        for item in mood_scored_tracking_summary["excluded_users"]:
+            issues.append(
+                {
+                    "severity": "fail",
+                    "username": item["username"],
+                    "slug": item["slug"],
+                    "issue": item["issue"],
+                }
+            )
+
         return {
             "view": "tracked-author-audit",
+            "model": {"model_key": request.model_key},
             "tracked_author_seed_count": len(TRACKED_AUTHOR_SEEDS),
             "tracked_author_db_count": len(tracked_rows),
+            "mood_scored_tracking_summary": mood_scored_tracking_summary,
             "ok": not any(issue["severity"] == "fail" for issue in issues),
             "issues": issues,
             "tracked_authors": [
@@ -754,6 +778,81 @@ def audit_tracked_authors(
         }
     finally:
         session.close()
+
+
+def reconcile_mood_scored_authors(
+    request: ReconcileMoodScoredAuthorsRequest,
+    *,
+    session_factory: sessionmaker[Session] = SessionLocal,
+) -> dict[str, object]:
+    precheck_session = session_factory()
+    try:
+        before = _build_mood_scored_tracking_summary(precheck_session, model_key=request.model_key)
+    finally:
+        precheck_session.close()
+
+    if request.dry_run:
+        planned = [
+            {
+                "username": item["username"],
+                "slug": item["slug"],
+                "issue": item["issue"],
+                "action": "sync_managed_author_view_as_tracked_and_published",
+            }
+            for item in before["excluded_users"]
+        ]
+        return {
+            "view": "mood-scored-author-reconcile",
+            "model": {"model_key": request.model_key},
+            "dry_run": True,
+            "rebuild_snapshot": request.rebuild_snapshot,
+            "reconciled_count": 0,
+            "reconciled": [],
+            "planned": planned,
+            "before": before,
+            "after": before,
+        }
+
+    reconciled: list[dict[str, object]] = []
+    for item in before["excluded_users"]:
+        payload = sync_managed_author_view_for_username(
+            SyncManagedAuthorViewRequest(
+                username=str(item["username"]),
+                published=True,
+                tracked=True,
+                ensure_analysis_starts=True,
+                rebuild_snapshot=False,
+            ),
+            session_factory=session_factory,
+        )
+        reconciled.append(
+            {
+                "username": item["username"],
+                "slug": payload["author"]["slug"],
+                "changed_fields": ["is_tracked", "published"],
+                "created": bool(payload["created"]),
+            }
+        )
+
+    if request.rebuild_snapshot and reconciled:
+        rebuild_public_author_registry_snapshot(session_factory=session_factory)
+
+    postcheck_session = session_factory()
+    try:
+        after = _build_mood_scored_tracking_summary(postcheck_session, model_key=request.model_key)
+    finally:
+        postcheck_session.close()
+
+    return {
+        "view": "mood-scored-author-reconcile",
+        "model": {"model_key": request.model_key},
+        "dry_run": request.dry_run,
+        "rebuild_snapshot": request.rebuild_snapshot,
+        "reconciled_count": len(reconciled),
+        "reconciled": reconciled,
+        "before": before,
+        "after": after,
+    }
 
 
 def resolve_managed_author_by_slug(
@@ -794,6 +893,83 @@ def resolve_managed_author_by_slug(
         )
     finally:
         session.close()
+
+
+def _build_mood_scored_tracking_summary(session: Session, *, model_key: str) -> dict[str, object]:
+    mood_scored_user_ids = _load_mood_scored_user_ids(session, model_key=model_key)
+    if not mood_scored_user_ids:
+        return {
+            "mood_scored_user_count": 0,
+            "tracked_published_mood_scored_user_count": 0,
+            "excluded_mood_scored_user_count": 0,
+            "excluded_users": [],
+        }
+
+    rows = session.execute(
+        select(
+            User.id,
+            User.username,
+            ManagedAuthorView.slug,
+            ManagedAuthorView.is_tracked,
+            ManagedAuthorView.published,
+        )
+        .outerjoin(ManagedAuthorView, ManagedAuthorView.user_id == User.id)
+        .where(User.id.in_(mood_scored_user_ids))
+        .order_by(func.lower(User.username).asc())
+    ).all()
+
+    tracked_published_count = 0
+    excluded_users: list[dict[str, object]] = []
+    for user_id, username, slug, is_tracked, published in rows:
+        if slug is None:
+            excluded_users.append(
+                {
+                    "user_id": int(user_id),
+                    "username": username,
+                    "slug": None,
+                    "issue": "missing_managed_author_view",
+                }
+            )
+            continue
+        if is_tracked and published:
+            tracked_published_count += 1
+            continue
+
+        issue = "not_tracked"
+        if is_tracked and not published:
+            issue = "not_published"
+        elif not is_tracked and not published:
+            issue = "not_tracked_or_published"
+
+        excluded_users.append(
+            {
+                "user_id": int(user_id),
+                "username": username,
+                "slug": slug,
+                "issue": issue,
+            }
+        )
+
+    return {
+        "mood_scored_user_count": len(mood_scored_user_ids),
+        "tracked_published_mood_scored_user_count": tracked_published_count,
+        "excluded_mood_scored_user_count": len(excluded_users),
+        "excluded_users": excluded_users,
+    }
+
+
+def _load_mood_scored_user_ids(session: Session, *, model_key: str) -> set[int]:
+    session.execute(text("SET LOCAL max_parallel_workers_per_gather = 0"))
+    rows = session.execute(
+        select(Tweet.author_user_id)
+        .join(TweetMoodScore, TweetMoodScore.tweet_id == Tweet.id)
+        .where(
+            TweetMoodScore.model_key == model_key,
+            TweetMoodScore.status == "scored",
+        )
+        .group_by(Tweet.author_user_id)
+    ).all()
+    return {int(row.author_user_id) for row in rows}
 
 
 def _resolve_analysis_starts(
