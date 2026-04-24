@@ -149,6 +149,7 @@ def build_tracked_author_refresh_plan(
                         max_retries=max_retries,
                         retry_backoff_seconds=retry_backoff_seconds,
                         skip_user_info=skip_user_info,
+                        target_user_platform_id=user.platform_user_id,
                     ),
                 }
             )
@@ -265,6 +266,7 @@ def _build_fetch_command_preview(
     max_retries: int,
     retry_backoff_seconds: float,
     skip_user_info: bool,
+    target_user_platform_id: str | None = None,
 ) -> list[str]:
     command = [
         "python3",
@@ -286,6 +288,8 @@ def _build_fetch_command_preview(
         "--retry-backoff-seconds",
         str(retry_backoff_seconds),
     ]
+    if target_user_platform_id:
+        command.extend(["--target-user-platform-id", target_user_platform_id])
     if query_fragment:
         command.extend(["--query-fragment", query_fragment])
     if skip_user_info:

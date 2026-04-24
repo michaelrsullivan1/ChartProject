@@ -13,13 +13,14 @@ export function buildMoodDeviationSeries(
 ): MoodDeviationPoint[] {
   const baseline = moodPayload.summary.moods[moodLabel]?.average_score ?? 0;
   const weeklyPoints = moodPayload.mood_series;
+  const granularity = moodPayload.model.granularity;
   const usesPrecomputedDeviation =
     weeklyPoints.some((point) => point.moods[moodLabel]?.average_deviation !== undefined) ||
     moodPayload.summary.moods[moodLabel]?.average_deviation !== undefined;
 
   if (sentimentMode === "raw") {
     return weeklyPoints.map((point) => ({
-      periodStart: point.period_start,
+      periodStart: normalizeMoodDisplayPeriod(point.period_start, granularity),
       value:
         getPointWeight(point) === 0
           ? null
@@ -31,7 +32,7 @@ export function buildMoodDeviationSeries(
     sentimentMode === "weighted-12w" ? 12 : sentimentMode === "weighted-8w" ? 8 : 4;
 
   return weeklyPoints.map((point, index) => ({
-    periodStart: point.period_start,
+    periodStart: normalizeMoodDisplayPeriod(point.period_start, granularity),
     value:
       getPointWeight(point) === 0
         ? null
@@ -95,4 +96,18 @@ function getPointMoodDeviation(
   }
 
   return (point.moods[moodLabel]?.average_score ?? 0) - baseline;
+}
+
+function normalizeMoodDisplayPeriod(periodStart: string, granularity: string): string {
+  if (granularity !== "week") {
+    return periodStart;
+  }
+
+  const parsed = new Date(periodStart);
+  if (Number.isNaN(parsed.getTime())) {
+    return periodStart;
+  }
+
+  parsed.setUTCDate(parsed.getUTCDate() + 6);
+  return parsed.toISOString();
 }

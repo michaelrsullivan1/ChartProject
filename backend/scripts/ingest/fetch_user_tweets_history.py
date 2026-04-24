@@ -107,6 +107,13 @@ def parse_args() -> argparse.Namespace:
         help="Skip the initial raw user info archive step.",
     )
     parser.add_argument(
+        "--target-user-platform-id",
+        help=(
+            "Optional known platform user id. Useful with --skip-user-info so refresh runs still "
+            "record target_user_platform_id on ingestion_runs."
+        ),
+    )
+    parser.add_argument(
         "--debug",
         action="store_true",
         help="Print request params and response payload previews to the terminal for diagnosis.",
@@ -131,7 +138,7 @@ def main() -> None:
     ok = False
     try:
         user_info_summary = None
-        target_user_platform_id: str | None = None
+        target_user_platform_id = args.target_user_platform_id
         if not args.skip_user_info:
             user_info_summary = archive_user_info_raw(
                 RawUserInfoRequest(

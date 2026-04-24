@@ -36,6 +36,7 @@ What changed under the hood:
 - the command sequence above is still valid
 - run the audit first so mood-scored users cannot silently fall outside the tracked refresh scope
 - post-process now keeps normalization and validation scoped to the target author's archived raw artifacts
+- post-process is still the step that updates each author's sentiment and mood rows after fetch
 - post-process now uses the refresh window for keyword extraction and managed narrative sync
 - post-process now passes `--only-missing-tweets` to keyword extraction, so reruns avoid rescanning already-tagged tweets in that refresh window
 
@@ -179,6 +180,8 @@ Important behavior:
 - authors with zero new raw tweets are skipped automatically
 - the tracked refresh post-process batches sentiment scoring across all preprocess-ready users in one command
 - the tracked refresh post-process batches mood scoring across all preprocess-ready users in one command
+- author mood lines are refreshed by that batched `score_tweet_moods.py` step; they do not wait for aggregate mood snapshot rebuilds
+- if a user fails normalize or validate, that user never reaches the batched mood step, so raw tweets can be current while the author's mood line stays stale
 - keyword extraction uses each author's refresh-window `since` value from the fetch manifest when available
 - keyword extraction passes `--only-missing-tweets`, so already-tagged tweets in that window are skipped
 - managed narrative sync uses the same refresh-window `since` value via `--created-since`
@@ -197,8 +200,9 @@ What `post-process` runs:
 - `python3 backend/scripts/cache/rebuild_author_registry_snapshot.py`
 - `python3 backend/scripts/cache/rebuild_aggregate_narrative_snapshots.py`
 
-It does **not** fetch new raw tweets and it does **not** rebuild snapshots.
-It does **not** fetch new raw tweets and it does **not** rebuild aggregate mood snapshots.
+It does **not** fetch new raw tweets.
+It does **not** rebuild aggregate mood snapshots.
+It **does** rebuild the author-registry snapshot and aggregate narrative snapshots unless you skip those steps.
 
 ### Optional Post-Process Flags
 
@@ -211,6 +215,26 @@ It does **not** fetch new raw tweets and it does **not** rebuild aggregate mood 
 ### Manual Incremental Rerun Commands
 
 Use these when you need to rerun only the slower post-fetch stages for one author outside the full tracked refresh command.
+
+If raw tweets are current but one or more author mood lines are still behind after a tracked refresh, rerun the same post-process manifest before fetching again:
+
+```bash
+python3 backend/scripts/ingest/post_process_tracked_author_refresh.py \
+  --fetch-results data/exports/refresh-plans/<plan-name>.fetch-results.json
+```
+
+Then inspect:
+
+- `data/exports/refresh-plans/<plan-name>.fetch-results.post-process-results.json`
+
+Look for users with:
+
+- `failed_step = "normalize_archived_user"`
+- `failed_step = "validate_normalized_user"`
+- `failed_step = "score_tweet_sentiment"`
+- `failed_step = "score_tweet_moods"`
+
+Those are the failure modes that leave author mood lines stale even when the fetch step succeeded.
 
 Incremental keyword extraction:
 

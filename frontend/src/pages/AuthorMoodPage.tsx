@@ -323,14 +323,14 @@ function AuthorMoodChartSection({
           <p className="metric-label">Highest {formatMoodLabel(selectedMoodLabel)}</p>
           <p className="metric-value">{formatSignedPercent(moodExtremes.best.value)}</p>
           <p className="metric-note">
-            Week of {formatCompactDate(moodExtremes.best.periodStart)}
+            Week ending {formatCompactDate(moodExtremes.best.periodStart)}
           </p>
         </article>
         <article className="metric-card">
           <p className="metric-label">Lowest {formatMoodLabel(selectedMoodLabel)}</p>
           <p className="metric-value">{formatSignedPercent(moodExtremes.worst.value)}</p>
           <p className="metric-note">
-            Week of {formatCompactDate(moodExtremes.worst.periodStart)}
+            Week ending {formatCompactDate(moodExtremes.worst.periodStart)}
           </p>
         </article>
       </div>

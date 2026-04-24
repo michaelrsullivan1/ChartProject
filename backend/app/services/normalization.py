@@ -308,6 +308,7 @@ def _build_archived_artifact_query(
         select(User.platform_user_id).where(func.lower(User.username) == username_key)
     )
     username_notes_like = _build_ingestion_notes_username_like(username_key)
+    advanced_search_notes_like = _build_advanced_search_notes_username_like(username_key)
 
     query = (
         select(RawIngestionArtifact, IngestionRun)
@@ -322,16 +323,26 @@ def _build_archived_artifact_query(
             or_(
                 IngestionRun.target_user_platform_id == target_platform_user_id,
                 func.lower(IngestionRun.notes).like(username_notes_like),
+                func.lower(IngestionRun.notes).like(advanced_search_notes_like),
             )
         )
     else:
-        query = query.where(func.lower(IngestionRun.notes).like(username_notes_like))
+        query = query.where(
+            or_(
+                func.lower(IngestionRun.notes).like(username_notes_like),
+                func.lower(IngestionRun.notes).like(advanced_search_notes_like),
+            )
+        )
 
     return query.order_by(RawIngestionArtifact.id.asc())
 
 
 def _build_ingestion_notes_username_like(username_key: str) -> str:
     return f"username={username_key};%"
+
+
+def _build_advanced_search_notes_username_like(username_key: str) -> str:
+    return f"%query 'from:{username_key}%since:%"
 
 
 def _build_user_snapshot_from_user_info(

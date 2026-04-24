@@ -223,6 +223,7 @@ python3 backend/scripts/enrich/score_tweet_moods.py --username <USERNAME>
 Important downstream effect:
 
 - this step makes the user eligible for the tracked-user mood and cohort flows used by the user settings page and aggregate mood views
+- the individual author mood page reads these stored mood rows directly, so a fresh mood run updates that author's mood line without waiting for aggregate snapshot rebuilds
 
 ### 6. Extract keywords
 
@@ -335,6 +336,7 @@ python3 scripts/cache/rebuild_aggregate_snapshots.py --delete-stale
 Important downstream effect:
 
 - this is the command that makes newly scored users and updated cohort assignments show up correctly in Aggregate Moods without waiting for request-time recomputation
+- this rebuild affects aggregate mood pages, not the individual author mood line charts, which read directly from `tweet_mood_scores`
 - this step is intentionally independent when you run commands manually
 - `./scripts/run-user-post-ingest-batch.sh` includes both aggregate snapshot rebuild steps by default unless you pass `--no-rebuild-snapshots`
 

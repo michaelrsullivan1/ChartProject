@@ -464,8 +464,22 @@ Current post-process behavior:
 
 - normalization and validation are scoped to the target user's archived raw artifacts rather than the full raw archive
 - sentiment and mood scoring stay batched across all preprocess-ready users
+- author mood lines are refreshed during that batched mood-scoring step
 - keyword extraction uses the refresh manifest `since` window when available and passes `--only-missing-tweets`
 - managed narrative sync uses the same refresh window via `--created-since`
+
+If raw tweets are current but author mood lines are still behind, rerun the same post-process manifest before fetching again:
+
+```bash
+python3 backend/scripts/ingest/post_process_tracked_author_refresh.py \
+  --fetch-results data/exports/refresh-plans/<plan-name>.fetch-results.json
+```
+
+Then inspect:
+
+- `data/exports/refresh-plans/<plan-name>.fetch-results.post-process-results.json`
+
+Users that fail `normalize_archived_user`, `validate_normalized_user`, `score_tweet_sentiment`, or `score_tweet_moods` will keep stale author mood lines even when the fetch step succeeded.
 
 If the audit or planner reports `excluded_mood_scored_user_count > 0`, repair coverage first:
 
@@ -486,6 +500,7 @@ python3 backend/scripts/ingest/post_process_tracked_author_refresh.py \
 Cache responsibilities after refresh:
 
 - post-process refreshes the author-registry snapshot
+- post-process also refreshes per-author mood rows; it does not wait for aggregate mood snapshots
 - aggregate mood snapshots still require:
 
 ```bash
@@ -563,6 +578,8 @@ python3 backend/scripts/enrich/score_tweet_sentiment.py --username someuser
 ```bash
 python3 backend/scripts/enrich/score_tweet_moods.py --username someuser
 ```
+
+This updates the individual author mood line directly from stored `tweet_mood_scores`. Aggregate mood pages still require the separate snapshot rebuild step below.
 
 8. Extract phrase keywords on the normalized tweets:
 
