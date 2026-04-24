@@ -1,4 +1,6 @@
-import { type ReactNode, useEffect, useMemo, useRef } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { Expand, X } from "lucide-react";
 
 import {
   BaselineSeries,
@@ -135,6 +137,7 @@ export function AuthorMoodTradingViewChart({
   onMoodLabelChange,
 }: AuthorMoodTradingViewChartProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const btcSeriesData = useMemo(() => buildBtcSeries(payload), [payload]);
   const mstrSeriesData = useMemo(() => buildMstrSeries(payload), [payload]);
   const moodDeviationSeries = useMemo(
@@ -371,6 +374,7 @@ export function AuthorMoodTradingViewChart({
     comparisonMoodColor,
     comparisonMoodLabel,
     comparisonMoodSeriesData,
+    isFullscreen,
     moodHistogramData,
     moodRange,
     moodSeriesData,
@@ -379,7 +383,53 @@ export function AuthorMoodTradingViewChart({
     priceMode,
   ]);
 
-  return (
+  useEffect(() => {
+    if (!isFullscreen) {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setIsFullscreen(false);
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isFullscreen]);
+
+  const chartStage = (
+    <div className={`chart-stage${isFullscreen ? " chart-stage-fullscreen" : ""}`}>
+      <button
+        aria-label={isFullscreen ? "Close fullscreen chart" : "Open fullscreen chart"}
+        className="chart-fullscreen-button"
+        onClick={() => setIsFullscreen((current) => !current)}
+        title={isFullscreen ? "Close fullscreen" : "Open fullscreen"}
+        type="button"
+      >
+        {isFullscreen ? (
+          <X aria-hidden="true" size={16} strokeWidth={2} />
+        ) : (
+          <Expand aria-hidden="true" size={16} strokeWidth={2} />
+        )}
+      </button>
+      {showWatermark ? (
+        <div aria-hidden="true" className="chart-watermark">
+          <span className="chart-watermark-handle">{CHART_WATERMARK_HANDLE}</span>
+        </div>
+      ) : null}
+      <div className="tradingview-chart" ref={containerRef} />
+    </div>
+  );
+
+  const chartLayout = (
     <div className="tradingview-chart-shell">
       <aside className="chart-sidebar chart-sidebar-left">
         <div className="chart-control-card">
@@ -458,14 +508,7 @@ export function AuthorMoodTradingViewChart({
         ) : null}
       </aside>
 
-      <div className="chart-stage">
-        {showWatermark ? (
-          <div aria-hidden="true" className="chart-watermark">
-            <span className="chart-watermark-handle">{CHART_WATERMARK_HANDLE}</span>
-          </div>
-        ) : null}
-        <div className="tradingview-chart" ref={containerRef} />
-      </div>
+      {chartStage}
 
       {showMoodSelector || rightSidebarSupplementalContent || rightSidebarContent ? (
         <aside className="chart-sidebar">
@@ -509,6 +552,30 @@ export function AuthorMoodTradingViewChart({
         </aside>
       ) : null}
     </div>
+  );
+
+  return (
+    <>
+      {!isFullscreen ? chartLayout : null}
+      {isFullscreen
+        ? createPortal(
+            <div
+              aria-label="Fullscreen mood chart"
+              className="chart-fullscreen-overlay"
+              onClick={() => setIsFullscreen(false)}
+              role="dialog"
+            >
+              <div
+                className="chart-fullscreen-content"
+                onClick={(event) => event.stopPropagation()}
+              >
+                {chartStage}
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
+    </>
   );
 }
 
