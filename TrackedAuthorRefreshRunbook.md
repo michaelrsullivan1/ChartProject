@@ -10,6 +10,32 @@ It is intentionally split into three separate commands:
 
 The tracked-author source of truth now lives in `managed_author_views` and the refresh scope is limited to published tracked authors only.
 
+## Common Bash Recipe: Refresh All Tracked Users
+
+This is the repeatable operator flow when you want to refresh the full tracked-author set and then do the shared aggregate rebuilds manually at the end.
+
+Commands:
+
+```bash
+python3 backend/scripts/ingest/plan_tracked_author_refresh.py
+
+python3 backend/scripts/ingest/fetch_tracked_author_refresh.py \
+  --plan /Users/michaelsullivan/Code/ChartProject/data/exports/refresh-plans/tracked-author-refresh-plan-<timestamp>.json
+
+python3 backend/scripts/ingest/post_process_tracked_author_refresh.py \
+  --fetch-results /Users/michaelsullivan/Code/ChartProject/data/exports/refresh-plans/tracked-author-refresh-plan-<timestamp>.fetch-results.json
+
+python3 backend/scripts/cache/rebuild_aggregate_snapshots.py --delete-stale
+python3 backend/scripts/cache/rebuild_aggregate_narrative_snapshots.py
+```
+
+What changed under the hood:
+
+- the command sequence above is still valid
+- post-process now keeps normalization and validation scoped to the target author's archived raw artifacts
+- post-process now uses the refresh window for keyword extraction and managed narrative sync
+- post-process now passes `--only-missing-tweets` to keyword extraction, so reruns avoid rescanning already-tagged tweets in that refresh window
+
 ## What The Planner Uses
 
 The planner does **not** use `users.last_tweet_seen_at`.

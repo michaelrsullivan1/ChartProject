@@ -19,6 +19,39 @@ This runbook covers the full path:
 
 For page onboarding, this flow now uses managed author registry sync and no longer requires manual route/config edits for new users.
 
+## Common Bash Recipe: Ingest One User, Defer Rebuilds
+
+This is the repeatable operator flow when you want to ingest one user at a time, run the post-ingest batch without rebuilding snapshots yet, and then do the shared rebuilds after all users are finished.
+
+Per-user commands:
+
+```bash
+python3 backend/scripts/ingest/fetch_user_tweets_history.py \
+  --username <USERNAME> \
+  --since <FIRST_POST_UTC> \
+  --until <UNTIL_UTC> \
+  --window-months 1 \
+  --page-delay-seconds 0.25 \
+  --debug
+
+./scripts/run-user-post-ingest-batch.sh \
+  --username <USERNAME> \
+  --no-rebuild-snapshots
+```
+
+When all users are done, run the shared rebuilds once:
+
+```bash
+python3 backend/scripts/cache/rebuild_aggregate_snapshots.py --delete-stale
+python3 backend/scripts/cache/rebuild_aggregate_narrative_snapshots.py
+```
+
+What changed under the hood:
+
+- the command sequence above is still valid
+- the batch script now also runs managed narrative sync before the optional rebuild steps
+- if you omit `--no-rebuild-snapshots`, the batch script now rebuilds both aggregate snapshot families for that user run
+
 ## Preflight
 
 Before starting, make sure:
