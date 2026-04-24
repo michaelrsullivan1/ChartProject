@@ -209,6 +209,16 @@ Recommendation:
 
 - set `--analysis-start` to the first date you want included in phrase analysis
 - using the user's first normalized tweet date is a good default
+- for a rerun on an already-processed user, prefer `--only-missing-tweets` so the extractor skips tweets that already have keyword rows for the same extractor
+
+Incremental rerun example:
+
+```bash
+python3 backend/scripts/enrich/extract_tweet_keywords.py \
+  --username <USERNAME> \
+  --analysis-start <KEYWORD_ANALYSIS_START_UTC> \
+  --only-missing-tweets
+```
 
 ### 7. Sync managed author registry
 
@@ -225,9 +235,30 @@ Command:
 python3 backend/scripts/views/sync_managed_author_view.py --username <USERNAME> --published
 ```
 
-### Optional: Batch Steps 2-7
+### 8. Sync managed narrative matches
 
-If step 1 has already completed successfully, you can run steps 2, 3, 4, 5, 6, and 7 in one command.
+What it does:
+
+- matches canonical tweets against the configured managed narrative phrases
+- stores narrative match rows in Postgres
+
+Command:
+
+```bash
+python3 backend/scripts/enrich/sync_managed_narrative_matches.py --username <USERNAME>
+```
+
+Incremental rerun example for a recent refresh window:
+
+```bash
+python3 backend/scripts/enrich/sync_managed_narrative_matches.py \
+  --username <USERNAME> \
+  --created-since <REFRESH_SINCE_UTC>
+```
+
+### Optional: Batch Steps 2-8
+
+If step 1 has already completed successfully, you can run steps 2 through 8 in one command.
 
 Script:
 
@@ -243,16 +274,17 @@ If you omit `--analysis-start`, the script auto-resolves the user's first normal
 
 Behavior:
 
-- runs only steps 2-7
+- runs only steps 2-8
 - does not run step 1 ingest
-- does not run aggregate snapshot rebuild
+- rebuilds aggregate snapshots by default after step 8 unless you pass `--no-rebuild-snapshots`
 - defaults step 6 `--analysis-start` to the user's first normalized tweet timestamp
 - runs step 7 managed author registry sync for the username
+- runs step 8 managed narrative sync for the username
 - stops on the first failure
 - prints which step failed, the command, and exit code
 - leaves all underlying commands unchanged so each can still be rerun manually
 
-### 8. Rebuild aggregate snapshots
+### 9. Rebuild aggregate snapshots
 
 What it does:
 
@@ -269,7 +301,8 @@ python3 scripts/cache/rebuild_aggregate_snapshots.py --delete-stale
 Important downstream effect:
 
 - this is the command that makes newly scored users and updated cohort assignments show up correctly in Aggregate Moods without waiting for request-time recomputation
-- this step is intentionally independent and not included in the step 2-7 batch script
+- this step is intentionally independent when you run commands manually
+- `./scripts/run-user-post-ingest-batch.sh` includes both aggregate snapshot rebuild steps by default unless you pass `--no-rebuild-snapshots`
 
 ## Copy/Paste Example
 
@@ -296,12 +329,14 @@ python3 backend/scripts/enrich/extract_tweet_keywords.py \
   --username <USERNAME> \
   --analysis-start <KEYWORD_ANALYSIS_START_UTC>
 python3 backend/scripts/views/sync_managed_author_view.py --username <USERNAME> --published
+python3 backend/scripts/enrich/sync_managed_narrative_matches.py --username <USERNAME>
 cd backend
 python3 scripts/cache/rebuild_aggregate_snapshots.py --delete-stale
+python3 scripts/cache/rebuild_aggregate_narrative_snapshots.py
 cd ..
 ```
 
-## Copy/Paste Example (Batched Steps 2-7)
+## Copy/Paste Example (Batched Steps 2-8)
 
 Use this when you want ingest isolated, then a single post-ingest batch command:
 
@@ -320,11 +355,21 @@ python3 backend/scripts/ingest/fetch_user_tweets_history.py \
 ./scripts/run-user-post-ingest-batch.sh \
   --username <USERNAME> \
   --analysis-start <KEYWORD_ANALYSIS_START_UTC>
-
-cd backend
-python3 scripts/cache/rebuild_aggregate_snapshots.py --delete-stale
-cd ..
 ```
+
+That batch command already runs:
+
+- normalize
+- validate
+- sentiment scoring
+- mood scoring
+- keyword extraction
+- managed author sync
+- managed narrative sync
+- aggregate mood snapshot rebuild
+- aggregate narrative snapshot rebuild
+
+Pass `--no-rebuild-snapshots` only when you intentionally want to defer both rebuild commands until later.
 
 ## What Success Looks Like
 
@@ -334,9 +379,10 @@ After the full sequence succeeds:
 - the user's tweets exist in canonical `tweets`
 - sentiment rows exist for the user
 - mood rows exist for the user
-- aggregate snapshot rows were rebuilt after the mood changes
 - keyword rows exist for the user
+- narrative match rows exist for the user when managed narratives are configured
 - a `managed_author_views` row exists for the user
+- aggregate snapshot rows were rebuilt after the mood changes if you did not defer them with `--no-rebuild-snapshots`
 - the user should appear in [user settings](http://127.0.0.1:5173/#/settings/user-settings) once the app is running
 
 ## After Ingestion
@@ -371,13 +417,15 @@ That sync step automatically:
 - fills missing `analysis_start` defaults from the user's first normalized tweet date
 - publishes the user for `/api/author-registry` so the frontend can auto-list them
 
+The same batch script then runs step `8` narrative matching for the user before the optional snapshot rebuilds.
+
 ### Repeatable checklist
 
 Use this sequence every time:
 
 1. Run step 1 ingest independently.
-2. Run steps 2-7 with `./scripts/run-user-post-ingest-batch.sh`.
-3. Run snapshot rebuild independently.
+2. Run steps 2-8 with `./scripts/run-user-post-ingest-batch.sh`.
+3. If you used `--no-rebuild-snapshots`, run both snapshot rebuild commands independently.
 4. Start or refresh the local app if needed.
 5. Verify the user appears in page controls and managed pages.
 

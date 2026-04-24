@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+from datetime import UTC, datetime
 import re
 
 from sqlalchemy import delete, func, or_, select
@@ -49,6 +50,7 @@ class UpdateManagedNarrativeRequest:
 class SyncManagedNarrativeMatchesRequest:
     usernames: list[str] | None = None
     narrative_slugs: list[str] | None = None
+    created_since: str | None = None
     overwrite_existing: bool = False
     tracked_only: bool = True
     published_only: bool = True
@@ -225,6 +227,11 @@ def sync_managed_narrative_matches(
 ) -> SyncManagedNarrativeMatchesSummary:
     normalized_usernames = _normalize_usernames(request.usernames)
     normalized_narrative_slugs = _normalize_narrative_slugs(request.narrative_slugs)
+    created_since = (
+        _parse_utc_datetime(request.created_since)
+        if request.created_since is not None
+        else None
+    )
 
     session = session_factory()
     try:
@@ -268,6 +275,7 @@ def sync_managed_narrative_matches(
             matched_user_ids=matched_user_ids,
             tracked_only=request.tracked_only,
             published_only=request.published_only,
+            created_since=created_since,
         )
 
         if request.overwrite_existing and not request.dry_run:
@@ -354,6 +362,7 @@ def sync_managed_narrative_matches(
                     matched_user_ids=matched_user_ids,
                     tracked_only=request.tracked_only,
                     published_only=request.published_only,
+                    created_since=created_since,
                 ).with_only_columns(Tweet.id)),
             )
         ) or 0
@@ -429,6 +438,7 @@ def _build_tweet_scope_query(
     matched_user_ids: list[int],
     tracked_only: bool,
     published_only: bool,
+    created_since: datetime | None,
 ) -> object:
     query = select(Tweet).join(User, User.id == Tweet.author_user_id)
     if tracked_only or published_only:
@@ -439,7 +449,16 @@ def _build_tweet_scope_query(
             query = query.where(ManagedAuthorView.published.is_(True))
     if matched_user_ids:
         query = query.where(Tweet.author_user_id.in_(matched_user_ids))
+    if created_since is not None:
+        query = query.where(Tweet.created_at_platform >= created_since)
     return query
+
+
+def _parse_utc_datetime(value: str) -> datetime:
+    normalized = value.strip()
+    if normalized.endswith("Z"):
+        normalized = normalized[:-1] + "+00:00"
+    return datetime.fromisoformat(normalized).astimezone(UTC)
 
 
 def _serialize_managed_narrative(narrative: ManagedNarrative) -> dict[str, object]:

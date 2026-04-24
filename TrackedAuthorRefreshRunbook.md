@@ -109,10 +109,11 @@ What it does:
 
 - reads the fetch-results manifest
 - selects only authors with successful fetches and nonzero new raw tweets
-- runs normalize and validation per eligible author
+- runs normalize and validation per eligible author using only that author's archived raw artifacts
 - runs sentiment scoring in one batch across preprocess-ready authors
 - runs mood scoring in one batch across preprocess-ready authors
-- runs keyword extraction and managed-author sync per successful author
+- runs incremental keyword extraction per successful author
+- runs managed-author sync and managed narrative sync per successful author
 - rebuilds the author-registry snapshot once after successful syncs
 - continues if one author fails
 - writes a post-process results manifest next to the fetch-results file
@@ -128,6 +129,9 @@ Important behavior:
 - authors with zero new raw tweets are skipped automatically
 - the tracked refresh post-process batches sentiment scoring across all preprocess-ready users in one command
 - the tracked refresh post-process batches mood scoring across all preprocess-ready users in one command
+- keyword extraction uses each author's refresh-window `since` value from the fetch manifest when available
+- keyword extraction passes `--only-missing-tweets`, so already-tagged tweets in that window are skipped
+- managed narrative sync uses the same refresh-window `since` value via `--created-since`
 - managed author rows are synced per user, but the public author-registry snapshot is rebuilt once at the end
 - if you skip per-user syncs, run the deferred sync commands listed below after post-process
 
@@ -137,9 +141,9 @@ What `post-process` runs:
 - `python3 backend/scripts/validate/validate_normalized_user.py --username <handle>`
 - `python3 backend/scripts/enrich/score_tweet_sentiment.py --username <all preprocess-ready handles...>`
 - `python3 backend/scripts/enrich/score_tweet_moods.py --username <all preprocess-ready handles...>`
-- `python3 backend/scripts/enrich/extract_tweet_keywords.py --username <handle> --analysis-start <resolved-first-normalized-tweet>`
+- `python3 backend/scripts/enrich/extract_tweet_keywords.py --username <handle> --analysis-start <refresh-since-or-first-normalized-tweet> --only-missing-tweets`
 - `python3 backend/scripts/views/sync_managed_author_view.py --username <handle> --published --no-rebuild-snapshot`
-- `python3 backend/scripts/enrich/sync_managed_narrative_matches.py --username <handle>`
+- `python3 backend/scripts/enrich/sync_managed_narrative_matches.py --username <handle> --created-since <refresh-since-or-first-normalized-tweet>`
 - `python3 backend/scripts/cache/rebuild_author_registry_snapshot.py`
 - `python3 backend/scripts/cache/rebuild_aggregate_narrative_snapshots.py`
 
@@ -153,6 +157,29 @@ It does **not** fetch new raw tweets and it does **not** rebuild aggregate mood 
 - `--skip-managed-narrative-sync`: skip per-user managed narrative sync and skip aggregate narrative snapshot rebuild
 - `--skip-author-registry-snapshot`: run per-user managed author sync but skip the final author-registry snapshot rebuild
 - `--skip-aggregate-narrative-snapshot`: run per-user managed narrative sync but skip the final aggregate narrative snapshot rebuild
+
+### Manual Incremental Rerun Commands
+
+Use these when you need to rerun only the slower post-fetch stages for one author outside the full tracked refresh command.
+
+Incremental keyword extraction:
+
+```bash
+python3 backend/scripts/enrich/extract_tweet_keywords.py \
+  --username <USERNAME> \
+  --analysis-start <REFRESH_SINCE_UTC> \
+  --only-missing-tweets
+```
+
+Incremental managed narrative sync:
+
+```bash
+python3 backend/scripts/enrich/sync_managed_narrative_matches.py \
+  --username <USERNAME> \
+  --created-since <REFRESH_SINCE_UTC>
+```
+
+Add `--overwrite-existing` only when you intentionally want to rebuild rows already in scope.
 
 ### Deferred Sync Commands (When Using Skip Flags)
 

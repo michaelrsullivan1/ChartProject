@@ -7,14 +7,13 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.db.session import SessionLocal
-from app.models.ingestion_run import IngestionRun
-from app.models.raw_ingestion_artifact import RawIngestionArtifact
 from app.models.tweet import Tweet
 from app.models.tweet_reference import TweetReference
 from app.models.user import User
 from app.services.normalization import (
     TweetSnapshot,
     UserSnapshot,
+    _build_archived_artifact_query,
     _build_tweet_snapshot,
     _build_user_snapshot_from_tweet_author,
     _build_user_snapshot_from_user_info,
@@ -458,13 +457,7 @@ def _build_expected_dataset(
     datetime | None,
 ]:
     artifacts = session.execute(
-        select(RawIngestionArtifact, IngestionRun)
-        .join(IngestionRun, IngestionRun.id == RawIngestionArtifact.ingestion_run_id)
-        .where(
-            (RawIngestionArtifact.artifact_type == "user_info")
-            | (RawIngestionArtifact.artifact_type.like("tweet_advanced_search_page%"))
-        )
-        .order_by(RawIngestionArtifact.id)
+        _build_archived_artifact_query(session, username_key=username_key)
     ).all()
 
     expected_users: dict[str, UserSnapshot] = {}

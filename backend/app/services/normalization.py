@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -104,13 +104,7 @@ def normalize_archived_user(
     session = session_factory()
     try:
         artifacts = session.execute(
-            select(RawIngestionArtifact, IngestionRun)
-            .join(IngestionRun, IngestionRun.id == RawIngestionArtifact.ingestion_run_id)
-            .where(
-                (RawIngestionArtifact.artifact_type == "user_info")
-                | (RawIngestionArtifact.artifact_type.like("tweet_advanced_search_page%"))
-            )
-            .order_by(RawIngestionArtifact.id)
+            _build_archived_artifact_query(session, username_key=username_key)
         ).all()
 
         user_snapshots: dict[str, UserSnapshot] = {}
@@ -303,6 +297,41 @@ def _extract_search_tweets(payload_json: dict[str, Any]) -> list[dict[str, Any]]
         return [item for item in data["tweets"] if isinstance(item, dict)]
 
     return None
+
+
+def _build_archived_artifact_query(
+    session: Session,
+    *,
+    username_key: str,
+) -> object:
+    target_platform_user_id = session.scalar(
+        select(User.platform_user_id).where(func.lower(User.username) == username_key)
+    )
+    username_notes_like = _build_ingestion_notes_username_like(username_key)
+
+    query = (
+        select(RawIngestionArtifact, IngestionRun)
+        .join(IngestionRun, IngestionRun.id == RawIngestionArtifact.ingestion_run_id)
+        .where(
+            (RawIngestionArtifact.artifact_type == "user_info")
+            | (RawIngestionArtifact.artifact_type.like("tweet_advanced_search_page%"))
+        )
+    )
+    if target_platform_user_id:
+        query = query.where(
+            or_(
+                IngestionRun.target_user_platform_id == target_platform_user_id,
+                func.lower(IngestionRun.notes).like(username_notes_like),
+            )
+        )
+    else:
+        query = query.where(func.lower(IngestionRun.notes).like(username_notes_like))
+
+    return query.order_by(RawIngestionArtifact.id.asc())
+
+
+def _build_ingestion_notes_username_like(username_key: str) -> str:
+    return f"username={username_key};%"
 
 
 def _build_user_snapshot_from_user_info(

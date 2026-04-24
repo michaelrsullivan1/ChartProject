@@ -108,6 +108,7 @@ def main() -> None:
             "username": username,
             "slug": item["slug"],
             "new_raw_tweets": item["new_raw_tweets"],
+            "refresh_since": item.get("since"),
             "status": "planned",
         }
 
@@ -219,10 +220,9 @@ def main() -> None:
         result = results_by_username[username]
         print(f"\n[{index}/{len(keyword_and_sync_ready_usernames)}] Post-processing @{username}")
 
-        if args.skip_keywords:
-            result["keywords_extracted"] = False
-            result["keywords_skipped"] = True
-        else:
+        analysis_start = result.get("refresh_since")
+        analysis_start_source = "refresh_since"
+        if not analysis_start:
             try:
                 analysis_start_started = time.perf_counter()
                 analysis_start = _resolve_first_tweet_analysis_start(username)
@@ -231,6 +231,7 @@ def main() -> None:
                     "resolve_keyword_analysis_start",
                     time.perf_counter() - analysis_start_started,
                 )
+                analysis_start_source = "first_normalized_tweet"
             except Exception as exc:
                 _mark_failed(
                     result,
@@ -240,7 +241,13 @@ def main() -> None:
                 )
                 continue
 
-            result["analysis_start"] = analysis_start
+        result["analysis_start"] = analysis_start
+        result["analysis_start_source"] = analysis_start_source
+
+        if args.skip_keywords:
+            result["keywords_extracted"] = False
+            result["keywords_skipped"] = True
+        else:
             keyword_exit_code, keyword_elapsed = _run_command(
                 [
                     "python3",
@@ -249,6 +256,7 @@ def main() -> None:
                     username,
                     "--analysis-start",
                     analysis_start,
+                    "--only-missing-tweets",
                 ]
             )
             _record_stage_elapsed(stage_elapsed_seconds, "extract_tweet_keywords", keyword_elapsed)
@@ -291,6 +299,8 @@ def main() -> None:
                     "backend/scripts/enrich/sync_managed_narrative_matches.py",
                     "--username",
                     username,
+                    "--created-since",
+                    analysis_start,
                 ]
             )
             _record_stage_elapsed(

@@ -33,6 +33,10 @@ def parse_args() -> argparse.Namespace:
         help="Optional narrative slug to limit the sync scope. Repeat for multiple narratives.",
     )
     parser.add_argument(
+        "--created-since",
+        help="Optional UTC timestamp to restrict matching to tweets created on or after this time.",
+    )
+    parser.add_argument(
         "--overwrite-existing",
         action="store_true",
         help="Delete existing narrative match rows in scope before rebuilding them.",
@@ -61,6 +65,7 @@ def main() -> None:
         SyncManagedNarrativeMatchesRequest(
             usernames=args.username,
             narrative_slugs=args.narrative_slugs,
+            created_since=args.created_since,
             overwrite_existing=args.overwrite_existing,
             tracked_only=not args.all_users,
             published_only=not args.include_unpublished,

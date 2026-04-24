@@ -46,6 +46,11 @@ def parse_args() -> argparse.Namespace:
         help="Stored extractor version identifier used for dedupe/versioning.",
     )
     parser.add_argument(
+        "--only-missing-tweets",
+        action="store_true",
+        help="Only process tweets that do not yet have any keyword rows for this extractor.",
+    )
+    parser.add_argument(
         "--overwrite-existing",
         action="store_true",
         help="Delete existing phrase rows for this extractor and rebuild them.",
@@ -66,6 +71,7 @@ def main() -> None:
             analysis_start=args.analysis_start,
             extractor_key=args.extractor_key,
             extractor_version=args.extractor_version,
+            only_missing_tweets=args.only_missing_tweets,
             overwrite_existing=args.overwrite_existing,
             dry_run=args.dry_run,
         )

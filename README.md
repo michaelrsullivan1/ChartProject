@@ -459,6 +459,13 @@ python3 backend/scripts/ingest/fetch_tracked_author_refresh.py --plan data/expor
 python3 backend/scripts/ingest/post_process_tracked_author_refresh.py --fetch-results data/exports/refresh-plans/<plan-name>.fetch-results.json
 ```
 
+Current post-process behavior:
+
+- normalization and validation are scoped to the target user's archived raw artifacts rather than the full raw archive
+- sentiment and mood scoring stay batched across all preprocess-ready users
+- keyword extraction uses the refresh manifest `since` window when available and passes `--only-missing-tweets`
+- managed narrative sync uses the same refresh window via `--created-since`
+
 If an older fetch-results manifest reports all users with `run_ids = []` and `new_raw_tweets = 0`, repair it before post-process:
 
 ```bash
@@ -557,19 +564,48 @@ python3 backend/scripts/enrich/extract_tweet_keywords.py \
   --analysis-start 2020-08-01T00:00:00Z
 ```
 
+For an incremental rerun on an already-processed user, prefer:
+
+```bash
+python3 backend/scripts/enrich/extract_tweet_keywords.py \
+  --username someuser \
+  --analysis-start 2020-08-01T00:00:00Z \
+  --only-missing-tweets
+```
+
 9. Sync the managed author registry row so the frontend auto-lists the new user:
 
 ```bash
 python3 backend/scripts/views/sync_managed_author_view.py --username someuser --published
 ```
 
-10. Rebuild aggregate mood snapshots so Aggregate Moods includes the latest scored/cohort data:
+10. Sync managed narrative matches:
+
+```bash
+python3 backend/scripts/enrich/sync_managed_narrative_matches.py --username someuser
+```
+
+For an incremental rerun on only the recent refresh window, prefer:
+
+```bash
+python3 backend/scripts/enrich/sync_managed_narrative_matches.py \
+  --username someuser \
+  --created-since 2026-03-27T00:00:00Z
+```
+
+11. Rebuild aggregate mood snapshots so Aggregate Moods includes the latest scored/cohort data:
 
 ```bash
 python3 backend/scripts/cache/rebuild_aggregate_snapshots.py --clear-first --delete-stale
 ```
 
-11. Confirm the registry-backed overview endpoints, mood endpoints, aggregate mood endpoints, heatmap endpoints, and frontend pages render correctly.
+12. Rebuild aggregate narrative snapshots:
+
+```bash
+python3 backend/scripts/cache/rebuild_aggregate_narrative_snapshots.py
+```
+
+13. Confirm the registry-backed overview endpoints, mood endpoints, aggregate mood endpoints, heatmap endpoints, and frontend pages render correctly.
 
 Batch alternative after ingest:
 
@@ -577,7 +613,7 @@ Batch alternative after ingest:
 ./scripts/run-user-post-ingest-batch.sh --username someuser --analysis-start 2020-08-01T00:00:00Z
 ```
 
-By default, this runs steps 2-10, including both aggregate snapshot rebuild steps.
+By default, this runs steps 2-12, including both aggregate snapshot rebuild steps.
 
 If you are ingesting many users in one session, skip per-user snapshot rebuilds and rebuild once at the end:
 
@@ -944,6 +980,7 @@ Useful options:
 
 - `--username saylor otheruser`
 - `--analysis-start 2020-08-01T00:00:00Z`
+- `--only-missing-tweets`
 - `--dry-run`
 - `--overwrite-existing`
 - `--extractor-key exact-ngram`
@@ -957,6 +994,7 @@ Current extractor behavior:
 - extracts exact `1`, `2`, and `3` word phrases per tweet
 - aggressively filters stopword-heavy or generic English fragments
 - stores one row per `(tweet, phrase, extractor version)`
+- `--only-missing-tweets` limits work to tweets that do not yet have keyword rows for that extractor
 - the current Michael Saylor heatmap is intended for the August 2020 onward analysis window
 
 ## Publish or tune a page subject
