@@ -11,16 +11,19 @@ if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
 from app.services.aggregate_mood_view import (
+    AggregateCohortMoodOutliersRequest,
     AggregateMoodCohortsRequest,
     AggregateMoodOutliersRequest,
     AggregateMoodOverviewRequest,
     AggregateMoodViewRequest,
+    build_aggregate_cohort_mood_outliers_view,
     build_aggregate_mood_cohorts,
     build_aggregate_mood_outliers_view,
     build_aggregate_mood_overview,
     build_aggregate_mood_view,
 )
 from app.services.aggregate_snapshot_cache import (
+    AGGREGATE_COHORT_MOOD_OUTLIERS_VIEW_TYPE,
     AGGREGATE_COHORTS_VIEW_TYPE,
     AGGREGATE_MOOD_OUTLIERS_VIEW_TYPE,
     AGGREGATE_MOOD_SERIES_VIEW_TYPE,
@@ -60,6 +63,7 @@ def parse_args() -> argparse.Namespace:
         action="append",
         dest="views",
         choices=[
+            AGGREGATE_COHORT_MOOD_OUTLIERS_VIEW_TYPE,
             AGGREGATE_COHORTS_VIEW_TYPE,
             AGGREGATE_OVERVIEW_VIEW_TYPE,
             AGGREGATE_MOOD_SERIES_VIEW_TYPE,
@@ -109,6 +113,7 @@ def main() -> None:
     requested_views = tuple(
         args.views
         or [
+            AGGREGATE_COHORT_MOOD_OUTLIERS_VIEW_TYPE,
             AGGREGATE_COHORTS_VIEW_TYPE,
             AGGREGATE_OVERVIEW_VIEW_TYPE,
             AGGREGATE_MOOD_SERIES_VIEW_TYPE,
@@ -250,6 +255,31 @@ def _build_task_specs(
                 "payload_builder": lambda: cohort_payload,
                 "build_meta_builder": lambda payload: {
                     "cohort_count": len(payload.get("cohorts", [])),
+                    "rebuilt_at": generated_at.isoformat().replace("+00:00", "Z"),
+                },
+                "generated_at": generated_at,
+            }
+        )
+
+    if AGGREGATE_COHORT_MOOD_OUTLIERS_VIEW_TYPE in requested_views:
+        task_specs.append(
+            {
+                "view_type": AGGREGATE_COHORT_MOOD_OUTLIERS_VIEW_TYPE,
+                "cohort_tag_slug": "all",
+                "granularity": granularity,
+                "model_key": model_key,
+                "payload_builder": lambda: build_aggregate_cohort_mood_outliers_view(
+                    AggregateCohortMoodOutliersRequest(
+                        granularity=granularity,
+                        model_key=model_key,
+                        view_name="aggregate-moods-cohort-outliers",
+                        analysis_start="2016-01-01T00:00:00Z",
+                    )
+                ),
+                "build_meta_builder": lambda payload: {
+                    "cohort_user_count": payload["summary"]["cohort_user_count"],
+                    "scored_tweet_count": payload["summary"]["scored_tweet_count"],
+                    "current_week_start": payload["summary"]["current_week_start"],
                     "rebuilt_at": generated_at.isoformat().replace("+00:00", "Z"),
                 },
                 "generated_at": generated_at,

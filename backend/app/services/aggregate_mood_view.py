@@ -15,6 +15,7 @@ from app.models.tweet_mood_score import TweetMoodScore
 from app.models.user import User
 from app.models.user_cohort_tag import UserCohortTag
 from app.services.aggregate_snapshot_cache import (
+    AGGREGATE_COHORT_MOOD_OUTLIERS_VIEW_TYPE,
     AGGREGATE_COHORTS_VIEW_TYPE,
     AGGREGATE_MOOD_OUTLIERS_VIEW_TYPE,
     AGGREGATE_MOOD_SERIES_VIEW_TYPE,
@@ -54,6 +55,19 @@ class AggregateMoodOutliersRequest:
     view_name: str = "aggregate-mood-outliers"
     analysis_start: str | None = None
     cohort_tag_slug: str | None = None
+    smoothing_window_weeks: int = 8
+    baseline_window_weeks: int = 52
+    minimum_baseline_weeks: int = 12
+    ranking_limit: int = 10
+
+
+@dataclass(slots=True)
+class AggregateCohortMoodOutliersRequest:
+    granularity: str = "week"
+    model_key: str = DEFAULT_MOOD_MODEL
+    mood_labels: tuple[str, ...] = DEFAULT_VISIBLE_MOOD_LABELS
+    view_name: str = "aggregate-cohort-mood-outliers"
+    analysis_start: str | None = None
     smoothing_window_weeks: int = 8
     baseline_window_weeks: int = 52
     minimum_baseline_weeks: int = 12
@@ -643,6 +657,253 @@ def build_aggregate_mood_outliers_view(
         session.close()
 
 
+def build_aggregate_cohort_mood_outliers_view(
+    request: AggregateCohortMoodOutliersRequest,
+    *,
+    session_factory: sessionmaker[Session] = SessionLocal,
+) -> dict[str, object]:
+    granularity = request.granularity.strip().lower()
+    if granularity != "week":
+        raise RuntimeError("aggregate-cohort-mood-outliers view only supports granularity=week.")
+    analysis_start = (
+        _parse_utc_datetime(request.analysis_start) if request.analysis_start is not None else None
+    )
+
+    mood_labels = tuple(label.strip().lower() for label in request.mood_labels if label.strip())
+    if not mood_labels:
+        raise RuntimeError("aggregate-cohort-mood-outliers view requires at least one mood label.")
+    if request.smoothing_window_weeks <= 0:
+        raise RuntimeError("aggregate-cohort-mood-outliers view requires smoothing_window_weeks > 0.")
+    if request.baseline_window_weeks <= 0:
+        raise RuntimeError("aggregate-cohort-mood-outliers view requires baseline_window_weeks > 0.")
+    if request.minimum_baseline_weeks <= 0:
+        raise RuntimeError("aggregate-cohort-mood-outliers view requires minimum_baseline_weeks > 0.")
+    if request.ranking_limit <= 0:
+        raise RuntimeError("aggregate-cohort-mood-outliers view requires ranking_limit > 0.")
+
+    cohorts_payload = build_cached_aggregate_mood_cohorts(
+        AggregateMoodCohortsRequest(
+            model_key=request.model_key,
+            view_name="aggregate-moods-cohorts",
+        ),
+        session_factory=session_factory,
+    )
+    cohort_options = [
+        {
+            "cohort_type": "all",
+            "cohort_tag_slug": None,
+            "cohort_tag_name": "All tracked users",
+        },
+        *[
+            {
+                "cohort_type": "tag",
+                "cohort_tag_slug": cohort["tag_slug"],
+                "cohort_tag_name": cohort["tag_name"],
+            }
+            for cohort in cohorts_payload.get("cohorts", [])
+        ],
+    ]
+
+    cohort_series_payloads: list[dict[str, object]] = []
+    all_period_starts: set[str] = set()
+    for cohort_option in cohort_options:
+        cohort_slug = cohort_option["cohort_tag_slug"]
+        cohort_payload = build_cached_aggregate_mood_view(
+            AggregateMoodViewRequest(
+                granularity="week",
+                model_key=request.model_key,
+                mood_labels=mood_labels,
+                view_name="aggregate-moods-mood-series",
+                analysis_start=analysis_start.isoformat().replace("+00:00", "Z")
+                if analysis_start is not None
+                else None,
+                cohort_tag_slug=cohort_slug,
+            ),
+            session_factory=session_factory,
+        )
+        for point in cohort_payload.get("mood_series", []):
+            all_period_starts.add(str(point["period_start"]))
+        cohort_series_payloads.append(
+            {
+                "cohort_type": cohort_option["cohort_type"],
+                "cohort_tag_slug": cohort_slug,
+                "cohort_tag_name": cohort_option["cohort_tag_name"],
+                "cohort_user_count": int(cohort_payload["cohort"]["user_count"]),
+                "summary_scored_tweet_count": int(cohort_payload["summary"]["scored_tweet_count"]),
+                "mood_series": list(cohort_payload.get("mood_series", [])),
+            }
+        )
+
+    if not all_period_starts:
+        raise RuntimeError(
+            "No mood series rows found while building aggregate cohort mood outliers "
+            f"for model_key={request.model_key!r}."
+        )
+
+    ordered_periods = sorted(all_period_starts)
+    current_week_iso = ordered_periods[-1]
+    period_count = len(ordered_periods)
+    period_index_by_start = {period_start: index for index, period_start in enumerate(ordered_periods)}
+    rankings_by_mood: dict[str, dict[str, list[dict[str, object]]]] = {}
+
+    for mood_label in mood_labels:
+        rows_for_elevated: list[dict[str, object]] = []
+        rows_for_depressed: list[dict[str, object]] = []
+        rows_for_rising: list[dict[str, object]] = []
+        rows_for_falling: list[dict[str, object]] = []
+        current_scores: list[float] = []
+        cohort_metrics: list[dict[str, object]] = []
+
+        for cohort_payload in cohort_series_payloads:
+            values: list[float | None] = [None] * period_count
+            weights: list[int] = [0] * period_count
+            scored_tweet_count_current = 0
+            points_by_period = {
+                str(point["period_start"]): point for point in cohort_payload.get("mood_series", [])
+            }
+            for period_start, point in points_by_period.items():
+                period_index = period_index_by_start.get(period_start)
+                if period_index is None:
+                    continue
+                active_user_count = int(point.get("active_user_count") or 0)
+                mood_data = point.get("moods", {}).get(mood_label)
+                if active_user_count <= 0 or mood_data is None:
+                    continue
+                values[period_index] = float(mood_data["average_score"])
+                weights[period_index] = active_user_count
+                if period_start == current_week_iso:
+                    scored_tweet_count_current = int(point.get("scored_tweet_count") or 0)
+
+            smoothed = _compute_weighted_moving_average(
+                values=values,
+                weights=weights,
+                window_size=request.smoothing_window_weeks,
+            )
+            current_score = smoothed[-1] if smoothed else None
+            if current_score is None:
+                continue
+            current_scores.append(current_score)
+            previous_score = smoothed[-2] if len(smoothed) > 1 else None
+            delta_1w = current_score - previous_score if previous_score is not None else None
+            baseline_values = [value for value in smoothed[:-1] if value is not None]
+            baseline_tail = baseline_values[-request.baseline_window_weeks :]
+            baseline_mean = _mean(baseline_tail) if baseline_tail else None
+            baseline_stddev = _population_stddev(baseline_tail) if baseline_tail else None
+            self_z_score = None
+            if (
+                baseline_mean is not None
+                and baseline_stddev is not None
+                and len(baseline_tail) >= request.minimum_baseline_weeks
+                and baseline_stddev > 0
+            ):
+                self_z_score = (current_score - baseline_mean) / baseline_stddev
+
+            cohort_metrics.append(
+                {
+                    "cohort_type": cohort_payload["cohort_type"],
+                    "cohort_tag_slug": cohort_payload["cohort_tag_slug"],
+                    "cohort_tag_name": cohort_payload["cohort_tag_name"],
+                    "cohort_user_count": cohort_payload["cohort_user_count"],
+                    "summary_scored_tweet_count": cohort_payload["summary_scored_tweet_count"],
+                    "current_score": current_score,
+                    "delta_1w": delta_1w,
+                    "self_z_score": self_z_score,
+                    "baseline_mean": baseline_mean,
+                    "baseline_stddev": baseline_stddev,
+                    "baseline_week_count": len(baseline_tail),
+                    "scored_tweet_count_current": scored_tweet_count_current,
+                }
+            )
+
+        cohort_mean = _mean(current_scores) if current_scores else None
+        cohort_stddev = _population_stddev(current_scores) if current_scores else None
+
+        for metrics in cohort_metrics:
+            current_score = float(metrics["current_score"])
+            cohort_z_score = None
+            if cohort_mean is not None and cohort_stddev is not None and cohort_stddev > 0:
+                cohort_z_score = (current_score - cohort_mean) / cohort_stddev
+
+            row = {
+                "cohort_type": metrics["cohort_type"],
+                "cohort_tag_slug": metrics["cohort_tag_slug"],
+                "cohort_tag_name": metrics["cohort_tag_name"],
+                "cohort_user_count": metrics["cohort_user_count"],
+                "current_score": current_score,
+                "delta_1w": metrics["delta_1w"],
+                "self_z_score": metrics["self_z_score"],
+                "cohort_z_score": cohort_z_score,
+                "baseline_mean": metrics["baseline_mean"],
+                "baseline_stddev": metrics["baseline_stddev"],
+                "baseline_week_count": metrics["baseline_week_count"],
+                "scored_tweet_count": metrics["scored_tweet_count_current"],
+                "all_time_scored_tweet_count": metrics["summary_scored_tweet_count"],
+            }
+
+            if row["self_z_score"] is not None:
+                rows_for_elevated.append(row)
+                rows_for_depressed.append(row)
+            if row["delta_1w"] is not None:
+                rows_for_rising.append(row)
+                rows_for_falling.append(row)
+
+        rows_for_elevated.sort(key=lambda item: float(item["self_z_score"]), reverse=True)
+        rows_for_depressed.sort(key=lambda item: float(item["self_z_score"]))
+        rows_for_rising.sort(key=lambda item: float(item["delta_1w"]), reverse=True)
+        rows_for_falling.sort(key=lambda item: float(item["delta_1w"]))
+
+        rankings_by_mood[mood_label] = {
+            "most_elevated": rows_for_elevated[: request.ranking_limit],
+            "most_depressed": rows_for_depressed[: request.ranking_limit],
+            "fastest_rising": rows_for_rising[: request.ranking_limit],
+            "fastest_falling": rows_for_falling[: request.ranking_limit],
+        }
+
+    cohort_user_count = int(cohort_series_payloads[0]["cohort_user_count"]) if cohort_series_payloads else 0
+    scored_tweet_count = int(cohort_series_payloads[0]["summary_scored_tweet_count"]) if cohort_series_payloads else 0
+
+    return {
+        "view": request.view_name,
+        "subject": {
+            "platform_user_id": "aggregate",
+            "username": "aggregate",
+            "display_name": "Aggregate Cohort Mood Outliers",
+        },
+        "cohort": {
+            "user_count": cohort_user_count,
+            "usernames": [],
+            "selection": {
+                "type": "all",
+                "tag_slug": None,
+                "tag_name": "All tracked users",
+            },
+        },
+        "model": {
+            "model_key": request.model_key,
+            "granularity": granularity,
+            "status_filter": "scored",
+            "mood_labels": list(mood_labels),
+            "smoothing_mode": "weighted-moving-average",
+            "smoothing_window_weeks": request.smoothing_window_weeks,
+            "baseline_window_weeks": request.baseline_window_weeks,
+            "minimum_baseline_weeks": request.minimum_baseline_weeks,
+            "ranking_limit": request.ranking_limit,
+            "zscore_mode": "population",
+            "entity_mode": "cohort",
+        },
+        "range": {
+            "start": ordered_periods[0],
+            "end": current_week_iso,
+        },
+        "summary": {
+            "scored_tweet_count": scored_tweet_count,
+            "cohort_user_count": cohort_user_count,
+            "current_week_start": current_week_iso,
+        },
+        "outliers": rankings_by_mood,
+    }
+
+
 def build_aggregate_mood_cohorts(
     request: AggregateMoodCohortsRequest,
     *,
@@ -774,6 +1035,28 @@ def build_cached_aggregate_mood_outliers_view(
 
     return attach_generated_at(
         build_aggregate_mood_outliers_view(request, session_factory=session_factory)
+    )
+
+
+def build_cached_aggregate_cohort_mood_outliers_view(
+    request: AggregateCohortMoodOutliersRequest,
+    *,
+    session_factory: sessionmaker[Session] = SessionLocal,
+) -> dict[str, object]:
+    granularity = request.granularity.strip().lower()
+    if granularity == "week":
+        snapshot = get_aggregate_snapshot(
+            view_type=AGGREGATE_COHORT_MOOD_OUTLIERS_VIEW_TYPE,
+            cohort_tag_slug=None,
+            granularity=granularity,
+            model_key=request.model_key,
+            session_factory=session_factory,
+        )
+        if snapshot is not None:
+            return snapshot
+
+    return attach_generated_at(
+        build_aggregate_cohort_mood_outliers_view(request, session_factory=session_factory)
     )
 
 

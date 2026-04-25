@@ -1,12 +1,14 @@
 from fastapi import APIRouter, Query
 
 from app.services.aggregate_mood_view import (
+    AggregateCohortMoodOutliersRequest,
     AggregateMoodCohortsRequest,
     AggregateMoodMarketSeriesRequest,
     AggregateMoodOutliersRequest,
     AggregateMoodOverviewRequest,
     AggregateMoodViewRequest,
     build_aggregate_market_series,
+    build_cached_aggregate_cohort_mood_outliers_view,
     build_cached_aggregate_mood_cohorts,
     build_cached_aggregate_mood_outliers_view,
     build_cached_aggregate_mood_overview,
@@ -195,6 +197,23 @@ def _build_aggregate_mood_outliers(
             view_name=view_name,
             analysis_start=analysis_start,
             cohort_tag_slug=cohort_tag,
+        )
+    )
+
+
+def _build_aggregate_cohort_mood_outliers(
+    *,
+    view_name: str,
+    granularity: str,
+    model_key: str,
+    analysis_start: str | None = None,
+) -> dict[str, object]:
+    return build_cached_aggregate_cohort_mood_outliers_view(
+        AggregateCohortMoodOutliersRequest(
+            granularity=granularity,
+            model_key=model_key,
+            view_name=view_name,
+            analysis_start=analysis_start,
         )
     )
 
@@ -569,6 +588,19 @@ def aggregate_moods_outliers(
         model_key=model_key,
         analysis_start=AGGREGATE_MOODS_ANALYSIS_START,
         cohort_tag=cohort_tag,
+    )
+
+
+@router.get("/aggregate-moods/cohort-outliers")
+def aggregate_moods_cohort_outliers(
+    granularity: str = Query(default="week", pattern="^(week)$"),
+    model_key: str = Query(default=DEFAULT_MOOD_MODEL),
+) -> dict[str, object]:
+    return _build_aggregate_cohort_mood_outliers(
+        view_name="aggregate-moods-cohort-outliers",
+        granularity=granularity,
+        model_key=model_key,
+        analysis_start=AGGREGATE_MOODS_ANALYSIS_START,
     )
 
 
