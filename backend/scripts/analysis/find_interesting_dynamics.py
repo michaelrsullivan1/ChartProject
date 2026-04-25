@@ -735,7 +735,7 @@ def _compute_entity_metrics(
         for metrics in pending_metrics:
             metrics_by_mood[mood_label][metrics.entity_key] = metrics
 
-        return metrics_by_mood, current_stats_by_mood
+    return metrics_by_mood, current_stats_by_mood
 
 
 def _build_user_outlier_findings(
