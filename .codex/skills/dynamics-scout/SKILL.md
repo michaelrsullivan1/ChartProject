@@ -24,6 +24,30 @@ If the user asks about an older run, inspect the timestamped folders under:
 
 - `data/exports/dynamics-scout/`
 
+## Persistence Requirement
+
+Do not leave the interpretation only in the Codex chat output.
+
+Every time you use this skill, write the interpretation to:
+
+- `data/exports/dynamics-scout/latest-interpretation.md`
+
+and also write the same interpretation into the newest timestamped scout run folder as:
+
+- `data/exports/dynamics-scout/<latest-run>/interpretation.md`
+
+Use the newest timestamped directory under `data/exports/dynamics-scout/` as `<latest-run>`.
+
+The markdown should include:
+
+- scout run timestamp
+- interpretation timestamp
+- top storylines
+- cross-patterns
+- hypotheses
+
+After writing the markdown files, return the interpretation in chat as usual.
+
 ## What To Produce
 
 Your job is not to restate the raw leaderboard. Your job is to surface the most interesting stories hiding inside it.

@@ -442,6 +442,7 @@ The script also refreshes stable pointers:
 
 - `data/exports/dynamics-scout/latest.json`
 - `data/exports/dynamics-scout/latest.md`
+- `data/exports/dynamics-scout/latest-interpretation.md`
 
 `summary.json` is the machine-readable output. `summary.md` is the quick human-readable leaderboard/report.
 
@@ -482,11 +483,19 @@ and then produces:
 
 The skill is intentionally not focused on chart navigation or UI click paths. Its job is to synthesize what looks interesting now.
 
+The skill should also persist its interpretation output, not just print it in Codex. The expected markdown outputs are:
+
+- `data/exports/dynamics-scout/latest-interpretation.md`
+- `data/exports/dynamics-scout/<latest-run>/interpretation.md`
+
+where `<latest-run>` is the newest timestamped scout run directory.
+
 ### Recommended workflow
 
 1. Run `./scripts/scout-dynamics.sh`
 2. Inspect `data/exports/dynamics-scout/latest.md` if you want the raw scout output
 3. Ask Codex to use the `dynamics-scout` skill to interpret the latest run and surface the strongest themes
+4. The interpretation should be written to `data/exports/dynamics-scout/latest-interpretation.md` and to the latest timestamped scout run folder
 
 No live provider calls are required for normalization, validation, the overview pages, the heatmap pages, or their tweet drilldowns.
 
