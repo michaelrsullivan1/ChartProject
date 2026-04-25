@@ -7,6 +7,7 @@ import {
   type AggregateMoodOutlierEntry,
   type AggregateMoodOutliersResponse,
 } from "../api/authorOverview";
+import { ChartControlSelect } from "../components/ChartControlSelect";
 import { DashboardLoadingState } from "../components/DashboardLoadingState";
 
 const ALL_COHORT_KEY = "__all_tracked_users__";
@@ -122,6 +123,17 @@ export function MoodOutliersPage({ apiBasePath }: MoodOutliersPageProps) {
   const activeMoodOutliers = selectedMoodLabel
     ? outlierPayload?.outliers[selectedMoodLabel] ?? null
     : null;
+  const cohortSelectOptions = cohortOptions.map((option) => ({
+    value: option.key,
+    label:
+      option.userCount !== null
+        ? `${option.tagName} (${integerFormatter.format(option.userCount)})`
+        : option.tagName,
+  }));
+  const moodSelectOptions = (outlierPayload?.model.mood_labels ?? []).map((moodLabel) => ({
+    value: moodLabel,
+    label: toTitleCase(moodLabel),
+  }));
 
   return (
     <section className="dashboard-page">
@@ -143,34 +155,30 @@ export function MoodOutliersPage({ apiBasePath }: MoodOutliersPageProps) {
                 </p>
               </div>
               <div className="mood-outliers-controls">
-                <label className="chart-control">
-                  <span>Cohort</span>
-                  <select
-                    value={selectedCohortKey}
-                    onChange={(event) => setSelectedCohortKey(event.target.value)}
-                  >
-                    {cohortOptions.map((option) => (
-                      <option key={option.key} value={option.key}>
-                        {option.userCount !== null
-                          ? `${option.tagName} (${integerFormatter.format(option.userCount)})`
-                          : option.tagName}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="chart-control">
-                  <span>Mood</span>
-                  <select
-                    value={selectedMoodLabel}
-                    onChange={(event) => setSelectedMoodLabel(event.target.value)}
-                  >
-                    {outlierPayload.model.mood_labels.map((moodLabel) => (
-                      <option key={moodLabel} value={moodLabel}>
-                        {toTitleCase(moodLabel)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <div className="chart-control-card mood-outliers-control-card">
+                  <p className="chart-control-eyebrow">Cohort</p>
+                  <label className="chart-control-field">
+                    <span className="sr-only">Outlier cohort</span>
+                    <ChartControlSelect
+                      ariaLabel="Outlier cohort"
+                      onChange={setSelectedCohortKey}
+                      options={cohortSelectOptions}
+                      value={selectedCohortKey}
+                    />
+                  </label>
+                </div>
+                <div className="chart-control-card mood-outliers-control-card">
+                  <p className="chart-control-eyebrow">Mood</p>
+                  <label className="chart-control-field">
+                    <span className="sr-only">Outlier mood</span>
+                    <ChartControlSelect
+                      ariaLabel="Outlier mood"
+                      onChange={setSelectedMoodLabel}
+                      options={moodSelectOptions}
+                      value={selectedMoodLabel}
+                    />
+                  </label>
+                </div>
               </div>
             </header>
 

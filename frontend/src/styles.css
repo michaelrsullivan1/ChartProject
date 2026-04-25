@@ -3045,25 +3045,9 @@ textarea {
   flex-wrap: wrap;
 }
 
-.chart-control {
-  display: grid;
-  gap: 0.35rem;
-  min-width: 12rem;
-}
-
-.chart-control span {
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--muted-text);
-}
-
-.chart-control select {
-  border-radius: 0.65rem;
-  border: 1px solid var(--border-color);
-  background: var(--panel-bg);
-  color: var(--text-color);
-  padding: 0.55rem 0.65rem;
+.mood-outliers-control-card {
+  min-width: 260px;
+  flex: 1 1 260px;
 }
 
 .mood-outlier-grid {
