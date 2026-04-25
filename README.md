@@ -327,6 +327,11 @@ The main runtime data directories currently kept in the repo are:
 - `data/exports/`
 - `data/backups/`
 
+Important exported analysis outputs now include:
+
+- `data/exports/refresh-plans/`
+- `data/exports/dynamics-scout/`
+
 ## Current implementation details
 
 ### Core tables currently in use
@@ -355,6 +360,133 @@ The main runtime data directories currently kept in the repo are:
 7. Rebuild aggregate mood snapshots when aggregate mood inputs change.
 8. Build request-time backend view payloads from canonical tables for the remaining live endpoints.
 9. Render the current frontend chart pages from those backend view payloads.
+
+## Dynamics Scout
+
+Dynamics Scout is the manual analysis workflow for finding interesting cross-user, cross-cohort, and BTC-linked dynamics without having to visually inspect the dashboards first.
+
+It is intentionally split into two layers:
+
+1. a deterministic scout script that computes objective findings and writes structured outputs
+2. a Codex skill that reads the latest scout outputs and turns them into higher-level storylines and hypotheses
+
+### When to use it
+
+Run Dynamics Scout when you want a fresh ranked list of potentially interesting things to investigate, such as:
+
+- user mood outliers versus personal baseline
+- cohort mood outliers
+- cohort-versus-cohort mood divergence
+- user-versus-cohort divergence
+- BTC-linked mood correlation or anti-correlation
+- recent BTC decoupling
+- possible lead-lag relationships with BTC
+- regime shifts in mood behavior
+
+This is a manual workflow. It does not run on a schedule unless you explicitly wire that up later.
+
+### Scout command
+
+From the repo root:
+
+```bash
+./scripts/scout-dynamics.sh
+```
+
+That wrapper runs:
+
+```bash
+python3 backend/scripts/analysis/find_interesting_dynamics.py
+```
+
+If the repo virtualenv exists, the wrapper prefers `.venv/bin/python3`. Otherwise it falls back to `python3`.
+
+### Useful variants
+
+Full scout:
+
+```bash
+./scripts/scout-dynamics.sh
+```
+
+Smaller scout for one mood:
+
+```bash
+./scripts/scout-dynamics.sh --mood-label optimism
+```
+
+Recent-only scout:
+
+```bash
+./scripts/scout-dynamics.sh --analysis-start 2025-01-01T00:00:00Z
+```
+
+Smaller output set:
+
+```bash
+./scripts/scout-dynamics.sh --limit 100 --top-markdown-findings 20
+```
+
+### What the script writes
+
+Each run creates a timestamped folder under:
+
+- `data/exports/dynamics-scout/<timestamp>/`
+
+Inside each run:
+
+- `summary.json`
+- `summary.md`
+
+The script also refreshes stable pointers:
+
+- `data/exports/dynamics-scout/latest.json`
+- `data/exports/dynamics-scout/latest.md`
+
+`summary.json` is the machine-readable output. `summary.md` is the quick human-readable leaderboard/report.
+
+### What the script currently scores
+
+The scout currently mixes findings into one combined leaderboard and retains the strongest results by `interestingness_score`.
+
+Current finding families include:
+
+- `user_mood_outlier`
+- `cohort_mood_outlier`
+- `cohort_vs_cohort_divergence`
+- `user_vs_cohort_divergence`
+- `btc_level_correlation`
+- `btc_return_correlation`
+- `btc_decoupling`
+- `btc_lead_lag_signal`
+- `regime_shift`
+
+The current implementation uses weekly data, an `8w` weighted moving average, and a trailing `52w` baseline window by default.
+
+### Dynamics Scout skill
+
+A repository-local Codex skill now lives at:
+
+- `.codex/skills/dynamics-scout/`
+
+The skill is meant to be used after a scout run exists. It reads:
+
+- `data/exports/dynamics-scout/latest.md`
+- `data/exports/dynamics-scout/latest.json`
+
+and then produces:
+
+- the strongest storylines
+- recurring cross-patterns
+- higher-level hypotheses worth investigating
+
+The skill is intentionally not focused on chart navigation or UI click paths. Its job is to synthesize what looks interesting now.
+
+### Recommended workflow
+
+1. Run `./scripts/scout-dynamics.sh`
+2. Inspect `data/exports/dynamics-scout/latest.md` if you want the raw scout output
+3. Ask Codex to use the `dynamics-scout` skill to interpret the latest run and surface the strongest themes
 
 No live provider calls are required for normalization, validation, the overview pages, the heatmap pages, or their tweet drilldowns.
 
@@ -669,6 +801,7 @@ Snapshot rows exist for:
 - `aggregate-overview`
 - `aggregate-mood-series`
 - `aggregate-mood-outliers`
+- `aggregate-cohort-mood-outliers`
 
 Each row is keyed by:
 
@@ -736,6 +869,7 @@ What this does:
 - rebuilds `aggregate-overview` for `all` and every eligible cohort
 - rebuilds `aggregate-mood-series` for `all` and every eligible cohort
 - rebuilds `aggregate-mood-outliers` for `all` and every eligible cohort
+- rebuilds `aggregate-cohort-mood-outliers`
 - upserts the latest snapshot rows into Postgres
 - removes stale snapshot rows for the same model/granularity when `--delete-stale` is used
 - optionally clears existing rows first when `--clear-first` is used (full rebuild only)
