@@ -60,6 +60,16 @@ Prioritize:
 - BTC-linked mood relationships that look unusual, unstable, or newly emerging
 - regime shifts that may signal changing behavior rather than random noise
 
+Read the full `latest.json`, not just the markdown summary. The markdown file is a convenience layer; the JSON is the actual source of truth for synthesis depth.
+
+Before writing the interpretation:
+
+- scan well beyond the top 10 findings
+- look for repeated entities that appear across multiple finding types
+- look for repeated moods that recur across users, cohorts, and BTC-linked findings
+- compare what is dominant in the leaderboard with what is broadly recurring lower in the ranked list
+- separate likely real patterns from likely statistical artifacts or tiny-variance comparator effects
+
 ## Style
 
 - Lead with the most interesting observations, not methodology
@@ -67,6 +77,10 @@ Prioritize:
 - Use metrics only as support when they sharpen the story
 - Do not spend time on chart paths or UI click instructions unless the user asks
 - Hypotheses are encouraged, but label them clearly as hypotheses
+- Be materially more detailed than the scout markdown summary
+- Aim for a substantial interpretation, not a short note
+- Default target length is roughly 900-1600 words unless the user asks for brevity
+- Surface at least 5 concrete observations and usually closer to 8-12 when the scout run is rich enough
 
 ## Recommended Structure
 
@@ -75,8 +89,16 @@ Use this structure when summarizing scout output:
 1. `Top storylines`
 2. `Cross-patterns`
 3. `Hypotheses`
+4. `Caveats and weak signals`
 
-Keep each section short. If the user wants more depth, expand from the JSON findings.
+Within those sections:
+
+- `Top storylines` should contain multiple distinct observations, not one blended paragraph
+- `Cross-patterns` should focus on repeated entities, repeated moods, repeated cohorts, and repeated BTC-linkage behavior
+- `Hypotheses` should explain what might be happening and why it may matter
+- `Caveats and weak signals` should call out findings that may be numerically extreme but conceptually fragile
+
+Do not keep each section short by default. Depth is preferred here as long as it remains organized and non-repetitive.
 
 ## Heuristics
 
@@ -86,15 +108,21 @@ When choosing what matters most:
 - favor recent shifts when they reinforce a longer-running pattern
 - treat strong contradictions as interesting, not as noise
 - avoid over-weighting a single extreme score if the rest of the scout run does not support it
+- favor entities that recur across multiple finding types over single isolated appearances
+- favor clusters of related moods over one-off mood spikes
+- call out when the run is dominated by one signal family, but still identify the best non-dominant stories
+- explicitly note when a comparator cohort appears to have tiny variance and is inflating sigma-based divergence
 
 Examples of good synthesis:
 
 - a cohort is broadly rising in optimism while one member is sharply diverging downward
 - multiple cohorts are decoupling from BTC at the same time in different moods
 - a user appears in outlier, divergence, and regime-shift findings simultaneously
+- a reflective-mood cluster like gratitude/remorse/relief appears across multiple entities, suggesting a broader narrative regime
 
 Examples of weak synthesis:
 
 - listing 20 leaderboard rows with no interpretation
 - repeating raw z-scores without explaining why they matter
 - focusing on a finding solely because it is numerically largest
+- giving only 3-4 high-level bullets when the JSON contains enough material for a richer interpretation
