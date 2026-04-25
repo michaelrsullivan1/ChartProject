@@ -84,6 +84,7 @@ The aggregate mood pages currently:
 
 - request `/api/views/aggregate-moods?granularity=week` for the cached aggregate activity payload
 - request `/api/views/aggregate-moods/mood-series?granularity=week` for the cached aggregate mood-series payload
+- request `/api/views/aggregate-moods/outliers?granularity=week` for cached per-mood outlier rankings
 - request `/api/views/aggregate-moods/market-series?range_start=<iso>&range_end=<iso>` for BTC and MSTR history
 - request `/api/views/aggregate-moods/cohorts` to populate the available cohort filters
 - support a single cohort filter at a time via `cohort_tag=<slug>`
@@ -398,6 +399,8 @@ The current chart flow is registry-first for managed authors. Core endpoints:
 /api/views/aggregate-moods?granularity=week&cohort_tag=bitcoin
 /api/views/aggregate-moods/mood-series?granularity=week
 /api/views/aggregate-moods/mood-series?granularity=week&cohort_tag=bitcoin
+/api/views/aggregate-moods/outliers?granularity=week
+/api/views/aggregate-moods/outliers?granularity=week&cohort_tag=bitcoin
 /api/views/aggregate-moods/market-series?range_start=2016-01-04T00:00:00Z&range_end=2026-04-06T00:00:00Z
 /api/views/aggregate-moods/cohorts
 /api/views/bitcoin-mentions?username={handle}&phrase=bitcoin&buy_amount_usd=10
@@ -665,6 +668,7 @@ Snapshot rows exist for:
 - `aggregate-cohorts`
 - `aggregate-overview`
 - `aggregate-mood-series`
+- `aggregate-mood-outliers`
 
 Each row is keyed by:
 
@@ -731,6 +735,7 @@ What this does:
 - rebuilds the `aggregate-cohorts` snapshot
 - rebuilds `aggregate-overview` for `all` and every eligible cohort
 - rebuilds `aggregate-mood-series` for `all` and every eligible cohort
+- rebuilds `aggregate-mood-outliers` for `all` and every eligible cohort
 - upserts the latest snapshot rows into Postgres
 - removes stale snapshot rows for the same model/granularity when `--delete-stale` is used
 - optionally clears existing rows first when `--clear-first` is used (full rebuild only)
@@ -743,7 +748,13 @@ python3 scripts/cache/rebuild_aggregate_snapshots.py --dry-run
 python3 scripts/cache/rebuild_aggregate_snapshots.py --clear-first --dry-run
 python3 scripts/cache/rebuild_aggregate_snapshots.py --cohort mstr
 python3 scripts/cache/rebuild_aggregate_snapshots.py --view aggregate-mood-series
+python3 scripts/cache/rebuild_aggregate_snapshots.py --view aggregate-mood-outliers
 ```
+
+Scoped rebuild note:
+
+- `--delete-stale` and `--clear-first` are full-rebuild-only flags and cannot be combined with `--view` or `--cohort`
+- for a scoped outlier-only rebuild, run `python3 scripts/cache/rebuild_aggregate_snapshots.py --view aggregate-mood-outliers`
 
 ### Preflight checklist
 

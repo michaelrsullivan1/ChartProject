@@ -3,10 +3,12 @@ from fastapi import APIRouter, Query
 from app.services.aggregate_mood_view import (
     AggregateMoodCohortsRequest,
     AggregateMoodMarketSeriesRequest,
+    AggregateMoodOutliersRequest,
     AggregateMoodOverviewRequest,
     AggregateMoodViewRequest,
     build_aggregate_market_series,
     build_cached_aggregate_mood_cohorts,
+    build_cached_aggregate_mood_outliers_view,
     build_cached_aggregate_mood_overview,
     build_cached_aggregate_mood_view,
 )
@@ -169,6 +171,25 @@ def _build_aggregate_moods(
 ) -> dict[str, object]:
     return build_cached_aggregate_mood_view(
         AggregateMoodViewRequest(
+            granularity=granularity,
+            model_key=model_key,
+            view_name=view_name,
+            analysis_start=analysis_start,
+            cohort_tag_slug=cohort_tag,
+        )
+    )
+
+
+def _build_aggregate_mood_outliers(
+    *,
+    view_name: str,
+    granularity: str,
+    model_key: str,
+    analysis_start: str | None = None,
+    cohort_tag: str | None = None,
+) -> dict[str, object]:
+    return build_cached_aggregate_mood_outliers_view(
+        AggregateMoodOutliersRequest(
             granularity=granularity,
             model_key=model_key,
             view_name=view_name,
@@ -529,6 +550,21 @@ def aggregate_moods_mood_series(
 ) -> dict[str, object]:
     return _build_aggregate_moods(
         view_name="aggregate-moods-mood-series",
+        granularity=granularity,
+        model_key=model_key,
+        analysis_start=AGGREGATE_MOODS_ANALYSIS_START,
+        cohort_tag=cohort_tag,
+    )
+
+
+@router.get("/aggregate-moods/outliers")
+def aggregate_moods_outliers(
+    granularity: str = Query(default="week", pattern="^(week)$"),
+    model_key: str = Query(default=DEFAULT_MOOD_MODEL),
+    cohort_tag: str | None = Query(default=None),
+) -> dict[str, object]:
+    return _build_aggregate_mood_outliers(
+        view_name="aggregate-moods-outliers",
         granularity=granularity,
         model_key=model_key,
         analysis_start=AGGREGATE_MOODS_ANALYSIS_START,

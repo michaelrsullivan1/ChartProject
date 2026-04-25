@@ -46,6 +46,12 @@ python3 backend/scripts/cache/rebuild_aggregate_snapshots.py --delete-stale
 python3 backend/scripts/cache/rebuild_aggregate_narrative_snapshots.py
 ```
 
+Notes:
+
+- `rebuild_aggregate_snapshots.py --delete-stale` is the full aggregate mood snapshot rebuild and now includes the `aggregate-mood-outliers` view.
+- `--delete-stale` is full-rebuild-only and cannot be combined with `--view` or `--cohort`.
+- for a scoped outlier-only refresh, run: `python3 backend/scripts/cache/rebuild_aggregate_snapshots.py --view aggregate-mood-outliers`
+
 What changed under the hood:
 
 - the command sequence above is still valid
@@ -332,6 +338,11 @@ Command:
 cd /Users/michaelsullivan/Code/ChartProject/backend
 python3 scripts/cache/rebuild_aggregate_snapshots.py --delete-stale
 ```
+
+Scoped command note:
+
+- `--delete-stale` cannot be used with `--view` or `--cohort`.
+- to rebuild only mood outliers, run `python3 scripts/cache/rebuild_aggregate_snapshots.py --view aggregate-mood-outliers`.
 
 Important downstream effect:
 

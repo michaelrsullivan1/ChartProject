@@ -40,6 +40,7 @@ import { AuthorHeatmapPage } from "./pages/AuthorHeatmapPage";
 import { AuthorMoodPage } from "./pages/AuthorMoodPage";
 import { AggregateMoodPage } from "./pages/AggregateMoodPage";
 import { AggregateNarrativesPage } from "./pages/AggregateNarrativesPage";
+import { MoodOutliersPage } from "./pages/MoodOutliersPage";
 import { BitcoinMentionsPage } from "./pages/BitcoinMentionsPage";
 import { AuthorOverviewPage } from "./pages/MichaelSaylorVsBtcPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
@@ -65,6 +66,7 @@ type AppRoute =
   | { kind: "user-beliefs"; personSlug: string }
   | { kind: "aggregate-mood"; aggregateMood: AggregateMoodDefinition }
   | { kind: "aggregate-narratives" }
+  | { kind: "mood-outliers" }
   | { kind: "bitcoin-mentions"; bitcoinMentions: BitcoinMentionsDefinition }
   | { kind: "mood"; mood: MoodDefinition }
   | { kind: "overview"; overview: OverviewDefinition }
@@ -153,6 +155,10 @@ function getRouteFromHash(hash: string, definitions: RouteDefinitions): AppRoute
 
   if (path === "#/aggregate-narratives") {
     return { kind: "aggregate-narratives" };
+  }
+
+  if (path === "#/mood-outliers") {
+    return { kind: "mood-outliers" };
   }
 
   if (path.startsWith("#/bitcoin-mentions/")) {
@@ -417,6 +423,10 @@ export default function App() {
 
   function navigateAggregateNarratives() {
     window.location.hash = "#/aggregate-narratives";
+  }
+
+  function navigateMoodOutliers() {
+    window.location.hash = "#/mood-outliers";
   }
 
   function navigateMood(slug: string) {
@@ -826,6 +836,7 @@ export default function App() {
         onNavigatePodcastPerson={navigatePodcastPerson}
         onNavigateAggregateMood={navigateAggregateMood}
         onNavigateAggregateNarratives={navigateAggregateNarratives}
+        onNavigateMoodOutliers={navigateMoodOutliers}
         onNavigateBitcoinMentions={navigateBitcoinMentions}
         onNavigateMood={navigateMood}
         onNavigateOverview={navigateOverview}
@@ -836,6 +847,42 @@ export default function App() {
         heatmaps={sortedHeatmapDefinitions}
       >
         <AggregateNarrativesPage showWatermark={showWatermark} />
+      </AppShell>
+    );
+  }
+
+  if (route.kind === "mood-outliers") {
+    return (
+      <AppShell
+        mode="dashboard"
+        dashboardTitle="Mood Outliers"
+        activePodcastPersonSlug={null}
+        activeBitcoinMentionsSlug={null}
+        activeAggregateMoodSlug={null}
+        activeAggregateNarratives={false}
+        activeMoodOutliers
+        activeMoodSlug={null}
+        activeOverviewSlug={null}
+        activeHeatmapSlug={null}
+        activeSettingsSection={null}
+        aggregateMoods={aggregateMoodDefinitions}
+        bitcoinMentions={sortedBitcoinMentionsDefinitions}
+        moods={sortedMoodDefinitions}
+        onNavigateHome={navigateHome}
+        onNavigatePodcastPerson={navigatePodcastPerson}
+        onNavigateAggregateMood={navigateAggregateMood}
+        onNavigateAggregateNarratives={navigateAggregateNarratives}
+        onNavigateMoodOutliers={navigateMoodOutliers}
+        onNavigateBitcoinMentions={navigateBitcoinMentions}
+        onNavigateMood={navigateMood}
+        onNavigateOverview={navigateOverview}
+        onNavigateHeatmap={navigateHeatmap}
+        onNavigateGlobalSettings={navigateGlobalSettings}
+        onNavigateUserSettings={navigateUserSettings}
+        overviews={sortedOverviewDefinitions}
+        heatmaps={sortedHeatmapDefinitions}
+      >
+        <MoodOutliersPage apiBasePath="/api/views/aggregate-moods" />
       </AppShell>
     );
   }

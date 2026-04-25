@@ -231,6 +231,69 @@ export type AggregateMarketSeriesResponse = {
   }>;
 };
 
+export type AggregateMoodOutlierEntry = {
+  platform_user_id: string;
+  username: string;
+  display_name: string | null;
+  current_score: number;
+  delta_1w: number | null;
+  self_z_score: number | null;
+  cohort_z_score: number | null;
+  baseline_mean: number | null;
+  baseline_stddev: number | null;
+  baseline_week_count: number;
+  scored_tweet_count: number;
+};
+
+export type AggregateMoodOutliersResponse = {
+  view: string;
+  generated_at?: string;
+  subject: {
+    platform_user_id: string;
+    username: string;
+    display_name: string | null;
+  };
+  cohort: {
+    user_count: number;
+    usernames: string[];
+    selection?: {
+      type: "all" | "tag";
+      tag_slug: string | null;
+      tag_name: string | null;
+    };
+  };
+  model: {
+    model_key: string;
+    granularity: "week";
+    status_filter: string;
+    mood_labels: string[];
+    smoothing_mode: string;
+    smoothing_window_weeks: number;
+    baseline_window_weeks: number;
+    minimum_baseline_weeks: number;
+    ranking_limit: number;
+    zscore_mode: string;
+  };
+  range: {
+    start: string;
+    end: string;
+  };
+  summary: {
+    scored_tweet_count: number;
+    cohort_user_count: number;
+    current_week_start: string;
+  };
+  outliers: Record<
+    string,
+    {
+      most_elevated: AggregateMoodOutlierEntry[];
+      most_depressed: AggregateMoodOutlierEntry[];
+      fastest_rising: AggregateMoodOutlierEntry[];
+      fastest_falling: AggregateMoodOutlierEntry[];
+    }
+  >;
+};
+
 type AggregateMoodFilterOptions = {
   cohortTagSlug?: string | null;
 };
@@ -376,4 +439,24 @@ export async function fetchAggregateMarketSeries(
   }
 
   return (await response.json()) as AggregateMarketSeriesResponse;
+}
+
+export async function fetchAggregateMoodOutliers(
+  endpointPath: string,
+  granularity: "week" = "week",
+  signal?: AbortSignal,
+  options?: AggregateMoodFilterOptions,
+): Promise<AggregateMoodOutliersResponse> {
+  const query = new URLSearchParams({ granularity });
+  const cohortTagSlug = options?.cohortTagSlug?.trim();
+  if (cohortTagSlug) {
+    query.set("cohort_tag", cohortTagSlug);
+  }
+  const response = await fetch(`${endpointPath}/outliers?${query.toString()}`, { signal });
+
+  if (!response.ok) {
+    throw new Error(`Aggregate mood outliers request failed with status ${response.status}`);
+  }
+
+  return (await response.json()) as AggregateMoodOutliersResponse;
 }

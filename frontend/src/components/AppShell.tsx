@@ -29,6 +29,7 @@ type AppShellProps = {
   activeBitcoinMentionsSlug: string | null;
   activeAggregateMoodSlug: string | null;
   activeAggregateNarratives: boolean;
+  activeMoodOutliers?: boolean;
   activeMoodSlug: string | null;
   activeOverviewSlug: string | null;
   activeHeatmapSlug: string | null;
@@ -42,6 +43,7 @@ type AppShellProps = {
   onNavigatePodcastPerson: (slug: string) => void;
   onNavigateAggregateMood: (slug: string) => void;
   onNavigateAggregateNarratives: () => void;
+  onNavigateMoodOutliers?: () => void;
   onNavigateBitcoinMentions: (slug: string) => void;
   onNavigateMood: (slug: string) => void;
   onNavigateOverview: (slug: string) => void;
@@ -59,6 +61,7 @@ export function AppShell({
   activeBitcoinMentionsSlug,
   activeAggregateMoodSlug,
   activeAggregateNarratives,
+  activeMoodOutliers = false,
   activeMoodSlug,
   activeOverviewSlug,
   activeHeatmapSlug,
@@ -72,6 +75,9 @@ export function AppShell({
   onNavigatePodcastPerson,
   onNavigateAggregateMood,
   onNavigateAggregateNarratives,
+  onNavigateMoodOutliers = () => {
+    window.location.hash = "#/mood-outliers";
+  },
   onNavigateBitcoinMentions,
   onNavigateMood,
   onNavigateOverview,
@@ -101,6 +107,7 @@ export function AppShell({
     activeUserPodcastView,
     activeAggregateMoodSlug,
     activeAggregateNarratives,
+    activeMoodOutliers,
     activeBitcoinMentionsSlug,
     activeHeatmapSlug,
     activeMoodSlug,
@@ -341,6 +348,13 @@ export function AppShell({
           type="button"
         >
           Aggregate Narratives
+        </button>
+        <button
+          className={`page-nav-link${activeMoodOutliers ? " is-active" : ""}`}
+          onClick={onNavigateMoodOutliers}
+          type="button"
+        >
+          Mood Outliers
         </button>
         <div className="overview-dropdown">
           <button
