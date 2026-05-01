@@ -52,6 +52,8 @@ const HEATMAP_MIN_TOP_SECTION_HEIGHT = 220;
 const HEATMAP_MIN_BOTTOM_SECTION_HEIGHT = 280;
 const HEATMAP_RESIZE_HANDLE_HEIGHT = 14;
 const HEATMAP_KEYBOARD_RESIZE_STEP = 24;
+const DEFAULT_NARRATIVE_WINDOW_DAYS = 365;
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 const chartOptions = {
   layout: {
@@ -780,6 +782,10 @@ function KeywordTrendChart({
         ),
     [pinnedPhrases, trendPayloads],
   );
+  const defaultVisibleRange = useMemo(
+    () => buildRecentVisibleRangeForTrendPayloads(visibleTrendPayloads, DEFAULT_NARRATIVE_WINDOW_DAYS),
+    [visibleTrendPayloads],
+  );
 
   useEffect(() => {
     if (!activePayload || !activePhrase) {
@@ -835,6 +841,8 @@ function KeywordTrendChart({
     const initialVisibleRange = visibleRangeRef.current;
     if (initialVisibleRange) {
       chart.timeScale().setVisibleLogicalRange(initialVisibleRange);
+    } else if (defaultVisibleRange) {
+      chart.timeScale().setVisibleRange(defaultVisibleRange);
     } else {
       chart.timeScale().fitContent();
     }
@@ -915,7 +923,14 @@ function KeywordTrendChart({
       chart.timeScale().unsubscribeVisibleLogicalRangeChange(handleVisibleLogicalRangeChange);
       chart.remove();
     };
-  }, [activePhrase, onActivatePhrase, onSelectMonth, trendPayloads, visibleTrendPayloads]);
+  }, [
+    activePhrase,
+    defaultVisibleRange,
+    onActivatePhrase,
+    onSelectMonth,
+    trendPayloads,
+    visibleTrendPayloads,
+  ]);
 
   return (
     <div className="heatmap-trend-layout">
@@ -1107,6 +1122,33 @@ function formatCompactMonthLabel(value: string): string {
 
 function toBusinessDay(value: string): Time {
   return value.slice(0, 10) as Time;
+}
+
+function buildRecentVisibleRangeForTrendPayloads(
+  payloads: Array<{
+    payload: AuthorKeywordTrendResponse;
+  }>,
+  windowDays: number,
+): { from: Time; to: Time } | null {
+  const allSeriesPoints = payloads.flatMap((entry) => entry.payload.series);
+  if (allSeriesPoints.length === 0) {
+    return null;
+  }
+
+  const epochTimes = allSeriesPoints
+    .map((point) => Date.parse(point.period_start))
+    .filter((epoch): epoch is number => Number.isFinite(epoch));
+  if (epochTimes.length === 0) {
+    return null;
+  }
+
+  const latestTime = Math.max(...epochTimes);
+  const earliestTime = Math.min(...epochTimes);
+  const rangeStart = Math.max(earliestTime, latestTime - windowDays * MS_PER_DAY);
+  return {
+    from: toBusinessDay(new Date(rangeStart).toISOString()),
+    to: toBusinessDay(new Date(latestTime).toISOString()),
+  };
 }
 
 function findTrendPointForTime(

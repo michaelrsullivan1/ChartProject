@@ -11,6 +11,8 @@ from app.db.session import SessionLocal
 from app.models.ingestion_run import IngestionRun
 from app.models.managed_author_view import ManagedAuthorView
 from app.models.user import User
+from app.services.author_registry import _build_mood_scored_tracking_summary
+from app.services.moods import DEFAULT_MOOD_MODEL
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -80,6 +82,10 @@ def build_tracked_author_refresh_plan(
                 func.lower(ManagedAuthorView.slug).asc(),
             )
         ).all()
+        mood_scored_tracking_summary = _build_mood_scored_tracking_summary(
+            session,
+            model_key=DEFAULT_MOOD_MODEL,
+        )
 
         planned_items: list[dict[str, object]] = []
         manual_history_required: list[dict[str, object]] = []
@@ -143,6 +149,7 @@ def build_tracked_author_refresh_plan(
                         max_retries=max_retries,
                         retry_backoff_seconds=retry_backoff_seconds,
                         skip_user_info=skip_user_info,
+                        target_user_platform_id=user.platform_user_id,
                     ),
                 }
             )
@@ -152,6 +159,7 @@ def build_tracked_author_refresh_plan(
             "generated_at": _to_iso(datetime.now(UTC)),
             "plan_started_at": _to_iso(started_at),
             "tracked_author_count": len(rows),
+            "mood_scored_tracking_summary": mood_scored_tracking_summary,
             "planned_count": len(planned_items),
             "manual_full_history_required_count": len(manual_history_required),
             "up_to_date_count": len(up_to_date_items),
@@ -258,6 +266,7 @@ def _build_fetch_command_preview(
     max_retries: int,
     retry_backoff_seconds: float,
     skip_user_info: bool,
+    target_user_platform_id: str | None = None,
 ) -> list[str]:
     command = [
         "python3",
@@ -279,6 +288,8 @@ def _build_fetch_command_preview(
         "--retry-backoff-seconds",
         str(retry_backoff_seconds),
     ]
+    if target_user_platform_id:
+        command.extend(["--target-user-platform-id", target_user_platform_id])
     if query_fragment:
         command.extend(["--query-fragment", query_fragment])
     if skip_user_info:

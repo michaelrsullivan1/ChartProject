@@ -1,14 +1,24 @@
 from fastapi import APIRouter, Query
 
 from app.services.aggregate_mood_view import (
+    AggregateCohortMoodOutliersRequest,
     AggregateMoodCohortsRequest,
     AggregateMoodMarketSeriesRequest,
+    AggregateMoodOutliersRequest,
     AggregateMoodOverviewRequest,
     AggregateMoodViewRequest,
     build_aggregate_market_series,
+    build_cached_aggregate_cohort_mood_outliers_view,
     build_cached_aggregate_mood_cohorts,
+    build_cached_aggregate_mood_outliers_view,
     build_cached_aggregate_mood_overview,
     build_cached_aggregate_mood_view,
+)
+from app.services.aggregate_narrative_view import (
+    AggregateNarrativeCohortsRequest,
+    AggregateNarrativeViewRequest,
+    build_cached_aggregate_narrative_cohorts,
+    build_cached_aggregate_narrative_view,
 )
 from app.services.author_bitcoin_mentions_view import (
     AuthorBitcoinMentionsViewRequest,
@@ -38,6 +48,14 @@ from app.services.author_vs_btc_view import (
 )
 from app.services.market_data import fetch_coinbase_spot_price
 from app.services.moods import DEFAULT_MOOD_MODEL
+from app.services.podcast_person_view import (
+    PodcastPersonViewRequest,
+    build_podcast_person_view,
+)
+from app.services.podcast_narrative_mix_view import (
+    PodcastNarrativeMixViewRequest,
+    build_podcast_narrative_mix_view,
+)
 from app.services.sentiment import DEFAULT_SENTIMENT_MODEL
 
 
@@ -164,6 +182,42 @@ def _build_aggregate_moods(
     )
 
 
+def _build_aggregate_mood_outliers(
+    *,
+    view_name: str,
+    granularity: str,
+    model_key: str,
+    analysis_start: str | None = None,
+    cohort_tag: str | None = None,
+) -> dict[str, object]:
+    return build_cached_aggregate_mood_outliers_view(
+        AggregateMoodOutliersRequest(
+            granularity=granularity,
+            model_key=model_key,
+            view_name=view_name,
+            analysis_start=analysis_start,
+            cohort_tag_slug=cohort_tag,
+        )
+    )
+
+
+def _build_aggregate_cohort_mood_outliers(
+    *,
+    view_name: str,
+    granularity: str,
+    model_key: str,
+    analysis_start: str | None = None,
+) -> dict[str, object]:
+    return build_cached_aggregate_cohort_mood_outliers_view(
+        AggregateCohortMoodOutliersRequest(
+            granularity=granularity,
+            model_key=model_key,
+            view_name=view_name,
+            analysis_start=analysis_start,
+        )
+    )
+
+
 def _build_aggregate_moods_cohorts(
     *,
     view_name: str,
@@ -187,6 +241,32 @@ def _build_aggregate_market_series(
         AggregateMoodMarketSeriesRequest(
             range_start=range_start,
             range_end=range_end,
+            view_name=view_name,
+        )
+    )
+
+
+def _build_aggregate_narratives(
+    *,
+    view_name: str,
+    granularity: str,
+    cohort_tag: str | None = None,
+) -> dict[str, object]:
+    return build_cached_aggregate_narrative_view(
+        AggregateNarrativeViewRequest(
+            granularity=granularity,
+            cohort_tag_slug=cohort_tag,
+            view_name=view_name,
+        )
+    )
+
+
+def _build_aggregate_narratives_cohorts(
+    *,
+    view_name: str,
+) -> dict[str, object]:
+    return build_cached_aggregate_narrative_cohorts(
+        AggregateNarrativeCohortsRequest(
             view_name=view_name,
         )
     )
@@ -444,6 +524,28 @@ def managed_author_bitcoin_mentions(
     )
 
 
+@router.get("/podcasts/persons/{person_slug}")
+def podcast_person_view(person_slug: str) -> dict[str, object]:
+    return build_podcast_person_view(
+        PodcastPersonViewRequest(
+            person_slug=person_slug,
+            view_name="podcast-person-view",
+        )
+    )
+
+
+@router.get("/podcasts/persons/{person_slug}/narrative-mix")
+def podcast_person_narrative_mix_view(
+    person_slug: str,
+) -> dict[str, object]:
+    return build_podcast_narrative_mix_view(
+        PodcastNarrativeMixViewRequest(
+            person_slug=person_slug,
+            view_name="podcast-person-narrative-mix-view",
+        )
+    )
+
+
 @router.get("/aggregate-moods")
 def aggregate_moods(
     granularity: str = Query(default="week", pattern="^(week)$"),
@@ -474,6 +576,34 @@ def aggregate_moods_mood_series(
     )
 
 
+@router.get("/aggregate-moods/outliers")
+def aggregate_moods_outliers(
+    granularity: str = Query(default="week", pattern="^(week)$"),
+    model_key: str = Query(default=DEFAULT_MOOD_MODEL),
+    cohort_tag: str | None = Query(default=None),
+) -> dict[str, object]:
+    return _build_aggregate_mood_outliers(
+        view_name="aggregate-moods-outliers",
+        granularity=granularity,
+        model_key=model_key,
+        analysis_start=AGGREGATE_MOODS_ANALYSIS_START,
+        cohort_tag=cohort_tag,
+    )
+
+
+@router.get("/aggregate-moods/cohort-outliers")
+def aggregate_moods_cohort_outliers(
+    granularity: str = Query(default="week", pattern="^(week)$"),
+    model_key: str = Query(default=DEFAULT_MOOD_MODEL),
+) -> dict[str, object]:
+    return _build_aggregate_cohort_mood_outliers(
+        view_name="aggregate-moods-cohort-outliers",
+        granularity=granularity,
+        model_key=model_key,
+        analysis_start=AGGREGATE_MOODS_ANALYSIS_START,
+    )
+
+
 @router.get("/aggregate-moods/btc-spot")
 def aggregate_moods_btc_spot() -> dict[str, object]:
     return _build_btc_spot_price()
@@ -498,6 +628,25 @@ def aggregate_moods_cohorts(
     return _build_aggregate_moods_cohorts(
         view_name="aggregate-moods-cohorts",
         model_key=model_key,
+    )
+
+
+@router.get("/aggregate-narratives")
+def aggregate_narratives(
+    granularity: str = Query(default="week", pattern="^(week)$"),
+    cohort_tag: str | None = Query(default=None),
+) -> dict[str, object]:
+    return _build_aggregate_narratives(
+        view_name="aggregate-narratives",
+        granularity=granularity,
+        cohort_tag=cohort_tag,
+    )
+
+
+@router.get("/aggregate-narratives/cohorts")
+def aggregate_narratives_cohorts() -> dict[str, object]:
+    return _build_aggregate_narratives_cohorts(
+        view_name="aggregate-narratives-cohorts",
     )
 
 

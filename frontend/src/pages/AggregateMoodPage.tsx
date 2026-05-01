@@ -48,6 +48,8 @@ const compactDateFormatter = new Intl.DateTimeFormat("en-US", {
 
 const ALL_COHORT_KEY = "__all_tracked_users__";
 const COMPARISON_LINE_COLOR = "rgba(198, 191, 180, 0.8)";
+const COHORT_QUERY_PARAM = "cohort";
+const PINNED_QUERY_PARAM = "pinned";
 
 type CohortSelectionKey = string;
 
@@ -82,8 +84,34 @@ export function AggregateMoodPage({ aggregateMood, showWatermark }: AggregateMoo
   const moodDescription = getAggregateMoodDescription(aggregateMood);
 
   useEffect(() => {
-    setPinnedCohortKey(null);
+    const urlState = readAggregateMoodUrlState(window.location.hash, aggregateMood.slug);
+    setSelectedCohortKey(urlState.selectedCohortKey ?? ALL_COHORT_KEY);
+    setPinnedCohortKey(urlState.pinnedCohortKey ?? null);
   }, [aggregateMood.slug]);
+
+  useEffect(() => {
+    function handleHashChange() {
+      const urlState = readAggregateMoodUrlState(window.location.hash, aggregateMood.slug);
+      setSelectedCohortKey(urlState.selectedCohortKey ?? ALL_COHORT_KEY);
+      setPinnedCohortKey(urlState.pinnedCohortKey ?? null);
+    }
+
+    window.addEventListener("hashchange", handleHashChange);
+    return () => {
+      window.removeEventListener("hashchange", handleHashChange);
+    };
+  }, [aggregateMood.slug]);
+
+  useEffect(() => {
+    const nextHash = buildAggregateMoodSelectionHash(
+      aggregateMood.slug,
+      selectedCohortKey,
+      pinnedCohortKey,
+    );
+    if (window.location.hash !== nextHash) {
+      window.location.hash = nextHash;
+    }
+  }, [aggregateMood.slug, pinnedCohortKey, selectedCohortKey]);
 
   useEffect(() => {
     let cancelled = false;
@@ -477,6 +505,68 @@ function isValidCohortKey(
 
 function cohortKeyToTagSlug(value: CohortSelectionKey): string | null {
   return value === ALL_COHORT_KEY ? null : value;
+}
+
+function buildAggregateMoodSelectionHash(
+  aggregateMoodSlug: string,
+  selectedCohortKey: CohortSelectionKey,
+  pinnedCohortKey: CohortSelectionKey | null,
+): string {
+  const query = new URLSearchParams();
+  query.set(COHORT_QUERY_PARAM, selectedCohortKey);
+  if (pinnedCohortKey !== null) {
+    query.set(PINNED_QUERY_PARAM, pinnedCohortKey);
+  }
+
+  const serializedQuery = query.toString();
+  return `#/aggregate-moods/${encodeURIComponent(aggregateMoodSlug)}${
+    serializedQuery ? `?${serializedQuery}` : ""
+  }`;
+}
+
+function readAggregateMoodUrlState(
+  hash: string,
+  expectedAggregateMoodSlug: string,
+): {
+  selectedCohortKey: CohortSelectionKey | null;
+  pinnedCohortKey: CohortSelectionKey | null;
+} {
+  const normalizedHash = hash.startsWith("#") ? hash.slice(1) : hash;
+  const queryIndex = normalizedHash.indexOf("?");
+  const path = queryIndex >= 0 ? normalizedHash.slice(0, queryIndex) : normalizedHash;
+  if (!path.startsWith("/aggregate-moods/")) {
+    return {
+      selectedCohortKey: null,
+      pinnedCohortKey: null,
+    };
+  }
+
+  const aggregateMoodSlug = decodeURIComponent(path.slice("/aggregate-moods/".length));
+  if (aggregateMoodSlug !== expectedAggregateMoodSlug) {
+    return {
+      selectedCohortKey: null,
+      pinnedCohortKey: null,
+    };
+  }
+
+  const queryString = queryIndex >= 0 ? normalizedHash.slice(queryIndex + 1) : "";
+  const params = new URLSearchParams(queryString);
+  const selectedCohortKey = normalizeOptionalQueryParam(params.get(COHORT_QUERY_PARAM));
+  const pinnedCohortKey = normalizeOptionalQueryParam(params.get(PINNED_QUERY_PARAM));
+
+  return {
+    selectedCohortKey,
+    pinnedCohortKey,
+  };
+}
+
+function normalizeOptionalQueryParam(value: string | null): string | null {
+  if (value === null) {
+    return null;
+  }
+
+  const trimmedValue = value.trim();
+  return trimmedValue.length > 0 ? trimmedValue : null;
 }
 
 function formatFullDate(value: string | number): string {

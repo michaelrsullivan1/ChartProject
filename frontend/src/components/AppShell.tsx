@@ -24,8 +24,12 @@ import {
 type AppShellProps = {
   mode: "home" | "dashboard";
   dashboardTitle?: string;
+  activeUserPodcastView?: "narrative-mix" | "narrative-intensity" | "beliefs" | null;
+  activePodcastPersonSlug: string | null;
   activeBitcoinMentionsSlug: string | null;
   activeAggregateMoodSlug: string | null;
+  activeAggregateNarratives: boolean;
+  activeMoodOutliers?: boolean;
   activeMoodSlug: string | null;
   activeOverviewSlug: string | null;
   activeHeatmapSlug: string | null;
@@ -36,7 +40,10 @@ type AppShellProps = {
   overviews: OverviewDefinition[];
   heatmaps: HeatmapDefinition[];
   onNavigateHome: () => void;
+  onNavigatePodcastPerson: (slug: string) => void;
   onNavigateAggregateMood: (slug: string) => void;
+  onNavigateAggregateNarratives: () => void;
+  onNavigateMoodOutliers?: () => void;
   onNavigateBitcoinMentions: (slug: string) => void;
   onNavigateMood: (slug: string) => void;
   onNavigateOverview: (slug: string) => void;
@@ -49,8 +56,12 @@ type AppShellProps = {
 export function AppShell({
   mode,
   dashboardTitle,
+  activeUserPodcastView = null,
+  activePodcastPersonSlug,
   activeBitcoinMentionsSlug,
   activeAggregateMoodSlug,
+  activeAggregateNarratives,
+  activeMoodOutliers = false,
   activeMoodSlug,
   activeOverviewSlug,
   activeHeatmapSlug,
@@ -61,7 +72,12 @@ export function AppShell({
   overviews,
   heatmaps,
   onNavigateHome,
+  onNavigatePodcastPerson,
   onNavigateAggregateMood,
+  onNavigateAggregateNarratives,
+  onNavigateMoodOutliers = () => {
+    window.location.hash = "#/mood-outliers";
+  },
   onNavigateBitcoinMentions,
   onNavigateMood,
   onNavigateOverview,
@@ -70,18 +86,32 @@ export function AppShell({
   onNavigateUserSettings,
   children,
 }: AppShellProps) {
+  const podcastUsers = [{ slug: "michael-saylor", label: "Michael Saylor" }] as const;
   const [openMenu, setOpenMenu] = useState<
-    "aggregate-moods" | "bitcoin-mentions" | "moods" | "overviews" | "heatmaps" | "settings" | null
+    | "user-narrative-mix"
+    | "user-narrative-intensity"
+    | "user-beliefs"
+    | "aggregate-moods"
+    | "bitcoin-mentions"
+    | "moods"
+    | "overviews"
+    | "heatmaps"
+    | "settings"
+    | null
   >(null);
   const navRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     setOpenMenu(null);
   }, [
+    activeUserPodcastView,
     activeAggregateMoodSlug,
+    activeAggregateNarratives,
+    activeMoodOutliers,
     activeBitcoinMentionsSlug,
     activeHeatmapSlug,
     activeMoodSlug,
+    activePodcastPersonSlug,
     activeOverviewSlug,
     activeSettingsSection,
     mode,
@@ -110,6 +140,14 @@ export function AppShell({
     onNavigateUserSettings();
   }
 
+  function navigateToUserPodcastView(
+    view: "narrative-mix" | "narrative-intensity" | "beliefs",
+    personSlug: string,
+  ) {
+    setOpenMenu(null);
+    window.location.hash = `#/user-${view}/${encodeURIComponent(personSlug)}`;
+  }
+
   function renderNavigation(isDashboardNav: boolean) {
     return (
       <>
@@ -120,6 +158,100 @@ export function AppShell({
         >
           Foundation
         </button>
+        <div className="overview-dropdown">
+          <button
+            aria-expanded={openMenu === "user-narrative-mix"}
+            className={`page-nav-link${activeUserPodcastView === "narrative-mix" ? " is-active" : ""}`}
+            onClick={() =>
+              setOpenMenu((current) =>
+                current === "user-narrative-mix" ? null : "user-narrative-mix",
+              )
+            }
+            type="button"
+          >
+            User Narrative Mix
+          </button>
+          {openMenu === "user-narrative-mix" ? (
+            <div
+              className={`overview-dropdown-menu${isDashboardNav ? " overview-dropdown-menu-dashboard" : ""}`}
+              role="menu"
+            >
+              {podcastUsers.map((user) => (
+                <button
+                  key={user.slug}
+                  className={`overview-dropdown-item${activeUserPodcastView === "narrative-mix" && activePodcastPersonSlug === user.slug ? " is-active" : ""}`}
+                  onClick={() => navigateToUserPodcastView("narrative-mix", user.slug)}
+                  role="menuitem"
+                  type="button"
+                >
+                  {user.label}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
+        <div className="overview-dropdown">
+          <button
+            aria-expanded={openMenu === "user-narrative-intensity"}
+            className={`page-nav-link${activeUserPodcastView === "narrative-intensity" ? " is-active" : ""}`}
+            onClick={() =>
+              setOpenMenu((current) =>
+                current === "user-narrative-intensity" ? null : "user-narrative-intensity",
+              )
+            }
+            type="button"
+          >
+            User Narrative Intensity
+          </button>
+          {openMenu === "user-narrative-intensity" ? (
+            <div
+              className={`overview-dropdown-menu${isDashboardNav ? " overview-dropdown-menu-dashboard" : ""}`}
+              role="menu"
+            >
+              {podcastUsers.map((user) => (
+                <button
+                  key={user.slug}
+                  className={`overview-dropdown-item${activeUserPodcastView === "narrative-intensity" && activePodcastPersonSlug === user.slug ? " is-active" : ""}`}
+                  onClick={() => navigateToUserPodcastView("narrative-intensity", user.slug)}
+                  role="menuitem"
+                  type="button"
+                >
+                  {user.label}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
+        <div className="overview-dropdown">
+          <button
+            aria-expanded={openMenu === "user-beliefs"}
+            className={`page-nav-link${activeUserPodcastView === "beliefs" ? " is-active" : ""}`}
+            onClick={() =>
+              setOpenMenu((current) => (current === "user-beliefs" ? null : "user-beliefs"))
+            }
+            type="button"
+          >
+            User Beliefs
+          </button>
+          {openMenu === "user-beliefs" ? (
+            <div
+              className={`overview-dropdown-menu${isDashboardNav ? " overview-dropdown-menu-dashboard" : ""}`}
+              role="menu"
+            >
+              {podcastUsers.map((user) => (
+                <button
+                  key={user.slug}
+                  className={`overview-dropdown-item${activeUserPodcastView === "beliefs" && activePodcastPersonSlug === user.slug ? " is-active" : ""}`}
+                  onClick={() => navigateToUserPodcastView("beliefs", user.slug)}
+                  role="menuitem"
+                  type="button"
+                >
+                  {user.label}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
         <div className="overview-dropdown">
           <button
             aria-expanded={openMenu === "bitcoin-mentions"}
@@ -210,6 +342,20 @@ export function AppShell({
             </div>
           ) : null}
         </div>
+        <button
+          className={`page-nav-link${activeAggregateNarratives ? " is-active" : ""}`}
+          onClick={onNavigateAggregateNarratives}
+          type="button"
+        >
+          Aggregate Narratives
+        </button>
+        <button
+          className={`page-nav-link${activeMoodOutliers ? " is-active" : ""}`}
+          onClick={onNavigateMoodOutliers}
+          type="button"
+        >
+          Mood Outliers
+        </button>
         <div className="overview-dropdown">
           <button
             aria-expanded={openMenu === "overviews"}
@@ -249,7 +395,7 @@ export function AppShell({
             }
             type="button"
           >
-            Narratives
+            User Narratives
           </button>
           {openMenu === "heatmaps" ? (
             <div

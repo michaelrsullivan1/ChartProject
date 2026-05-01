@@ -20,6 +20,8 @@ __pycache__/
 
 /data/raw/twitterapi/*
 !/data/raw/twitterapi/.gitkeep
+/data/raw/beliefengines/*
+!/data/raw/beliefengines/.gitkeep
 /data/exports/*
 !/data/exports/.gitkeep
 /data/backups/*

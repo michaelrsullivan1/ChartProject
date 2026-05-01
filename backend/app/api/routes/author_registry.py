@@ -63,12 +63,14 @@ def update_author_registry_entry(
 def sync_author_registry_entry(
     username: str,
     published: bool = Query(default=True),
+    tracked: bool = Query(default=True),
     ensure_analysis_starts: bool = Query(default=True),
 ) -> dict[str, object]:
     return sync_managed_author_view_for_username(
         SyncManagedAuthorViewRequest(
             username=username,
             published=published,
+            tracked=tracked,
             ensure_analysis_starts=ensure_analysis_starts,
         )
     )

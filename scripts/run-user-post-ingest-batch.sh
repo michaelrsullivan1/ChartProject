@@ -7,11 +7,12 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 USERNAME=""
 ANALYSIS_START=""
 PASS_ANALYSIS_START=false
+REBUILD_SNAPSHOTS=true
 
 print_usage() {
   cat <<'EOF'
 Usage:
-  ./scripts/run-user-post-ingest-batch.sh --username <handle> [--analysis-start <UTC_ISO8601>]
+  ./scripts/run-user-post-ingest-batch.sh --username <handle> [--analysis-start <UTC_ISO8601>] [--rebuild-snapshots|--no-rebuild-snapshots]
 
 Runs these steps in order for one user:
   2) normalize_archived_user
@@ -20,10 +21,13 @@ Runs these steps in order for one user:
   5) score_tweet_moods
   6) extract_tweet_keywords
   7) sync_managed_author_view
+  8) sync_managed_narrative_matches
+  9) rebuild_aggregate_snapshots (optional; default on)
+ 10) rebuild_aggregate_narrative_snapshots (optional; default on)
 
 Notes:
   - This script intentionally does NOT run fetch_user_tweets_history.py.
-  - This script intentionally does NOT run rebuild_aggregate_snapshots.py.
+  - Snapshot rebuild includes author-registry snapshot by default.
   - If --analysis-start is omitted, step 6 auto-uses the user's first normalized tweet timestamp.
   - It stops immediately on the first failure and prints which step failed.
 EOF
@@ -49,6 +53,14 @@ while [[ $# -gt 0 ]]; do
       ANALYSIS_START="$2"
       PASS_ANALYSIS_START=true
       shift 2
+      ;;
+    --rebuild-snapshots)
+      REBUILD_SNAPSHOTS=true
+      shift 1
+      ;;
+    --no-rebuild-snapshots)
+      REBUILD_SNAPSHOTS=false
+      shift 1
       ;;
     -h|--help)
       print_usage
@@ -165,10 +177,25 @@ run_step "6" "extract_tweet_keywords" \
 run_step "7" "sync_managed_author_view" \
   python3 backend/scripts/views/sync_managed_author_view.py \
     --username "$USERNAME" \
-    --published
+    --published \
+    --tracked
+
+run_step "8" "sync_managed_narrative_matches" \
+  python3 backend/scripts/enrich/sync_managed_narrative_matches.py \
+    --username "$USERNAME"
+
+if [[ "$REBUILD_SNAPSHOTS" == "true" ]]; then
+  run_step "9" "rebuild_aggregate_snapshots" \
+    python3 backend/scripts/cache/rebuild_aggregate_snapshots.py --delete-stale
+
+  run_step "10" "rebuild_aggregate_narrative_snapshots" \
+    python3 backend/scripts/cache/rebuild_aggregate_narrative_snapshots.py
+fi
 
 echo
 echo "Post-ingest batch completed for username=${USERNAME}"
-echo "Reminder: run snapshot rebuild separately if needed:"
-echo "  cd $ROOT_DIR/backend"
-echo "  python3 scripts/cache/rebuild_aggregate_snapshots.py --delete-stale"
+if [[ "$REBUILD_SNAPSHOTS" == "false" ]]; then
+  echo "Reminder: run snapshot rebuild separately when ready:"
+  echo "  python3 backend/scripts/cache/rebuild_aggregate_snapshots.py --delete-stale"
+  echo "  python3 backend/scripts/cache/rebuild_aggregate_narrative_snapshots.py"
+fi

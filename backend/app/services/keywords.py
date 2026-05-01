@@ -144,6 +144,7 @@ class ExtractTweetKeywordsRequest:
     analysis_start: str = DEFAULT_KEYWORD_ANALYSIS_START
     extractor_key: str = DEFAULT_KEYWORD_EXTRACTOR_KEY
     extractor_version: str = DEFAULT_KEYWORD_EXTRACTOR_VERSION
+    only_missing_tweets: bool = False
     overwrite_existing: bool = False
     dry_run: bool = False
 
@@ -202,13 +203,34 @@ def extract_tweet_keywords(
             )
             session.commit()
 
-        tweet_rows = session.execute(
-            select(Tweet.id, Tweet.text)
-            .where(
-                Tweet.author_user_id.in_(matched_user_ids),
-                Tweet.created_at_platform >= analysis_start,
+        tweet_query = select(Tweet.id, Tweet.text).where(
+            Tweet.author_user_id.in_(matched_user_ids),
+            Tweet.created_at_platform >= analysis_start,
+        )
+        if request.only_missing_tweets and not request.overwrite_existing:
+            extracted_tweet_ids = (
+                select(TweetKeyword.tweet_id)
+                .where(
+                    TweetKeyword.extractor_key == request.extractor_key,
+                    TweetKeyword.extractor_version == request.extractor_version,
+                )
+                .group_by(TweetKeyword.tweet_id)
+                .subquery()
             )
-            .order_by(Tweet.author_user_id.asc(), Tweet.created_at_platform.asc(), Tweet.id.asc())
+            tweet_query = (
+                tweet_query.outerjoin(
+                    extracted_tweet_ids,
+                    extracted_tweet_ids.c.tweet_id == Tweet.id,
+                )
+                .where(extracted_tweet_ids.c.tweet_id.is_(None))
+            )
+
+        tweet_rows = session.execute(
+            tweet_query.order_by(
+                Tweet.author_user_id.asc(),
+                Tweet.created_at_platform.asc(),
+                Tweet.id.asc(),
+            )
         ).all()
 
         prepared_rows: list[dict[str, object]] = []

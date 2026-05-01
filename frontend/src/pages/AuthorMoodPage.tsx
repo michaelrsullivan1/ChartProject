@@ -22,20 +22,7 @@ import { type MoodDefinition } from "../lib/authorDefinitions";
 import { buildMoodDeviationSeries } from "../lib/moods";
 import { type SentimentMode } from "../lib/sentiment";
 
-const chartCurrencyFormatter = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-  maximumFractionDigits: 0,
-});
-
 const integerFormatter = new Intl.NumberFormat("en-US");
-
-const fullDateFormatter = new Intl.DateTimeFormat("en-US", {
-  month: "short",
-  day: "numeric",
-  year: "numeric",
-  timeZone: "UTC",
-});
 
 const compactDateFormatter = new Intl.DateTimeFormat("en-US", {
   month: "short",
@@ -48,6 +35,8 @@ const AGGREGATE_MOODS_API_BASE_PATH = "/api/views/aggregate-moods";
 const NO_AGGREGATE_COMPARISON_KEY = "__no_aggregate_comparison__";
 const ALL_AGGREGATE_COHORT_KEY = "__all_aggregate_users__";
 const AGGREGATE_COMPARISON_COLOR = "rgba(198, 191, 180, 0.8)";
+const MOOD_QUERY_PARAM = "mood";
+const AGGREGATE_QUERY_PARAM = "aggregate";
 
 type AggregateComparisonOption = {
   key: string;
@@ -78,8 +67,43 @@ export function AuthorMoodPage({ mood, showWatermark }: AuthorMoodPageProps) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    setSelectedAggregateComparisonKey(NO_AGGREGATE_COMPARISON_KEY);
+    const urlState = readAuthorMoodUrlState(window.location.hash, mood.slug);
+    setSelectedMoodLabel(urlState.moodLabel ?? "");
+    setSelectedAggregateComparisonKey(
+      urlState.aggregateComparisonKey ?? NO_AGGREGATE_COMPARISON_KEY,
+    );
   }, [mood.slug]);
+
+  useEffect(() => {
+    function handleHashChange() {
+      const urlState = readAuthorMoodUrlState(window.location.hash, mood.slug);
+      setSelectedMoodLabel(urlState.moodLabel ?? "");
+      setSelectedAggregateComparisonKey(
+        urlState.aggregateComparisonKey ?? NO_AGGREGATE_COMPARISON_KEY,
+      );
+    }
+
+    window.addEventListener("hashchange", handleHashChange);
+    return () => {
+      window.removeEventListener("hashchange", handleHashChange);
+    };
+  }, [mood.slug]);
+
+  useEffect(() => {
+    if (!selectedMoodLabel) {
+      return;
+    }
+
+    const nextHash = buildAuthorMoodHash(
+      mood.slug,
+      selectedMoodLabel,
+      selectedAggregateComparisonKey,
+    );
+
+    if (window.location.hash !== nextHash) {
+      window.location.hash = nextHash;
+    }
+  }, [mood.slug, selectedMoodLabel, selectedAggregateComparisonKey]);
 
   useEffect(() => {
     let cancelled = false;
@@ -207,7 +231,6 @@ export function AuthorMoodPage({ mood, showWatermark }: AuthorMoodPageProps) {
             )}
             selectedAggregateComparisonKey={selectedAggregateComparisonKey}
             onAggregateComparisonKeyChange={setSelectedAggregateComparisonKey}
-            btcSpotPayload={btcSpotPayload}
             showWatermark={showWatermark}
             selectedMoodLabel={selectedMoodLabel}
             onMoodLabelChange={setSelectedMoodLabel}
@@ -231,7 +254,6 @@ function AuthorMoodChartSection({
   aggregateComparisonOptions,
   selectedAggregateComparisonKey,
   onAggregateComparisonKeyChange,
-  btcSpotPayload,
   showWatermark,
   selectedMoodLabel,
   onMoodLabelChange,
@@ -248,7 +270,6 @@ function AuthorMoodChartSection({
   aggregateComparisonOptions: AggregateComparisonOption[];
   selectedAggregateComparisonKey: string;
   onAggregateComparisonKeyChange: (key: string) => void;
-  btcSpotPayload: BtcSpotPriceResponse | null;
   showWatermark: boolean;
   selectedMoodLabel: string;
   onMoodLabelChange: (label: string) => void;
@@ -259,10 +280,6 @@ function AuthorMoodChartSection({
   sentimentMode: SentimentMode;
   onSentimentModeChange: (mode: SentimentMode) => void;
 }) {
-  const latestBtcPoint = payload.btc_series[payload.btc_series.length - 1];
-  const latestBtcDailyClose = latestBtcPoint?.price_usd ?? 0;
-  const btcLastIso = latestBtcPoint?.timestamp ?? payload.range.end;
-  const latestBtc = btcSpotPayload?.price_usd ?? latestBtcDailyClose;
   const moodDeviationSeries = buildMoodDeviationSeries(
     moodPayload,
     selectedMoodLabel,
@@ -270,7 +287,6 @@ function AuthorMoodChartSection({
   );
   const currentMoodDeviation = getCurrentMoodDeviation(moodDeviationSeries, moodPayload.range.end);
   const moodExtremes = getMoodExtremes(moodDeviationSeries, moodPayload.range.end);
-  const selectedMoodSummary = moodPayload.summary.moods[selectedMoodLabel];
   const moodDescription = getMoodDescriptionByLabel(selectedMoodLabel);
   const selectedAggregateComparison =
     aggregateComparisonOptions.find((option) => option.key === selectedAggregateComparisonKey) ?? null;
@@ -297,20 +313,6 @@ function AuthorMoodChartSection({
           <p className="metric-note">Selected from the stored model labels</p>
         </article>
         <article className="metric-card">
-          <p className="metric-label">Baseline mood score</p>
-          <p className="metric-value">{formatPercent(selectedMoodSummary?.average_score ?? 0)}</p>
-          <p className="metric-note">Per-account average absolute score</p>
-        </article>
-        <article className="metric-card">
-          <p className="metric-label">Latest BTC Price</p>
-          <p className="metric-value">{chartCurrencyFormatter.format(latestBtc)}</p>
-          <p className="metric-note">
-            {btcSpotPayload
-              ? `Coinbase spot on ${formatFullDate(btcSpotPayload.fetched_at)}`
-              : `Price on ${formatFullDate(btcLastIso)}`}
-          </p>
-        </article>
-        <article className="metric-card">
           <p className="metric-label">Current Mood Deviation</p>
           <p className="metric-value">{formatSignedPercent(currentMoodDeviation.value)}</p>
           <p className="metric-note">
@@ -321,14 +323,14 @@ function AuthorMoodChartSection({
           <p className="metric-label">Highest {formatMoodLabel(selectedMoodLabel)}</p>
           <p className="metric-value">{formatSignedPercent(moodExtremes.best.value)}</p>
           <p className="metric-note">
-            Week of {formatCompactDate(moodExtremes.best.periodStart)}
+            Week ending {formatCompactDate(moodExtremes.best.periodStart)}
           </p>
         </article>
         <article className="metric-card">
           <p className="metric-label">Lowest {formatMoodLabel(selectedMoodLabel)}</p>
           <p className="metric-value">{formatSignedPercent(moodExtremes.worst.value)}</p>
           <p className="metric-note">
-            Week of {formatCompactDate(moodExtremes.worst.periodStart)}
+            Week ending {formatCompactDate(moodExtremes.worst.periodStart)}
           </p>
         </article>
       </div>
@@ -432,16 +434,68 @@ function aggregateComparisonKeyToTagSlug(value: string): string | null {
   return value === ALL_AGGREGATE_COHORT_KEY || value === NO_AGGREGATE_COMPARISON_KEY ? null : value;
 }
 
-function formatFullDate(value: string | number): string {
-  return fullDateFormatter.format(normalizeDateValue(value));
+function buildAuthorMoodHash(
+  moodSlug: string,
+  selectedMoodLabel: string,
+  selectedAggregateComparisonKey: string,
+): string {
+  const query = new URLSearchParams();
+  query.set(MOOD_QUERY_PARAM, selectedMoodLabel);
+  if (selectedAggregateComparisonKey !== NO_AGGREGATE_COMPARISON_KEY) {
+    query.set(AGGREGATE_QUERY_PARAM, selectedAggregateComparisonKey);
+  }
+
+  const serializedQuery = query.toString();
+  return `#/moods/${encodeURIComponent(moodSlug)}${serializedQuery ? `?${serializedQuery}` : ""}`;
+}
+
+function readAuthorMoodUrlState(
+  hash: string,
+  expectedMoodSlug: string,
+): {
+  moodLabel: string | null;
+  aggregateComparisonKey: string | null;
+} {
+  const normalizedHash = hash.startsWith("#") ? hash.slice(1) : hash;
+  const queryIndex = normalizedHash.indexOf("?");
+  const path = queryIndex >= 0 ? normalizedHash.slice(0, queryIndex) : normalizedHash;
+  if (!path.startsWith("/moods/")) {
+    return {
+      moodLabel: null,
+      aggregateComparisonKey: null,
+    };
+  }
+
+  const moodSlug = decodeURIComponent(path.slice("/moods/".length));
+  if (moodSlug !== expectedMoodSlug) {
+    return {
+      moodLabel: null,
+      aggregateComparisonKey: null,
+    };
+  }
+
+  const queryString = queryIndex >= 0 ? normalizedHash.slice(queryIndex + 1) : "";
+  const params = new URLSearchParams(queryString);
+  const moodLabel = normalizeOptionalQueryParam(params.get(MOOD_QUERY_PARAM));
+  const aggregateComparisonKey = normalizeOptionalQueryParam(params.get(AGGREGATE_QUERY_PARAM));
+
+  return {
+    moodLabel,
+    aggregateComparisonKey,
+  };
+}
+
+function normalizeOptionalQueryParam(value: string | null): string | null {
+  if (value === null) {
+    return null;
+  }
+
+  const trimmedValue = value.trim();
+  return trimmedValue.length > 0 ? trimmedValue : null;
 }
 
 function formatCompactDate(value: string): string {
   return compactDateFormatter.format(new Date(value));
-}
-
-function formatPercent(value: number): string {
-  return `${(value * 100).toFixed(1)}%`;
 }
 
 function formatSignedPercent(value: number): string {
@@ -540,8 +594,4 @@ function formatMoodLabel(value: string): string {
     .filter(Boolean)
     .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
     .join(" ");
-}
-
-function normalizeDateValue(value: string | number): Date | number {
-  return typeof value === "string" ? new Date(value) : value;
 }

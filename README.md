@@ -4,6 +4,17 @@ ChartProject is a local-first X/Twitter research archive and visualization syste
 
 The architecture source of truth is [ProjectPlan.md](/Users/michaelsullivan/Code/ChartProject/ProjectPlan.md).
 
+Related architecture notes:
+
+- [Podcast Transcripts Investigation](/Users/michaelsullivan/Code/ChartProject/docs/architecture/podcast-transcripts-investigation.md)
+- [Podcast Exploration Map](/Users/michaelsullivan/Code/ChartProject/docs/architecture/podcast-exploration-map.md)
+- [Podcast Visual Directions](/Users/michaelsullivan/Code/ChartProject/docs/architecture/podcast-visual-directions.md)
+- [Podcast Person-First Implementation Plan](/Users/michaelsullivan/Code/ChartProject/docs/architecture/podcast-person-first-implementation-plan.md)
+- [Podcast Snapshot Layout Audit](/Users/michaelsullivan/Code/ChartProject/docs/architecture/podcast-snapshot-layout-audit.md)
+- [Podcast Schema Refinement](/Users/michaelsullivan/Code/ChartProject/docs/architecture/podcast-schema-refinement.md)
+- [Podcast Implementation Status](/Users/michaelsullivan/Code/ChartProject/docs/architecture/podcast-implementation-status-2026-04-22.md)
+- [Podcast Future Ingest Guardrails](/Users/michaelsullivan/Code/ChartProject/docs/architecture/podcast-future-ingest-guardrails.md)
+
 ## Current state
 
 One full local flow is working end-to-end:
@@ -73,6 +84,7 @@ The aggregate mood pages currently:
 
 - request `/api/views/aggregate-moods?granularity=week` for the cached aggregate activity payload
 - request `/api/views/aggregate-moods/mood-series?granularity=week` for the cached aggregate mood-series payload
+- request `/api/views/aggregate-moods/outliers?granularity=week` for cached per-mood outlier rankings
 - request `/api/views/aggregate-moods/market-series?range_start=<iso>&range_end=<iso>` for BTC and MSTR history
 - request `/api/views/aggregate-moods/cohorts` to populate the available cohort filters
 - support a single cohort filter at a time via `cohort_tag=<slug>`
@@ -180,6 +192,27 @@ Force-clear and rebuild aggregate snapshots when you want an immediate full refr
 ```bash
 cd backend
 python3 scripts/cache/rebuild_aggregate_snapshots.py --clear-first --delete-stale
+```
+
+Apply the latest database migrations, including the podcast schema:
+
+```bash
+cd backend
+../.venv/bin/alembic upgrade head
+```
+
+Run the first-pass podcast snapshot import after the Belief Engines archive has been extracted:
+
+```bash
+cd backend
+../.venv/bin/python scripts/ingest/import_podcast_snapshot.py
+```
+
+Dry-run a smaller import slice when iterating on the loader:
+
+```bash
+cd backend
+../.venv/bin/python scripts/ingest/import_podcast_snapshot.py --limit-shows 2 --limit-persons 5 --dry-run
 ```
 
 Check the Postgres container:
@@ -294,6 +327,11 @@ The main runtime data directories currently kept in the repo are:
 - `data/exports/`
 - `data/backups/`
 
+Important exported analysis outputs now include:
+
+- `data/exports/refresh-plans/`
+- `data/exports/dynamics-scout/`
+
 ## Current implementation details
 
 ### Core tables currently in use
@@ -322,6 +360,142 @@ The main runtime data directories currently kept in the repo are:
 7. Rebuild aggregate mood snapshots when aggregate mood inputs change.
 8. Build request-time backend view payloads from canonical tables for the remaining live endpoints.
 9. Render the current frontend chart pages from those backend view payloads.
+
+## Dynamics Scout
+
+Dynamics Scout is the manual analysis workflow for finding interesting cross-user, cross-cohort, and BTC-linked dynamics without having to visually inspect the dashboards first.
+
+It is intentionally split into two layers:
+
+1. a deterministic scout script that computes objective findings and writes structured outputs
+2. a Codex skill that reads the latest scout outputs and turns them into higher-level storylines and hypotheses
+
+### When to use it
+
+Run Dynamics Scout when you want a fresh ranked list of potentially interesting things to investigate, such as:
+
+- user mood outliers versus personal baseline
+- cohort mood outliers
+- cohort-versus-cohort mood divergence
+- user-versus-cohort divergence
+- BTC-linked mood correlation or anti-correlation
+- recent BTC decoupling
+- possible lead-lag relationships with BTC
+- regime shifts in mood behavior
+
+This is a manual workflow. It does not run on a schedule unless you explicitly wire that up later.
+
+### Scout command
+
+From the repo root:
+
+```bash
+./scripts/scout-dynamics.sh
+```
+
+That wrapper runs:
+
+```bash
+python3 backend/scripts/analysis/find_interesting_dynamics.py
+```
+
+If the repo virtualenv exists, the wrapper prefers `.venv/bin/python3`. Otherwise it falls back to `python3`.
+
+### Useful variants
+
+Full scout:
+
+```bash
+./scripts/scout-dynamics.sh
+```
+
+Smaller scout for one mood:
+
+```bash
+./scripts/scout-dynamics.sh --mood-label optimism
+```
+
+Recent-only scout:
+
+```bash
+./scripts/scout-dynamics.sh --analysis-start 2025-01-01T00:00:00Z
+```
+
+Smaller output set:
+
+```bash
+./scripts/scout-dynamics.sh --limit 100 --top-markdown-findings 20
+```
+
+### What the script writes
+
+Each run creates a timestamped folder under:
+
+- `data/exports/dynamics-scout/<timestamp>/`
+
+Inside each run:
+
+- `summary.json`
+- `summary.md`
+
+The script also refreshes stable pointers:
+
+- `data/exports/dynamics-scout/latest.json`
+- `data/exports/dynamics-scout/latest.md`
+- `data/exports/dynamics-scout/latest-interpretation.md`
+
+`summary.json` is the machine-readable output. `summary.md` is the quick human-readable leaderboard/report.
+
+### What the script currently scores
+
+The scout currently mixes findings into one combined leaderboard and retains the strongest results by `interestingness_score`.
+
+Current finding families include:
+
+- `user_mood_outlier`
+- `cohort_mood_outlier`
+- `cohort_vs_cohort_divergence`
+- `user_vs_cohort_divergence`
+- `btc_level_correlation`
+- `btc_return_correlation`
+- `btc_decoupling`
+- `btc_lead_lag_signal`
+- `regime_shift`
+
+The current implementation uses weekly data, an `8w` weighted moving average, and a trailing `52w` baseline window by default.
+
+### Dynamics Scout skill
+
+A repository-local Codex skill now lives at:
+
+- `.codex/skills/dynamics-scout/`
+
+The skill is meant to be used after a scout run exists. It reads:
+
+- `data/exports/dynamics-scout/latest.md`
+- `data/exports/dynamics-scout/latest.json`
+
+and then produces:
+
+- the strongest storylines
+- recurring cross-patterns
+- higher-level hypotheses worth investigating
+
+The skill is intentionally not focused on chart navigation or UI click paths. Its job is to synthesize what looks interesting now.
+
+The skill should also persist its interpretation output, not just print it in Codex. The expected markdown outputs are:
+
+- `data/exports/dynamics-scout/latest-interpretation.md`
+- `data/exports/dynamics-scout/<latest-run>/interpretation.md`
+
+where `<latest-run>` is the newest timestamped scout run directory.
+
+### Recommended workflow
+
+1. Run `./scripts/scout-dynamics.sh`
+2. Inspect `data/exports/dynamics-scout/latest.md` if you want the raw scout output
+3. Ask Codex to use the `dynamics-scout` skill to interpret the latest run and surface the strongest themes
+4. The interpretation should be written to `data/exports/dynamics-scout/latest-interpretation.md` and to the latest timestamped scout run folder
 
 No live provider calls are required for normalization, validation, the overview pages, the heatmap pages, or their tweet drilldowns.
 
@@ -366,6 +540,8 @@ The current chart flow is registry-first for managed authors. Core endpoints:
 /api/views/aggregate-moods?granularity=week&cohort_tag=bitcoin
 /api/views/aggregate-moods/mood-series?granularity=week
 /api/views/aggregate-moods/mood-series?granularity=week&cohort_tag=bitcoin
+/api/views/aggregate-moods/outliers?granularity=week
+/api/views/aggregate-moods/outliers?granularity=week&cohort_tag=bitcoin
 /api/views/aggregate-moods/market-series?range_start=2016-01-04T00:00:00Z&range_end=2026-04-06T00:00:00Z
 /api/views/aggregate-moods/cohorts
 /api/views/bitcoin-mentions?username={handle}&phrase=bitcoin&buy_amount_usd=10
@@ -422,9 +598,38 @@ Use this sequence for tracked-author refreshes:
 Commands:
 
 ```bash
+python3 backend/scripts/views/audit_tracked_author_views.py
 python3 backend/scripts/ingest/plan_tracked_author_refresh.py
 python3 backend/scripts/ingest/fetch_tracked_author_refresh.py --plan data/exports/refresh-plans/<plan-name>.json
 python3 backend/scripts/ingest/post_process_tracked_author_refresh.py --fetch-results data/exports/refresh-plans/<plan-name>.fetch-results.json
+```
+
+Current post-process behavior:
+
+- normalization and validation are scoped to the target user's archived raw artifacts rather than the full raw archive
+- sentiment and mood scoring stay batched across all preprocess-ready users
+- author mood lines are refreshed during that batched mood-scoring step
+- keyword extraction uses the refresh manifest `since` window when available and passes `--only-missing-tweets`
+- managed narrative sync uses the same refresh window via `--created-since`
+
+If raw tweets are current but author mood lines are still behind, rerun the same post-process manifest before fetching again:
+
+```bash
+python3 backend/scripts/ingest/post_process_tracked_author_refresh.py \
+  --fetch-results data/exports/refresh-plans/<plan-name>.fetch-results.json
+```
+
+Then inspect:
+
+- `data/exports/refresh-plans/<plan-name>.fetch-results.post-process-results.json`
+
+Users that fail `normalize_archived_user`, `validate_normalized_user`, `score_tweet_sentiment`, or `score_tweet_moods` will keep stale author mood lines even when the fetch step succeeded.
+
+If the audit or planner reports `excluded_mood_scored_user_count > 0`, repair coverage first:
+
+```bash
+python3 backend/scripts/views/reconcile_mood_scored_author_views.py
+python3 backend/scripts/views/audit_tracked_author_views.py
 ```
 
 If an older fetch-results manifest reports all users with `run_ids = []` and `new_raw_tweets = 0`, repair it before post-process:
@@ -439,6 +644,7 @@ python3 backend/scripts/ingest/post_process_tracked_author_refresh.py \
 Cache responsibilities after refresh:
 
 - post-process refreshes the author-registry snapshot
+- post-process also refreshes per-author mood rows; it does not wait for aggregate mood snapshots
 - aggregate mood snapshots still require:
 
 ```bash
@@ -517,6 +723,8 @@ python3 backend/scripts/enrich/score_tweet_sentiment.py --username someuser
 python3 backend/scripts/enrich/score_tweet_moods.py --username someuser
 ```
 
+This updates the individual author mood line directly from stored `tweet_mood_scores`. Aggregate mood pages still require the separate snapshot rebuild step below.
+
 8. Extract phrase keywords on the normalized tweets:
 
 ```bash
@@ -525,19 +733,48 @@ python3 backend/scripts/enrich/extract_tweet_keywords.py \
   --analysis-start 2020-08-01T00:00:00Z
 ```
 
+For an incremental rerun on an already-processed user, prefer:
+
+```bash
+python3 backend/scripts/enrich/extract_tweet_keywords.py \
+  --username someuser \
+  --analysis-start 2020-08-01T00:00:00Z \
+  --only-missing-tweets
+```
+
 9. Sync the managed author registry row so the frontend auto-lists the new user:
 
 ```bash
 python3 backend/scripts/views/sync_managed_author_view.py --username someuser --published
 ```
 
-10. Rebuild aggregate mood snapshots so Aggregate Moods includes the latest scored/cohort data:
+10. Sync managed narrative matches:
+
+```bash
+python3 backend/scripts/enrich/sync_managed_narrative_matches.py --username someuser
+```
+
+For an incremental rerun on only the recent refresh window, prefer:
+
+```bash
+python3 backend/scripts/enrich/sync_managed_narrative_matches.py \
+  --username someuser \
+  --created-since 2026-03-27T00:00:00Z
+```
+
+11. Rebuild aggregate mood snapshots so Aggregate Moods includes the latest scored/cohort data:
 
 ```bash
 python3 backend/scripts/cache/rebuild_aggregate_snapshots.py --clear-first --delete-stale
 ```
 
-11. Confirm the registry-backed overview endpoints, mood endpoints, aggregate mood endpoints, heatmap endpoints, and frontend pages render correctly.
+12. Rebuild aggregate narrative snapshots:
+
+```bash
+python3 backend/scripts/cache/rebuild_aggregate_narrative_snapshots.py
+```
+
+13. Confirm the registry-backed overview endpoints, mood endpoints, aggregate mood endpoints, heatmap endpoints, and frontend pages render correctly.
 
 Batch alternative after ingest:
 
@@ -545,7 +782,23 @@ Batch alternative after ingest:
 ./scripts/run-user-post-ingest-batch.sh --username someuser --analysis-start 2020-08-01T00:00:00Z
 ```
 
-This runs steps 2-7 in order (including managed author registry sync as step 7), then you still run aggregate snapshot rebuild separately.
+By default, this runs steps 2-12, including both aggregate snapshot rebuild steps.
+
+If you are ingesting many users in one session, skip per-user snapshot rebuilds and rebuild once at the end:
+
+```bash
+./scripts/run-user-post-ingest-batch.sh \
+  --username someuser \
+  --analysis-start 2020-08-01T00:00:00Z \
+  --no-rebuild-snapshots
+```
+
+After all users are processed, run one shared rebuild pass:
+
+```bash
+python3 backend/scripts/cache/rebuild_aggregate_snapshots.py --delete-stale
+python3 backend/scripts/cache/rebuild_aggregate_narrative_snapshots.py
+```
 
 ## Aggregate snapshot workflow
 
@@ -556,6 +809,8 @@ Snapshot rows exist for:
 - `aggregate-cohorts`
 - `aggregate-overview`
 - `aggregate-mood-series`
+- `aggregate-mood-outliers`
+- `aggregate-cohort-mood-outliers`
 
 Each row is keyed by:
 
@@ -622,6 +877,8 @@ What this does:
 - rebuilds the `aggregate-cohorts` snapshot
 - rebuilds `aggregate-overview` for `all` and every eligible cohort
 - rebuilds `aggregate-mood-series` for `all` and every eligible cohort
+- rebuilds `aggregate-mood-outliers` for `all` and every eligible cohort
+- rebuilds `aggregate-cohort-mood-outliers`
 - upserts the latest snapshot rows into Postgres
 - removes stale snapshot rows for the same model/granularity when `--delete-stale` is used
 - optionally clears existing rows first when `--clear-first` is used (full rebuild only)
@@ -634,7 +891,13 @@ python3 scripts/cache/rebuild_aggregate_snapshots.py --dry-run
 python3 scripts/cache/rebuild_aggregate_snapshots.py --clear-first --dry-run
 python3 scripts/cache/rebuild_aggregate_snapshots.py --cohort mstr
 python3 scripts/cache/rebuild_aggregate_snapshots.py --view aggregate-mood-series
+python3 scripts/cache/rebuild_aggregate_snapshots.py --view aggregate-mood-outliers
 ```
+
+Scoped rebuild note:
+
+- `--delete-stale` and `--clear-first` are full-rebuild-only flags and cannot be combined with `--view` or `--cohort`
+- for a scoped outlier-only rebuild, run `python3 scripts/cache/rebuild_aggregate_snapshots.py --view aggregate-mood-outliers`
 
 ### Preflight checklist
 
@@ -896,6 +1159,7 @@ Useful options:
 
 - `--username saylor otheruser`
 - `--analysis-start 2020-08-01T00:00:00Z`
+- `--only-missing-tweets`
 - `--dry-run`
 - `--overwrite-existing`
 - `--extractor-key exact-ngram`
@@ -909,6 +1173,7 @@ Current extractor behavior:
 - extracts exact `1`, `2`, and `3` word phrases per tweet
 - aggressively filters stopword-heavy or generic English fragments
 - stores one row per `(tweet, phrase, extractor version)`
+- `--only-missing-tweets` limits work to tweets that do not yet have keyword rows for that extractor
 - the current Michael Saylor heatmap is intended for the August 2020 onward analysis window
 
 ## Publish or tune a page subject
