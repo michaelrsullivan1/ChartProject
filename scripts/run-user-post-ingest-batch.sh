@@ -20,15 +20,16 @@ Runs these steps in order for one user:
   4) score_tweet_sentiment
   5) score_tweet_moods
   6) extract_tweet_keywords
-  7) sync_managed_author_view
-  8) sync_managed_narrative_matches
-  9) rebuild_aggregate_snapshots (optional; default on)
- 10) rebuild_aggregate_narrative_snapshots (optional; default on)
+  7) extract_tweet_price_mentions
+  8) sync_managed_author_view
+  9) sync_managed_narrative_matches
+ 10) rebuild_aggregate_snapshots (optional; default on)
+ 11) rebuild_aggregate_narrative_snapshots (optional; default on)
 
 Notes:
   - This script intentionally does NOT run fetch_user_tweets_history.py.
   - Snapshot rebuild includes author-registry snapshot by default.
-  - If --analysis-start is omitted, step 6 auto-uses the user's first normalized tweet timestamp.
+  - If --analysis-start is omitted, steps 6 and 7 auto-use the user's first normalized tweet timestamp.
   - It stops immediately on the first failure and prints which step failed.
 EOF
 }
@@ -174,21 +175,27 @@ run_step "6" "extract_tweet_keywords" \
     --username "$USERNAME" \
     --analysis-start "$EFFECTIVE_ANALYSIS_START"
 
-run_step "7" "sync_managed_author_view" \
+run_step "7" "extract_tweet_price_mentions" \
+  python3 backend/scripts/enrich/extract_tweet_price_mentions.py \
+    --username "$USERNAME" \
+    --analysis-start "$EFFECTIVE_ANALYSIS_START" \
+    --only-missing-tweets
+
+run_step "8" "sync_managed_author_view" \
   python3 backend/scripts/views/sync_managed_author_view.py \
     --username "$USERNAME" \
     --published \
     --tracked
 
-run_step "8" "sync_managed_narrative_matches" \
+run_step "9" "sync_managed_narrative_matches" \
   python3 backend/scripts/enrich/sync_managed_narrative_matches.py \
     --username "$USERNAME"
 
 if [[ "$REBUILD_SNAPSHOTS" == "true" ]]; then
-  run_step "9" "rebuild_aggregate_snapshots" \
+  run_step "10" "rebuild_aggregate_snapshots" \
     python3 backend/scripts/cache/rebuild_aggregate_snapshots.py --delete-stale
 
-  run_step "10" "rebuild_aggregate_narrative_snapshots" \
+  run_step "11" "rebuild_aggregate_narrative_snapshots" \
     python3 backend/scripts/cache/rebuild_aggregate_narrative_snapshots.py
 fi
 

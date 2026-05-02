@@ -30,7 +30,7 @@ type AppShellProps = {
   activeAggregateMoodSlug: string | null;
   activeAggregateNarratives: boolean;
   activeMoodOutliers?: boolean;
-  activePriceMentions?: boolean;
+  activePriceMentionsView?: "heatmap" | "distribution" | "zscore" | null;
   activeMoodSlug: string | null;
   activeOverviewSlug: string | null;
   activeHeatmapSlug: string | null;
@@ -63,7 +63,7 @@ export function AppShell({
   activeAggregateMoodSlug,
   activeAggregateNarratives,
   activeMoodOutliers = false,
-  activePriceMentions = false,
+  activePriceMentionsView = null,
   activeMoodSlug,
   activeOverviewSlug,
   activeHeatmapSlug,
@@ -98,6 +98,7 @@ export function AppShell({
     | "moods"
     | "overviews"
     | "heatmaps"
+    | "price-mentions"
     | "settings"
     | null
   >(null);
@@ -110,7 +111,7 @@ export function AppShell({
     activeAggregateMoodSlug,
     activeAggregateNarratives,
     activeMoodOutliers,
-    activePriceMentions,
+    activePriceMentionsView,
     activeBitcoinMentionsSlug,
     activeHeatmapSlug,
     activeMoodSlug,
@@ -359,13 +360,42 @@ export function AppShell({
         >
           Mood Outliers
         </button>
-        <button
-          className={`page-nav-link${activePriceMentions ? " is-active" : ""}`}
-          onClick={() => { window.location.hash = "#/price-mentions"; }}
-          type="button"
-        >
-          Price Mentions
-        </button>
+        <div className="overview-dropdown">
+          <button
+            aria-expanded={openMenu === "price-mentions"}
+            className={`page-nav-link${activePriceMentionsView !== null ? " is-active" : ""}`}
+            onClick={() =>
+              setOpenMenu((current) => (current === "price-mentions" ? null : "price-mentions"))
+            }
+            type="button"
+          >
+            Price Mentions
+          </button>
+          {openMenu === "price-mentions" ? (
+            <div
+              className={`overview-dropdown-menu${isDashboardNav ? " overview-dropdown-menu-dashboard" : ""}`}
+              role="menu"
+            >
+              {(
+                [
+                  { view: "heatmap", label: "Heatmap", hash: "#/price-mentions" },
+                  { view: "distribution", label: "Distribution", hash: "#/price-mentions/distribution" },
+                  { view: "zscore", label: "Z-Score", hash: "#/price-mentions/zscore" },
+                ] as const
+              ).map(({ view, label, hash }) => (
+                <button
+                  key={view}
+                  className={`overview-dropdown-item${activePriceMentionsView === view ? " is-active" : ""}`}
+                  onClick={() => { window.location.hash = hash; }}
+                  role="menuitem"
+                  type="button"
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
         <div className="overview-dropdown">
           <button
             aria-expanded={openMenu === "overviews"}

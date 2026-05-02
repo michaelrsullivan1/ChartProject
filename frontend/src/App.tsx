@@ -46,6 +46,8 @@ import { AuthorOverviewPage } from "./pages/MichaelSaylorVsBtcPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { PodcastPersonPage } from "./pages/PodcastPersonPage";
 import { PriceMentionsPage } from "./pages/PriceMentionsPage";
+import { PriceMentionDistributionPage } from "./pages/PriceMentionDistributionPage";
+import { PriceMentionZScorePage } from "./pages/PriceMentionZScorePage";
 import { UserBeliefsPage } from "./pages/UserBeliefsPage";
 import { UserNarrativeIntensityPage } from "./pages/UserNarrativeIntensityPage";
 import { UserNarrativeMixPage } from "./pages/UserNarrativeMixPage";
@@ -68,7 +70,7 @@ type AppRoute =
   | { kind: "aggregate-mood"; aggregateMood: AggregateMoodDefinition }
   | { kind: "aggregate-narratives" }
   | { kind: "mood-outliers" }
-  | { kind: "price-mentions" }
+  | { kind: "price-mentions"; view: "heatmap" | "distribution" | "zscore" }
   | { kind: "bitcoin-mentions"; bitcoinMentions: BitcoinMentionsDefinition }
   | { kind: "mood"; mood: MoodDefinition }
   | { kind: "overview"; overview: OverviewDefinition }
@@ -163,8 +165,16 @@ function getRouteFromHash(hash: string, definitions: RouteDefinitions): AppRoute
     return { kind: "mood-outliers" };
   }
 
-  if (path === "#/price-mentions") {
-    return { kind: "price-mentions" };
+  if (path === "#/price-mentions" || path === "#/price-mentions/heatmap") {
+    return { kind: "price-mentions", view: "heatmap" };
+  }
+
+  if (path === "#/price-mentions/distribution") {
+    return { kind: "price-mentions", view: "distribution" };
+  }
+
+  if (path === "#/price-mentions/zscore") {
+    return { kind: "price-mentions", view: "zscore" };
   }
 
   if (path.startsWith("#/bitcoin-mentions/")) {
@@ -894,10 +904,15 @@ export default function App() {
   }
 
   if (route.kind === "price-mentions") {
+    const titleMap = {
+      heatmap: "Price Mentions — Heatmap",
+      distribution: "Price Mentions — Distribution",
+      zscore: "Price Mentions — Z-Score",
+    };
     return (
       <AppShell
         mode="dashboard"
-        dashboardTitle="Price Mentions"
+        dashboardTitle={titleMap[route.view]}
         activePodcastPersonSlug={null}
         activeBitcoinMentionsSlug={null}
         activeAggregateMoodSlug={null}
@@ -906,7 +921,7 @@ export default function App() {
         activeOverviewSlug={null}
         activeHeatmapSlug={null}
         activeSettingsSection={null}
-        activePriceMentions
+        activePriceMentionsView={route.view}
         aggregateMoods={aggregateMoodDefinitions}
         bitcoinMentions={sortedBitcoinMentionsDefinitions}
         moods={sortedMoodDefinitions}
@@ -923,7 +938,13 @@ export default function App() {
         overviews={sortedOverviewDefinitions}
         heatmaps={sortedHeatmapDefinitions}
       >
-        <PriceMentionsPage />
+        {route.view === "heatmap" ? (
+          <PriceMentionsPage />
+        ) : route.view === "distribution" ? (
+          <PriceMentionDistributionPage />
+        ) : (
+          <PriceMentionZScorePage />
+        )}
       </AppShell>
     );
   }

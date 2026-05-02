@@ -502,7 +502,7 @@ This plan breaks the work into self-contained phases that can be picked up and c
 
 ### Picking up this plan in a new session
 
-**Phases 1–7 are complete.** Start at Phase 8 (cohort comparison view).
+**Phases 1–9 are complete.** Phase 10 (scatter view) is optional and has not been started.
 
 Full build order: Phase 1 (migration) → Phase 2 (extractor service + tests) → Phase 3 (extraction script) → Phase 4 (calibration) → Phase 5 (full corpus run) → Phase 6 (API endpoint) → Phase 7 (heatmap UI) → Phase 8 (cohort comparison UI) → Phase 9 (pipeline integration + shell script) → Phase 10 (scatter view, optional).
 
@@ -631,36 +631,31 @@ Steps:
 
 **Done when:** Page loads at `#/price-mentions`, all controls work, heatmap renders for all-users and at least one specific cohort, BTC overlay is visible.
 
-### Phase 8 — Cohort comparison view
+### Phase 8 — Cohort comparison views ✓ complete
 
-**Goal:** Add View C (selected cohort vs. baseline) to the page.
+**Goal:** Add distribution comparison and Z-score views.
 
-Steps:
-1. Add the view mode toggle (Heatmap / Comparison) to the page controls.
-2. Implement the comparison rendering: two distributions overlaid on the same X axis (price levels).
-3. Implement the optional Z-score toggle.
-4. Verify cohort switching produces meaningful divergence visualizations.
+**Actual implementation:** Rather than a toggle on the heatmap page, two independent standalone pages were created using `lightweight-charts` (matching the rest of the app) instead of canvas:
 
-**Done when:** Toggle works, comparison view renders correctly, switching cohorts shows visibly different distributions.
+- `frontend/src/pages/PriceMentionDistributionPage.tsx` — route `#/price-mentions/distribution`. Two `LineSeries` with `LineType.WithSteps` and area fill: cohort (blue) vs. all-users baseline (gray). X axis uses a fake time axis mapping 25 log-spaced price buckets (FAKE_EPOCH + bucketIndex × DAY) with a `tickMarkFormatter` that labels price levels. Baseline series is only shown when a specific cohort is selected.
+- `frontend/src/pages/PriceMentionZScorePage.tsx` — route `#/price-mentions/zscore`. `HistogramSeries` with per-bar color (green for positive Poisson Z, red for negative). Requires a specific cohort selection; shows an empty-state prompt otherwise.
+- Both pages aggregate the full time range from the API (granularity=month) into price buckets on the frontend — no separate aggregation endpoint needed.
+- Nav in `AppShell.tsx` was converted from a single "Price Mentions" button to a dropdown (Heatmap | Distribution | Z-Score).
+- `activePriceMentions: boolean` prop replaced with `activePriceMentionsView: "heatmap" | "distribution" | "zscore" | null`.
 
-### Phase 9 — Pipeline integration
+**Done:** All three pages render correctly, cohort switching works, chart library is consistent with the rest of the app.
+
+### Phase 9 — Pipeline integration ✓ complete
 
 **Goal:** Make extraction part of the standard ingest workflow and create the standalone batch shell script.
 
-Steps:
-1. Create `scripts/run-price-mentions-extraction.sh` per the design in the Integration section above. The script queries `managed_author_views` for all tracked published users and iterates over them, calling `extract_tweet_price_mentions.py` with `--only-missing-tweets` by default.
-2. Verify the script works in incremental mode (run it once, run it again, confirm no duplicate rows and minimal re-work).
-3. Add the extraction step to `scripts/run-user-post-ingest-batch.sh` as a new numbered step after `extract_tweet_keywords`.
-4. Add an optional flag/step to `post_process_tracked_author_refresh.py` (initially opt-in, promoted to default once calibration is solid).
-5. Update README with:
-   - The new `run-price-mentions-extraction.sh` command and its usage modes
-   - The new script command
-   - The new page URL
-   - The new endpoint in the endpoints list
-   - Position in the enrichment sequence
-4. Verify a fresh user onboarding produces price mention data end-to-end.
+**Actual implementation:**
 
-**Done when:** A new user added via the standard ingest flow gets price mentions extracted automatically and appears in the cohort views.
+1. `scripts/run-price-mentions-extraction.sh` — created. Queries `managed_author_views` for all tracked/published users and iterates, calling `extract_tweet_price_mentions.py --only-missing-tweets` by default. Supports `--username <handle>` for single-user mode and `--full` to drop `--only-missing-tweets` for reprocessing after extractor tuning. Bash 3.2-compatible (no `mapfile`).
+2. `scripts/run-user-post-ingest-batch.sh` — updated. Price mention extraction added as step 7 (between `extract_tweet_keywords` at step 6 and `sync_managed_author_view` at step 8). Uses `--username "$USERNAME" --analysis-start "$EFFECTIVE_ANALYSIS_START" --only-missing-tweets`. Downstream steps renumbered: sync_managed_author_view=8, sync_managed_narrative_matches=9, rebuild_aggregate_snapshots=10, rebuild_aggregate_narrative_snapshots=11.
+3. README updated: `tweet_price_mentions` added to core tables list, price mention extraction added to data flow, price mentions pages added to Current UI, `/api/views/price-mentions` added to endpoints list, enrichment script section added, onboard-a-new-user walkthrough updated.
+
+**Done:** New users processed through `run-user-post-ingest-batch.sh` automatically get price mentions extracted and appear in the Price Mentions cohort views.
 
 ### Phase 10 — Scatter view (optional)
 

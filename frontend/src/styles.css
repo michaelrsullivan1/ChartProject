@@ -3155,6 +3155,14 @@ textarea {
   display: block;
 }
 
+.pm-lw-chart {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
 .pm-error,
 .pm-empty {
   display: flex;
@@ -3212,4 +3220,22 @@ textarea {
 .pm-legend-meta {
   margin-left: auto;
   color: var(--muted);
+}
+
+.pm-legend-swatch {
+  display: inline-block;
+  width: 20px;
+  height: 10px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.pm-legend-swatch-baseline {
+  background: rgba(130, 130, 155, 0.55);
+  border: 1px solid rgba(160, 155, 175, 0.55);
+}
+
+.pm-legend-swatch-cohort {
+  background: rgba(60, 140, 255, 0.55);
+  border: 1px solid rgba(80, 160, 255, 0.7);
 }

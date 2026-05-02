@@ -50,17 +50,19 @@ export function PriceMentionsPage() {
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const drawRef = useRef<(() => void) | null>(null);
 
-  // Load cohorts once
+  const selectedCohortName =
+    cohorts.find((c) => c.key === selectedCohortKey)?.tagName ?? "All tracked users";
+
   useEffect(() => {
     const ac = new AbortController();
     fetchAggregateMoodCohorts(`${API_BASE}/aggregate-moods`, ac.signal)
       .then((res: AggregateMoodCohortsResponse) => {
-        const opts: CohortOption[] = [
+        setCohorts([
           { key: ALL_COHORT_KEY, tagSlug: null, tagName: "All tracked users" },
           ...res.cohorts.map((c) => ({ key: c.tag_slug, tagSlug: c.tag_slug, tagName: c.tag_name })),
-        ];
-        setCohorts(opts);
+        ]);
       })
       .catch(() => {
         setCohorts([{ key: ALL_COHORT_KEY, tagSlug: null, tagName: "All tracked users" }]);
@@ -68,29 +70,23 @@ export function PriceMentionsPage() {
     return () => ac.abort();
   }, []);
 
-  // Load price mention data whenever controls change
   useEffect(() => {
     const ac = new AbortController();
     setIsLoading(true);
     setError(null);
 
     const cohortOpt = cohorts.find((c) => c.key === selectedCohortKey);
-    const tagSlug = cohortOpt?.tagSlug ?? null;
-
     fetchPriceMentions(
       `${API_BASE}/price-mentions`,
       {
         granularity,
-        cohortTag: tagSlug,
+        cohortTag: cohortOpt?.tagSlug ?? null,
         minConfidence: includeLoConfidence ? 0.0 : 0.5,
         mentionType: mentionType === "all" ? null : mentionType,
       },
       ac.signal,
     )
-      .then((res) => {
-        setData(res);
-        setIsLoading(false);
-      })
+      .then((res) => { setData(res); setIsLoading(false); })
       .catch((err: unknown) => {
         if (err instanceof Error && err.name === "AbortError") return;
         setError(err instanceof Error ? err.message : "Failed to load data");
@@ -100,38 +96,15 @@ export function PriceMentionsPage() {
     return () => ac.abort();
   }, [granularity, mentionType, includeLoConfidence, selectedCohortKey, cohorts]);
 
-  // Draw heatmap whenever data or canvas size changes
   useEffect(() => {
-    if (!data || !canvasRef.current || !containerRef.current) return;
-
-    const canvas = canvasRef.current;
-    const container = containerRef.current;
-    const dpr = window.devicePixelRatio || 1;
-
-    const containerW = container.clientWidth;
-    const containerH = container.clientHeight;
-    canvas.width = containerW * dpr;
-    canvas.height = containerH * dpr;
-    canvas.style.width = `${containerW}px`;
-    canvas.style.height = `${containerH}px`;
-
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    ctx.scale(dpr, dpr);
-
-    drawHeatmap(ctx, containerW, containerH, data);
-  }, [data]);
-
-  // Redraw on resize
-  useEffect(() => {
-    if (!containerRef.current) return;
-    const observer = new ResizeObserver(() => {
-      if (!data || !canvasRef.current || !containerRef.current) return;
+    drawRef.current = () => {
+      if (!canvasRef.current || !containerRef.current || !data) return;
       const canvas = canvasRef.current;
       const container = containerRef.current;
       const dpr = window.devicePixelRatio || 1;
       const w = container.clientWidth;
       const h = container.clientHeight;
+      if (w === 0 || h === 0) return;
       canvas.width = w * dpr;
       canvas.height = h * dpr;
       canvas.style.width = `${w}px`;
@@ -140,22 +113,25 @@ export function PriceMentionsPage() {
       if (!ctx) return;
       ctx.scale(dpr, dpr);
       drawHeatmap(ctx, w, h, data);
-    });
-    observer.observe(containerRef.current);
-    return () => observer.disconnect();
+    };
+    drawRef.current();
   }, [data]);
 
-  const selectedCohortName =
-    cohorts.find((c) => c.key === selectedCohortKey)?.tagName ?? "All tracked users";
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver(() => drawRef.current?.());
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
 
   return (
     <section className="dashboard-page pm-page">
       <article className="panel panel-accent dashboard-workspace">
         <div className="dashboard-workspace-header">
           <div>
-            <p className="dashboard-eyebrow">Price Mentions</p>
+            <p className="dashboard-eyebrow">Price Mentions — Heatmap</p>
             <p className="dashboard-subtitle">
-              Bitcoin price levels mentioned by {selectedCohortName.toLowerCase()} — density heatmap
+              Bitcoin price levels mentioned by {selectedCohortName.toLowerCase()} — density over time
             </p>
           </div>
         </div>
@@ -169,9 +145,7 @@ export function PriceMentionsPage() {
               onChange={(e) => setSelectedCohortKey(e.target.value)}
             >
               {cohorts.map((c) => (
-                <option key={c.key} value={c.key}>
-                  {c.tagName}
-                </option>
+                <option key={c.key} value={c.key}>{c.tagName}</option>
               ))}
             </select>
           </div>
@@ -199,9 +173,7 @@ export function PriceMentionsPage() {
                 className={`chart-toggle-button${mentionType === "all" ? " is-active" : ""}`}
                 onClick={() => setMentionType("all")}
                 type="button"
-              >
-                All
-              </button>
+              >All</button>
               {MENTION_TYPES.map((t) => (
                 <button
                   key={t}
@@ -222,16 +194,12 @@ export function PriceMentionsPage() {
                 className={`chart-toggle-button${!includeLoConfidence ? " is-active" : ""}`}
                 onClick={() => setIncludeLoConfidence(false)}
                 type="button"
-              >
-                High + Medium
-              </button>
+              >High + Medium</button>
               <button
                 className={`chart-toggle-button${includeLoConfidence ? " is-active" : ""}`}
                 onClick={() => setIncludeLoConfidence(true)}
                 type="button"
-              >
-                Include Low
-              </button>
+              >Include Low</button>
             </div>
           </div>
         </div>
@@ -284,35 +252,25 @@ function drawHeatmap(
   const chartH = totalH - AXIS_BOTTOM - AXIS_TOP;
   if (chartW <= 0 || chartH <= 0) return;
 
-  const periods = data.periods;
+  const { periods, bin_size: binSize } = data;
   if (periods.length === 0) return;
-  const binSize = data.bin_size;
   const numCols = periods.length;
   const colW = chartW / numCols;
 
-  // Find global max count for color normalization
   let maxCount = 1;
-  for (const p of periods) {
-    for (const m of p.mentions) {
-      if (m.count > maxCount) maxCount = m.count;
-    }
-  }
+  for (const p of periods) for (const m of p.mentions) if (m.count > maxCount) maxCount = m.count;
 
   ctx.clearRect(0, 0, totalW, totalH);
-
-  // Chart background
   ctx.fillStyle = "rgba(0,0,0,0.18)";
   ctx.fillRect(AXIS_LEFT, AXIS_TOP, chartW, chartH);
 
-  // Draw cells
   for (let ci = 0; ci < numCols; ci++) {
     const px = AXIS_LEFT + ci * colW;
     for (const m of periods[ci].mentions) {
       const y0 = priceToY(m.price_usd, chartH) + AXIS_TOP;
       const y1 = priceToY(m.price_usd + binSize, chartH) + AXIS_TOP;
-      const cellH = Math.max(1, y1 - y0);
       ctx.fillStyle = countToColor(m.count, maxCount);
-      ctx.fillRect(px, y0, colW + 0.5, cellH);
+      ctx.fillRect(px, y0, colW + 0.5, Math.max(1, y1 - y0));
     }
   }
 
@@ -328,81 +286,60 @@ function drawHeatmap(
     if (btc == null || btc < 10_000 || btc > 10_000_000) continue;
     const x = AXIS_LEFT + (ci + 0.5) * colW;
     const y = priceToY(btc, chartH) + AXIS_TOP;
-    if (firstBtc) {
-      ctx.moveTo(x, y);
-      firstBtc = false;
-    } else {
-      ctx.lineTo(x, y);
-    }
+    if (firstBtc) { ctx.moveTo(x, y); firstBtc = false; }
+    else ctx.lineTo(x, y);
   }
   ctx.stroke();
   ctx.restore();
 
-  // Y axis labels (price)
+  // Y axis labels + grid lines
   ctx.fillStyle = "rgba(180, 170, 160, 0.75)";
   ctx.font = "10px system-ui, sans-serif";
   ctx.textAlign = "right";
   ctx.textBaseline = "middle";
-  const yLabelPrices = [10_000, 20_000, 30_000, 50_000, 100_000, 200_000, 500_000, 1_000_000, 2_000_000, 5_000_000, 10_000_000];
-  for (const price of yLabelPrices) {
+  for (const price of [10_000, 20_000, 30_000, 50_000, 100_000, 200_000, 500_000, 1_000_000, 2_000_000, 5_000_000, 10_000_000]) {
     const y = priceToY(price, chartH) + AXIS_TOP;
     if (y < AXIS_TOP || y > AXIS_TOP + chartH) continue;
     ctx.fillText(priceFormatter.format(price), AXIS_LEFT - 4, y);
-    // Tick mark
-    ctx.fillStyle = "rgba(180, 170, 160, 0.25)";
+    ctx.fillStyle = "rgba(180, 170, 160, 0.15)";
     ctx.fillRect(AXIS_LEFT, y - 0.5, chartW, 1);
     ctx.fillStyle = "rgba(180, 170, 160, 0.75)";
   }
 
-  // X axis labels (dates)
+  // X axis labels
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
   ctx.font = "10px system-ui, sans-serif";
   ctx.fillStyle = "rgba(180, 170, 160, 0.75)";
-  const xLabelEvery = granularityLabelStep(numCols);
-  for (let ci = 0; ci < numCols; ci += xLabelEvery) {
+  const step = granularityLabelStep(numCols);
+  for (let ci = 0; ci < numCols; ci += step) {
     const d = new Date(periods[ci].period_start);
     const label = data.granularity === "month" ? monthFormatter.format(d) : weekFormatter.format(d);
-    const x = AXIS_LEFT + (ci + 0.5) * colW;
-    ctx.fillText(label, x, AXIS_TOP + chartH + 4);
+    ctx.fillText(label, AXIS_LEFT + (ci + 0.5) * colW, AXIS_TOP + chartH + 4);
   }
 }
 
 function priceToY(price: number, chartH: number): number {
-  const logP = Math.log10(Math.max(price, 1));
-  const t = (logP - LOG_MIN) / (LOG_MAX - LOG_MIN);
+  const t = (Math.log10(Math.max(price, 1)) - LOG_MIN) / (LOG_MAX - LOG_MIN);
   return chartH * (1 - t);
 }
 
 function countToColor(count: number, maxCount: number): string {
   if (count <= 0) return "transparent";
-  const t = Math.pow(count / maxCount, 0.45); // sqrt-ish compression for visibility
-  // Deep indigo → electric blue → teal → amber → red-orange
+  const t = Math.pow(count / maxCount, 0.45);
   let r: number, g: number, b: number, a: number;
   if (t < 0.25) {
     const s = t / 0.25;
-    r = lerp(30, 40, s);
-    g = lerp(60, 130, s);
-    b = lerp(200, 240, s);
-    a = lerp(0.35, 0.6, s);
+    r = lerp(30, 40, s); g = lerp(60, 130, s); b = lerp(200, 240, s); a = lerp(0.35, 0.6, s);
   } else if (t < 0.55) {
     const s = (t - 0.25) / 0.3;
-    r = lerp(40, 20, s);
-    g = lerp(130, 180, s);
-    b = lerp(240, 160, s);
-    a = lerp(0.6, 0.75, s);
+    r = lerp(40, 20, s); g = lerp(130, 180, s); b = lerp(240, 160, s); a = lerp(0.6, 0.75, s);
   } else if (t < 0.8) {
     const s = (t - 0.55) / 0.25;
-    r = lerp(20, 245, s);
-    g = lerp(180, 170, s);
-    b = lerp(160, 20, s);
-    a = lerp(0.75, 0.9, s);
+    r = lerp(20, 245, s); g = lerp(180, 170, s); b = lerp(160, 20, s); a = lerp(0.75, 0.9, s);
   } else {
     const s = (t - 0.8) / 0.2;
-    r = lerp(245, 255, s);
-    g = lerp(170, 60, s);
-    b = lerp(20, 20, s);
-    a = lerp(0.9, 1.0, s);
+    r = lerp(245, 255, s); g = lerp(170, 60, s); b = lerp(20, 20, s); a = lerp(0.9, 1.0, s);
   }
   return `rgba(${Math.round(r)},${Math.round(g)},${Math.round(b)},${a.toFixed(2)})`;
 }

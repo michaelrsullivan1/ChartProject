@@ -48,6 +48,9 @@ After the stack is running:
 - [http://127.0.0.1:5173/#/moods/peter-schiff](http://127.0.0.1:5173/#/moods/peter-schiff) shows the Peter Schiff moods page
 - [http://127.0.0.1:5173/#/moods/michael-sullivan](http://127.0.0.1:5173/#/moods/michael-sullivan) shows the Michael Sullivan moods page
 - [http://127.0.0.1:5173/#/bitcoin-mentions](http://127.0.0.1:5173/#/bitcoin-mentions) shows the Bitcoin mentions timing analysis page
+- [http://127.0.0.1:5173/#/price-mentions](http://127.0.0.1:5173/#/price-mentions) shows the price mentions heatmap (BTC price level density over time, cohort-filtered)
+- [http://127.0.0.1:5173/#/price-mentions/distribution](http://127.0.0.1:5173/#/price-mentions/distribution) shows price mentions by price level distribution (cohort vs. baseline step-chart overlay)
+- [http://127.0.0.1:5173/#/price-mentions/zscore](http://127.0.0.1:5173/#/price-mentions/zscore) shows price mentions Poisson Z-score deviation by price level for a selected cohort
 - [http://127.0.0.1:5173/#/heatmaps/michael-saylor](http://127.0.0.1:5173/#/heatmaps/michael-saylor) shows the Michael Saylor phrase heatmap
 - [http://127.0.0.1:5173/#/heatmaps/michael-sullivan](http://127.0.0.1:5173/#/heatmaps/michael-sullivan) shows the Michael Sullivan phrase heatmap
 - [http://127.0.0.1:5173/#/settings/user-settings](http://127.0.0.1:5173/#/settings/user-settings) shows the user settings page for cohort tag management
@@ -341,6 +344,7 @@ Important exported analysis outputs now include:
 - `user_cohort_tags`
 - `tweets`
 - `tweet_keywords`
+- `tweet_price_mentions`
 - `tweet_references`
 - `market_price_points`
 - `aggregate_view_snapshots`
@@ -357,9 +361,10 @@ Important exported analysis outputs now include:
 4. Enrich canonical tweets with versioned sentiment scores.
 5. Enrich canonical tweets with versioned multilabel mood scores.
 6. Enrich canonical tweets with versioned exact phrase rows in `tweet_keywords`.
-7. Rebuild aggregate mood snapshots when aggregate mood inputs change.
-8. Build request-time backend view payloads from canonical tables for the remaining live endpoints.
-9. Render the current frontend chart pages from those backend view payloads.
+7. Enrich canonical tweets with Bitcoin price mention rows in `tweet_price_mentions` (regex + context scoring, retweet-excluded).
+8. Rebuild aggregate mood snapshots when aggregate mood inputs change.
+9. Build request-time backend view payloads from canonical tables for the remaining live endpoints.
+10. Render the current frontend chart pages from those backend view payloads.
 
 ## Dynamics Scout
 
@@ -544,6 +549,7 @@ The current chart flow is registry-first for managed authors. Core endpoints:
 /api/views/aggregate-moods/outliers?granularity=week&cohort_tag=bitcoin
 /api/views/aggregate-moods/market-series?range_start=2016-01-04T00:00:00Z&range_end=2026-04-06T00:00:00Z
 /api/views/aggregate-moods/cohorts
+/api/views/price-mentions?granularity=month&cohort_tag=<slug>&min_confidence=0.5&mention_type=prediction
 /api/views/bitcoin-mentions?username={handle}&phrase=bitcoin&buy_amount_usd=10
 /api/user-settings/cohort-tags
 /api/user-settings/users
@@ -742,13 +748,24 @@ python3 backend/scripts/enrich/extract_tweet_keywords.py \
   --only-missing-tweets
 ```
 
-9. Sync the managed author registry row so the frontend auto-lists the new user:
+9. Extract Bitcoin price mentions on the normalized tweets:
+
+```bash
+python3 backend/scripts/enrich/extract_tweet_price_mentions.py \
+  --username someuser \
+  --analysis-start 2020-08-01T00:00:00Z \
+  --only-missing-tweets
+```
+
+This populates `tweet_price_mentions` and makes the user's data available in the Price Mentions heatmap, distribution, and Z-score pages. The `--only-missing-tweets` flag makes reruns safe and fast.
+
+10. Sync the managed author registry row so the frontend auto-lists the new user:
 
 ```bash
 python3 backend/scripts/views/sync_managed_author_view.py --username someuser --published
 ```
 
-10. Sync managed narrative matches:
+11. Sync managed narrative matches:
 
 ```bash
 python3 backend/scripts/enrich/sync_managed_narrative_matches.py --username someuser
@@ -762,19 +779,19 @@ python3 backend/scripts/enrich/sync_managed_narrative_matches.py \
   --created-since 2026-03-27T00:00:00Z
 ```
 
-11. Rebuild aggregate mood snapshots so Aggregate Moods includes the latest scored/cohort data:
+12. Rebuild aggregate mood snapshots so Aggregate Moods includes the latest scored/cohort data:
 
 ```bash
 python3 backend/scripts/cache/rebuild_aggregate_snapshots.py --clear-first --delete-stale
 ```
 
-12. Rebuild aggregate narrative snapshots:
+13. Rebuild aggregate narrative snapshots:
 
 ```bash
 python3 backend/scripts/cache/rebuild_aggregate_narrative_snapshots.py
 ```
 
-13. Confirm the registry-backed overview endpoints, mood endpoints, aggregate mood endpoints, heatmap endpoints, and frontend pages render correctly.
+14. Confirm the registry-backed overview endpoints, mood endpoints, aggregate mood endpoints, heatmap endpoints, price mentions pages, and frontend pages render correctly.
 
 Batch alternative after ingest:
 
@@ -782,7 +799,7 @@ Batch alternative after ingest:
 ./scripts/run-user-post-ingest-batch.sh --username someuser --analysis-start 2020-08-01T00:00:00Z
 ```
 
-By default, this runs steps 2-12, including both aggregate snapshot rebuild steps.
+By default, this runs normalize through both aggregate snapshot rebuilds (steps 4–14 above), including price mention extraction. Price mention extraction runs with `--only-missing-tweets` so it is fast on incremental re-runs.
 
 If you are ingesting many users in one session, skip per-user snapshot rebuilds and rebuild once at the end:
 
@@ -1175,6 +1192,55 @@ Current extractor behavior:
 - stores one row per `(tweet, phrase, extractor version)`
 - `--only-missing-tweets` limits work to tweets that do not yet have keyword rows for that extractor
 - the current Michael Saylor heatmap is intended for the August 2020 onward analysis window
+
+### Extract Bitcoin price mentions for one or more normalized users
+
+```bash
+cd /Users/mike/ChartProject
+source .venv/bin/activate
+cd backend
+python scripts/enrich/extract_tweet_price_mentions.py \
+  --username saylor \
+  --analysis-start 2020-08-01T00:00:00Z
+```
+
+Useful options:
+
+- `--username saylor otheruser`
+- `--analysis-start 2020-08-01T00:00:00Z`
+- `--only-missing-tweets`
+- `--dry-run`
+- `--overwrite-existing`
+- `--extractor-version v2`
+
+Current extractor behavior:
+
+- two-stage regex + context scoring — no LLM calls, no external network, ~1ms per tweet
+- extracts explicit numeric Bitcoin price mentions in the $10k–$10M range
+- handles `$100k`, `$1.5M`, plain numbers, written-out amounts, approximate modifiers, and explicit/shared-suffix ranges
+- context-scores each candidate against BTC keywords (positive) and non-BTC tickers/contexts (negative)
+- classifies each mention as `prediction`, `conditional`, `current`, `historical`, or `unclassified`
+- excludes retweets (joined on `tweet_references`); includes quote tweets and replies
+- stores one row per `(tweet_id, price_usd, extractor_key, extractor_version)` — unique constraint prevents duplicates
+- `--only-missing-tweets` skips tweets that already have rows for the current extractor+version (safe for incremental runs)
+
+For a full incremental pass over all tracked/published users:
+
+```bash
+./scripts/run-price-mentions-extraction.sh
+```
+
+Full reprocess after extractor tuning or version bump:
+
+```bash
+./scripts/run-price-mentions-extraction.sh --full
+```
+
+Single user, full reprocess:
+
+```bash
+./scripts/run-price-mentions-extraction.sh --username saylor --full
+```
 
 ## Publish or tune a page subject
 
