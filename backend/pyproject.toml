@@ -13,6 +13,7 @@ dependencies = [
   "torch>=2.2.0",
   "transformers>=4.48.0",
   "uvicorn[standard]>=0.30.0",
+  "word2number>=1.1",
 ]
 
 [build-system]
