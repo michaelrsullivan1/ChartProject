@@ -416,6 +416,40 @@ python3 backend/scripts/enrich/extract_tweet_price_mentions.py \
   --only-missing-tweets
 ```
 
+### Standalone batch extraction script: `run-price-mentions-extraction.sh`
+
+A shell wrapper script for running price mention extraction across all tracked users in one command. The primary use case is running a full incremental pass after any data change — including importing newer data from another system.
+
+**Path:** `scripts/run-price-mentions-extraction.sh`
+
+**Design:** Queries `managed_author_views` for all tracked, published users and runs `extract_tweet_price_mentions.py` for each in sequence. Modeled on the thin-wrapper pattern of `scout-dynamics.sh` for the passthrough case and the orchestration pattern of `run-user-post-ingest-batch.sh` for multi-user iteration.
+
+**Usage:**
+
+```bash
+# Default: incremental pass over all tracked users — safe to run any time, before or after a data import
+./scripts/run-price-mentions-extraction.sh
+
+# Single user, incremental
+./scripts/run-price-mentions-extraction.sh --username saylor
+
+# Full reprocess all users (drops --only-missing-tweets — use after extractor tuning or version bump)
+./scripts/run-price-mentions-extraction.sh --full
+
+# Single user, full reprocess
+./scripts/run-price-mentions-extraction.sh --username saylor --full
+```
+
+**Why it is safe to run before or after a data import:**
+
+The default mode uses `--only-missing-tweets`, which checks `tweet_price_mentions` before processing each tweet. Any tweet that already has rows for the current extractor+version is skipped. Any tweet added by a subsequent data import will have no rows and will be processed the next time the script runs. This makes the script fully idempotent — running it twice in a row produces the same state as running it once, and running it after pulling in new tweets naturally processes only the new ones without touching existing data.
+
+**`--full` mode use cases:**
+
+- After adjusting confidence scoring weights during calibration (to recompute scores with the new weights)
+- After bumping the extractor version from `v1` to `v2` (to generate new rows alongside the old ones)
+- After discovering a systematic extraction error that requires re-processing the affected users
+
 ### No aggregate snapshot rebuild required (initially)
 
 Price mention queries filter directly on indexed columns (`user_id`, `extractor_key`, `extractor_version`, `confidence`, `price_usd`) with the join through `tweets` for date filtering. At 500k tweets with proper indexing — including the new composite cohort-query index — cohort queries should run well under a second. If query performance degrades at scale, a snapshot layer can be added later following the `aggregate_view_snapshots` pattern. The API shape already accommodates this transparently.
@@ -451,6 +485,24 @@ This is a one-time cost and should take ~2 hours total across both authors.
 ## Phased Implementation Plan
 
 This plan breaks the work into self-contained phases that can be picked up and completed in order. Each phase ends with a verifiable output.
+
+### Picking up this plan in a new session
+
+**Nothing from this feature has been built yet.** Start at Phase 1.
+
+Full build order: Phase 1 (migration) → Phase 2 (extractor service + tests) → Phase 3 (extraction script) → Phase 4 (calibration) → Phase 5 (full corpus run) → Phase 6 (API endpoint) → Phase 7 (heatmap UI) → Phase 8 (cohort comparison UI) → Phase 9 (pipeline integration + shell script) → Phase 10 (scatter view, optional).
+
+Before starting any phase, confirm the local stack is healthy:
+
+```bash
+# From repo root
+./scripts/setup-db.sh          # starts Postgres, runs migrations, installs deps
+source .venv/bin/activate      # activate virtualenv
+pip install -e backend         # sync backend deps
+curl http://127.0.0.1:8000/api/health  # confirm backend is reachable (start dev.sh first if needed)
+```
+
+The first concrete command to run is in Phase 1, step 4: `alembic upgrade head` after creating the migration file.
 
 ### Phase 1 — Database schema and migration
 
@@ -576,12 +628,15 @@ Steps:
 
 ### Phase 9 — Pipeline integration
 
-**Goal:** Make extraction part of the standard ingest workflow.
+**Goal:** Make extraction part of the standard ingest workflow and create the standalone batch shell script.
 
 Steps:
-1. Add the extraction step to `scripts/run-user-post-ingest-batch.sh`.
-2. Add an optional flag/step to `post_process_tracked_author_refresh.py` (initially opt-in, promoted to default once calibration is solid).
-3. Update README with:
+1. Create `scripts/run-price-mentions-extraction.sh` per the design in the Integration section above. The script queries `managed_author_views` for all tracked published users and iterates over them, calling `extract_tweet_price_mentions.py` with `--only-missing-tweets` by default.
+2. Verify the script works in incremental mode (run it once, run it again, confirm no duplicate rows and minimal re-work).
+3. Add the extraction step to `scripts/run-user-post-ingest-batch.sh` as a new numbered step after `extract_tweet_keywords`.
+4. Add an optional flag/step to `post_process_tracked_author_refresh.py` (initially opt-in, promoted to default once calibration is solid).
+5. Update README with:
+   - The new `run-price-mentions-extraction.sh` command and its usage modes
    - The new script command
    - The new page URL
    - The new endpoint in the endpoints list
