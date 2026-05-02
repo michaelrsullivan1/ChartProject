@@ -502,7 +502,7 @@ This plan breaks the work into self-contained phases that can be picked up and c
 
 ### Picking up this plan in a new session
 
-**Phases 1–3 are complete.** Start at Phase 4 (calibration).
+**Phases 1–7 are complete.** Start at Phase 8 (cohort comparison view).
 
 Full build order: Phase 1 (migration) → Phase 2 (extractor service + tests) → Phase 3 (extraction script) → Phase 4 (calibration) → Phase 5 (full corpus run) → Phase 6 (API endpoint) → Phase 7 (heatmap UI) → Phase 8 (cohort comparison UI) → Phase 9 (pipeline integration + shell script) → Phase 10 (scatter view, optional).
 

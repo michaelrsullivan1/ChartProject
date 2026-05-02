@@ -56,6 +56,7 @@ from app.services.podcast_narrative_mix_view import (
     PodcastNarrativeMixViewRequest,
     build_podcast_narrative_mix_view,
 )
+from app.services.price_mention_view import PriceMentionViewRequest, build_price_mention_view
 from app.services.sentiment import DEFAULT_SENTIMENT_MODEL
 
 
@@ -675,4 +676,28 @@ def bitcoin_mentions_leaderboard(
         phrase=phrase,
         buy_amount_usd=buy_amount_usd,
         view_name="bitcoin-mentions-leaderboard",
+    )
+
+
+@router.get("/price-mentions")
+def price_mentions(
+    granularity: str = Query(default="month", pattern="^(month|week)$"),
+    cohort_tag: str | None = Query(default=None),
+    min_confidence: float = Query(default=0.5, ge=0.0, le=1.0),
+    mention_type: str | None = Query(default=None, pattern="^(prediction|conditional|current|historical|unclassified)$"),
+    min_price: float = Query(default=10_000.0, ge=10_000.0),
+    max_price: float = Query(default=10_000_000.0, le=10_000_000.0),
+    bin_size: float = Query(default=1_000.0, gt=0.0),
+) -> dict[str, object]:
+    return build_price_mention_view(
+        PriceMentionViewRequest(
+            granularity=granularity,
+            cohort_tag=cohort_tag,
+            min_confidence=min_confidence,
+            mention_type=mention_type,
+            min_price=min_price,
+            max_price=max_price,
+            bin_size=bin_size,
+            view_name="price-mentions",
+        )
     )

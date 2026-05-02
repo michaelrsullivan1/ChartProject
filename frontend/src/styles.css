@@ -3098,3 +3098,118 @@ textarea {
     grid-template-columns: 1fr;
   }
 }
+
+/* ── Price Mentions page ─────────────────────────────────────────────────── */
+
+.pm-page .dashboard-workspace {
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+}
+
+.pm-controls {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.pm-controls .chart-control-card {
+  flex: 0 1 auto;
+  min-width: 140px;
+}
+
+.pm-select {
+  appearance: none;
+  width: 100%;
+  padding: 5px 8px;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.pm-select:focus {
+  outline: 1px solid rgba(var(--accent-rgb), 0.6);
+}
+
+.pm-toggle-row {
+  display: flex;
+  gap: 4px;
+}
+
+.pm-toggle-wrap {
+  flex-wrap: wrap;
+}
+
+.pm-chart-area {
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.pm-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: block;
+}
+
+.pm-error,
+.pm-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.pm-legend {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.78rem;
+  color: var(--muted);
+  padding: 0 4px;
+  flex-wrap: wrap;
+}
+
+.pm-legend-gradient {
+  display: inline-block;
+  width: 80px;
+  height: 10px;
+  border-radius: 2px;
+  background: linear-gradient(to right,
+    rgba(40, 80, 200, 0.5),
+    rgba(20, 180, 160, 0.75),
+    rgba(245, 170, 20, 0.9),
+    rgba(255, 60, 20, 1.0)
+  );
+}
+
+.pm-legend-label-high {
+  margin-left: -4px;
+}
+
+.pm-legend-separator {
+  display: inline-block;
+  width: 1px;
+  height: 14px;
+  background: var(--border-color);
+  margin: 0 4px;
+}
+
+.pm-legend-btc-line {
+  display: inline-block;
+  width: 24px;
+  height: 2px;
+  background: rgba(255, 220, 60, 0.85);
+  border-top: 1px dashed rgba(255, 220, 60, 0.85);
+  vertical-align: middle;
+}
+
+.pm-legend-meta {
+  margin-left: auto;
+  color: var(--muted);
+}

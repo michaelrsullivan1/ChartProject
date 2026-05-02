@@ -6,8 +6,37 @@ Two-stage approach:
   Stage 2: context scoring + mention type classification
 
 All patterns operate on preprocessed text (URLs and @mentions stripped).
-Calibration notes: (to be populated after Phase 4 calibration run against
-Saylor and Michael Sullivan corpora)
+
+Calibration notes (Phase 4 — 2026-05-02, four authors, 288 labeled medium-confidence rows):
+
+False positive patterns identified and addressed:
+
+1. 401k retirement accounts — hard-excluded via _401K_FRAGMENT_RE. "401k" appears
+   in tweets about retirement accounts (Jeff Walton, Michael Sullivan), not BTC prices.
+
+2. Bare scale words without a numeral prefix — "million" alone (no preceding digit
+   or numeral word) was matching via _WRITTEN_NUM_RE in tweets like "21 million
+   bitcoin" (supply cap) or "$962.7 million at ~$90k per bitcoin" (acquisition cost).
+   Fixed by removing standalone hundred/thousand/million/billion from the leading
+   position in _WRITTEN_NUM_RE; they now only appear as multipliers after a numeral.
+
+3. BTC/sats quantity units — numbers immediately followed by "BTC", "bitcoin",
+   "sats", or "satoshi" are coin counts, not USD prices (e.g., "18k of BTC into
+   Gemini", "850k sats", "500k Bitcoin"). Excluded via _POST_MATCH_QUANTITY_RE
+   post-match check on the characters following the matched fragment.
+
+4. Acquisition cost amounts — MicroStrategy announcements ("purchased 850 BTC for
+   ~$99.7 million in cash") contain both a total cost and a per-BTC price. The
+   total cost is not a price-per-BTC. "in cash" added to _NON_PRICE_DOLLAR_KEYWORDS
+   to reduce confidence on these tweets; reduces both the acquisition cost AND the
+   per-BTC price in the same tweet, but the per-BTC price ($100k-range) will still
+   score above medium once the BTC keyword boost is applied.
+
+5. MSTR/equity context insufficiently penalised — Jeff Walton tweets heavily mix
+   BTC price talk with MSTR stock analysis (options, per-share multiples, float).
+   Added "multiple", "per share", "float", "option", "puts", "calls", "pps", "nav",
+   "loan", "home equity" to _EQUITY_CONTEXT_KEYWORDS. Increased equity penalty
+   from -0.3 to -0.4 to push MSTR-context tweets below the medium threshold.
 """
 from __future__ import annotations
 
@@ -128,6 +157,13 @@ _EQUITY_CONTEXT_KEYWORDS = frozenset(
         "shares",
         "equity",
         " eps ",
+        "multiple",
+        "float",
+        "option",
+        " puts ",
+        " calls ",
+        "pps",
+        "nav",
     }
 )
 
@@ -139,6 +175,9 @@ _NON_PRICE_DOLLAR_KEYWORDS = frozenset(
         "profit",
         "rent",
         "mortgage",
+        "in cash",
+        "home equity",
+        "loan",
     }
 )
 
@@ -156,7 +195,7 @@ def score_confidence(text_lower: str, has_dollar_sign: bool) -> float:
     if any(kw in text_lower for kw in _NEGATIVE_CRYPTO_KEYWORDS):
         score -= 0.3
     if any(kw in text_lower for kw in _EQUITY_CONTEXT_KEYWORDS):
-        score -= 0.3
+        score -= 0.4
     if any(kw in text_lower for kw in _NON_PRICE_DOLLAR_KEYWORDS):
         score -= 0.2
 
@@ -371,14 +410,16 @@ _BARE_SUFFIX_RE = re.compile(
 )
 
 # Written number patterns (BTC context required)
-# Matches spans like "one hundred thousand", "a million", "half a million"
+# Matches spans like "one hundred thousand", "a million", "half a million".
+# Standalone scale words ("million", "thousand", "billion") are intentionally
+# excluded from the leading position — they must follow a numeral word or "a/half a"
+# to avoid matching "21 million bitcoin" (supply cap) or acquisition cost fragments.
 _WRITTEN_NUM_RE = re.compile(
     r"\b(?:half\s+a\s+(?:million|billion)|"
     r"a\s+(?:hundred|thousand|million|billion)|"
     r"(?:one|two|three|four|five|six|seven|eight|nine|ten|"
     r"eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|"
-    r"twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|"
-    r"hundred|thousand|million|billion)"
+    r"twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)"
     r"(?:[\s-]+(?:and\s+)?(?:one|two|three|four|five|six|seven|eight|nine|ten|"
     r"eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|"
     r"twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|"
@@ -397,6 +438,14 @@ _YEAR_WRITTEN_RE = re.compile(
 
 # Percent-following exclusion: skip any match immediately followed by %
 _PERCENT_AFTER_RE = re.compile(r"^\s*%")
+
+# BTC/sats quantity unit: number followed by these units is a coin count, not a USD price
+_POST_MATCH_QUANTITY_RE = re.compile(
+    r"^\s*(?:btc|bitcoin|sat(?:oshi)?s?)\b", re.IGNORECASE
+)
+
+# 401k retirement account: exact fragment match
+_401K_FRAGMENT_RE = re.compile(r"^~?4[o0]1\s*[kK]$", re.IGNORECASE)
 
 
 # ─────────────────────────── internal span tracking ──────────────────────────
@@ -448,9 +497,20 @@ def extract_mentions_from_text(text: str) -> list[PriceMentionCandidate]:
     def _add(price: float, fragment: str, has_dollar: bool, span: tuple[int, int]) -> None:
         if _overlaps(span, consumed):
             return
-        # Skip if followed immediately by %
-        after = cleaned[span[1] : span[1] + 2]
+        after = cleaned[span[1] : span[1] + 15]
+        # Skip if followed immediately by % (percentage context)
         if _PERCENT_AFTER_RE.match(after):
+            return
+        # Skip if followed by a BTC/sats unit — it's a coin quantity, not a USD price.
+        # Only apply when the fragment has no explicit dollar indicator ("$", "dollar",
+        # "usd", "bucks"); if the fragment is dollar-denominated, "bitcoin" following
+        # is a subject/context word, not a unit (e.g. "$100k bitcoin target").
+        frag_lower = fragment.lower()
+        if "$" not in fragment and not any(w in frag_lower for w in ("dollar", "usd", "buck")):
+            if _POST_MATCH_QUANTITY_RE.match(after):
+                return
+        # Skip 401k retirement account references
+        if _401K_FRAGMENT_RE.match(fragment.strip()):
             return
         consumed.append(span)
         raw.append((price, fragment, has_dollar, span))
@@ -465,9 +525,13 @@ def extract_mentions_from_text(text: str) -> list[PriceMentionCandidate]:
         """Consume the range span once and push both endpoint prices."""
         if _overlaps(span, consumed):
             return
-        after = cleaned[span[1] : span[1] + 2]
+        after = cleaned[span[1] : span[1] + 15]
         if _PERCENT_AFTER_RE.match(after):
             return
+        frag_lower = frag.lower()
+        if "$" not in frag and not any(w in frag_lower for w in ("dollar", "usd", "buck")):
+            if _POST_MATCH_QUANTITY_RE.match(after):
+                return
         consumed.append(span)
         if p1 is not None:
             raw.append((p1, frag, has_dollar, span))

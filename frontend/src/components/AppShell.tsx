@@ -30,6 +30,7 @@ type AppShellProps = {
   activeAggregateMoodSlug: string | null;
   activeAggregateNarratives: boolean;
   activeMoodOutliers?: boolean;
+  activePriceMentions?: boolean;
   activeMoodSlug: string | null;
   activeOverviewSlug: string | null;
   activeHeatmapSlug: string | null;
@@ -62,6 +63,7 @@ export function AppShell({
   activeAggregateMoodSlug,
   activeAggregateNarratives,
   activeMoodOutliers = false,
+  activePriceMentions = false,
   activeMoodSlug,
   activeOverviewSlug,
   activeHeatmapSlug,
@@ -108,6 +110,7 @@ export function AppShell({
     activeAggregateMoodSlug,
     activeAggregateNarratives,
     activeMoodOutliers,
+    activePriceMentions,
     activeBitcoinMentionsSlug,
     activeHeatmapSlug,
     activeMoodSlug,
@@ -355,6 +358,13 @@ export function AppShell({
           type="button"
         >
           Mood Outliers
+        </button>
+        <button
+          className={`page-nav-link${activePriceMentions ? " is-active" : ""}`}
+          onClick={() => { window.location.hash = "#/price-mentions"; }}
+          type="button"
+        >
+          Price Mentions
         </button>
         <div className="overview-dropdown">
           <button

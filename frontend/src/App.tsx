@@ -45,6 +45,7 @@ import { BitcoinMentionsPage } from "./pages/BitcoinMentionsPage";
 import { AuthorOverviewPage } from "./pages/MichaelSaylorVsBtcPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { PodcastPersonPage } from "./pages/PodcastPersonPage";
+import { PriceMentionsPage } from "./pages/PriceMentionsPage";
 import { UserBeliefsPage } from "./pages/UserBeliefsPage";
 import { UserNarrativeIntensityPage } from "./pages/UserNarrativeIntensityPage";
 import { UserNarrativeMixPage } from "./pages/UserNarrativeMixPage";
@@ -67,6 +68,7 @@ type AppRoute =
   | { kind: "aggregate-mood"; aggregateMood: AggregateMoodDefinition }
   | { kind: "aggregate-narratives" }
   | { kind: "mood-outliers" }
+  | { kind: "price-mentions" }
   | { kind: "bitcoin-mentions"; bitcoinMentions: BitcoinMentionsDefinition }
   | { kind: "mood"; mood: MoodDefinition }
   | { kind: "overview"; overview: OverviewDefinition }
@@ -159,6 +161,10 @@ function getRouteFromHash(hash: string, definitions: RouteDefinitions): AppRoute
 
   if (path === "#/mood-outliers") {
     return { kind: "mood-outliers" };
+  }
+
+  if (path === "#/price-mentions") {
+    return { kind: "price-mentions" };
   }
 
   if (path.startsWith("#/bitcoin-mentions/")) {
@@ -883,6 +889,41 @@ export default function App() {
         heatmaps={sortedHeatmapDefinitions}
       >
         <MoodOutliersPage apiBasePath="/api/views/aggregate-moods" />
+      </AppShell>
+    );
+  }
+
+  if (route.kind === "price-mentions") {
+    return (
+      <AppShell
+        mode="dashboard"
+        dashboardTitle="Price Mentions"
+        activePodcastPersonSlug={null}
+        activeBitcoinMentionsSlug={null}
+        activeAggregateMoodSlug={null}
+        activeAggregateNarratives={false}
+        activeMoodSlug={null}
+        activeOverviewSlug={null}
+        activeHeatmapSlug={null}
+        activeSettingsSection={null}
+        activePriceMentions
+        aggregateMoods={aggregateMoodDefinitions}
+        bitcoinMentions={sortedBitcoinMentionsDefinitions}
+        moods={sortedMoodDefinitions}
+        onNavigateHome={navigateHome}
+        onNavigatePodcastPerson={navigatePodcastPerson}
+        onNavigateAggregateMood={navigateAggregateMood}
+        onNavigateAggregateNarratives={navigateAggregateNarratives}
+        onNavigateBitcoinMentions={navigateBitcoinMentions}
+        onNavigateMood={navigateMood}
+        onNavigateOverview={navigateOverview}
+        onNavigateHeatmap={navigateHeatmap}
+        onNavigateGlobalSettings={navigateGlobalSettings}
+        onNavigateUserSettings={navigateUserSettings}
+        overviews={sortedOverviewDefinitions}
+        heatmaps={sortedHeatmapDefinitions}
+      >
+        <PriceMentionsPage />
       </AppShell>
     );
   }
