@@ -458,27 +458,41 @@ Price mention queries filter directly on indexed columns (`user_id`, `extractor_
 
 ## Confidence Calibration Plan
 
-The initial heuristic confidence scores are educated guesses. Before treating medium-confidence mentions as reliable, do a calibration pass on two contrasting authors:
+The initial heuristic confidence scores are educated guesses. Before treating medium-confidence mentions as reliable, do a calibration pass on four authors chosen to cover distinct noise profiles:
 
 **Author 1 — Saylor (BTC-pure baseline)**
+Profile: Bitcoin maximalist, near-zero non-BTC dollar noise. Establishes that the extractor performs cleanly on the highest-signal corpus in the set.
 1. Run the extractor on Saylor's full corpus.
 2. Export a random sample of ~150 medium-confidence rows with their `raw_fragment` and tweet text.
 3. Manually label each as valid BTC price mention / not.
 4. Establish baseline precision/recall in a high-signal environment.
 
 **Author 2 — Michael Sullivan (mixed-topic stress test)**
+Profile: Mixed topics — politics, tech, general commentary — with frequent non-BTC dollar amounts. The hardest false-positive environment in the set.
 1. Run the extractor on Sullivan's full corpus.
 2. Export a random sample of ~150 medium-confidence rows.
 3. Manually label, paying particular attention to false positives from non-BTC contexts (politics, tech, general life mentions of dollar amounts).
 4. Adjust scoring weights based on the false positive patterns found.
 
+**Author 3 — Willy Woo (on-chain analyst)**
+Profile: BTC-focused but heavily technical — support/resistance levels, on-chain metrics, price targets with specific numeric ranges. Tests whether technical analysis vocabulary scores correctly and whether dense price-level tweets produce false duplicates or missed range matches.
+1. Run the extractor on Woo's full corpus.
+2. Export a random sample of ~150 medium-confidence rows.
+3. Manually label, with attention to whether range patterns (`$60k-$100k` style) are being extracted correctly and whether on-chain metric numbers (non-price) are leaking through.
+
+**Author 4 — Jeff Walton (corporate/institutional BTC context)**
+Profile: Provides a distinct institutional framing — BTC in a corporate treasury or capital allocation context. Tests whether corporate financial language (balance sheet, allocation percentages, share counts) introduces false positives that Sullivan's personal-finance noise doesn't cover.
+1. Run the extractor on Walton's full corpus.
+2. Export a random sample of ~150 medium-confidence rows.
+3. Manually label, with attention to corporate financial false positives distinct from Sullivan's personal-finance noise.
+
 **Output:**
 - Document calibration findings as comments at the top of `price_mention_extractor.py`
-- Note any new negative-signal keywords added based on Sullivan's false positives
-- Re-run on both authors after adjustments to confirm improvement
+- Note any new negative-signal keywords added based on false positives from each author
+- Re-run on all four authors after adjustments to confirm improvement
 - Promote price mention extraction to a default step in the post-process pipeline once calibration converges
 
-This is a one-time cost and should take ~2 hours total across both authors.
+At ~5–10 seconds per row and 150 rows per author, the full four-author pass is roughly 30–60 minutes of labeling total. This is a one-time cost.
 
 ---
 
@@ -488,7 +502,7 @@ This plan breaks the work into self-contained phases that can be picked up and c
 
 ### Picking up this plan in a new session
 
-**Nothing from this feature has been built yet.** Start at Phase 1.
+**Phases 1–3 are complete.** Start at Phase 4 (calibration).
 
 Full build order: Phase 1 (migration) → Phase 2 (extractor service + tests) → Phase 3 (extraction script) → Phase 4 (calibration) → Phase 5 (full corpus run) → Phase 6 (API endpoint) → Phase 7 (heatmap UI) → Phase 8 (cohort comparison UI) → Phase 9 (pipeline integration + shell script) → Phase 10 (scatter view, optional).
 
@@ -562,15 +576,18 @@ Steps:
 **Goal:** Validate and tune the extractor against real corpus before scaling out.
 
 Steps:
-1. Run extractor on full Saylor corpus.
-2. Sample 150 medium-confidence rows and manually label.
-3. Run extractor on full Michael Sullivan corpus.
-4. Sample 150 medium-confidence rows and manually label.
-5. Adjust scoring weights and negative-signal keyword sets based on false positives identified.
-6. Re-run on both authors.
+1. Run extractor on full corpora for all four calibration authors: Saylor, Michael Sullivan, Willy Woo, Jeff Walton.
+2. For each author, export a random sample of ~150 medium-confidence rows (raw_fragment + tweet text).
+3. Manually label each row: valid BTC price mention / not.
+4. Identify false positive patterns by author profile:
+   - Sullivan: non-BTC personal finance / general dollar amounts
+   - Woo: on-chain metric numbers, range extraction accuracy
+   - Walton: corporate financial language (balance sheet, allocations, share counts)
+5. Adjust scoring weights and negative-signal keyword sets based on patterns found.
+6. Re-run on all four authors after adjustments to confirm improvement.
 7. Document calibration outcomes in the extractor module's top comment.
 
-**Done when:** False positive rate is acceptable (target < 10% for medium-confidence band); calibration notes recorded; both authors' data is treated as v1-quality.
+**Done when:** False positive rate is acceptable (target < 10% for medium-confidence band); calibration notes recorded; all four authors' data is treated as v1-quality.
 
 ### Phase 5 — Run extraction over full corpus
 
