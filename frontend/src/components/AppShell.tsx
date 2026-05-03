@@ -152,6 +152,16 @@ export function AppShell({
     window.location.hash = `#/user-${view}/${encodeURIComponent(personSlug)}`;
   }
 
+  function buildPriceMentionNavigationHash(path: string) {
+    if (activePriceMentionsView === null) {
+      return path;
+    }
+
+    const queryIndex = window.location.hash.indexOf("?");
+    const currentQuery = queryIndex >= 0 ? window.location.hash.slice(queryIndex) : "";
+    return `${path}${currentQuery}`;
+  }
+
   function renderNavigation(isDashboardNav: boolean) {
     return (
       <>
@@ -386,7 +396,9 @@ export function AppShell({
                 <button
                   key={view}
                   className={`overview-dropdown-item${activePriceMentionsView === view ? " is-active" : ""}`}
-                  onClick={() => { window.location.hash = hash; }}
+                  onClick={() => {
+                    window.location.hash = buildPriceMentionNavigationHash(hash);
+                  }}
                   role="menuitem"
                   type="button"
                 >

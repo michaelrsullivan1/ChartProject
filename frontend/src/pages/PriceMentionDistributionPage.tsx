@@ -14,10 +14,22 @@ import {
   type AggregateMoodCohortsResponse,
 } from "../api/authorOverview";
 import { fetchPriceMentions, type PriceMentionsResponse } from "../api/priceMentions";
+import { PriceMentionCohortSidebar } from "../components/PriceMentionCohortSidebar";
 import { DashboardLoadingState } from "../components/DashboardLoadingState";
+import {
+  ALL_PRICE_MENTION_COHORT_KEY,
+  buildPriceMentionCohortOptions,
+  buildPriceMentionSelectionHash,
+  getNextPinnedPriceMentionCohortKey,
+  getPinnedPriceMentionComparisonKey,
+  getPriceMentionCohortTagSlug,
+  isValidPriceMentionCohortKey,
+  readPriceMentionUrlState,
+  type PriceMentionCohortKey,
+  type PriceMentionCohortOption,
+} from "../lib/priceMentionCohorts";
 
 const API_BASE = "/api/views";
-const ALL_COHORT_KEY = "__all__";
 
 const MENTION_TYPES = ["prediction", "conditional", "current", "historical", "unclassified"] as const;
 type MentionTypeFilter = "all" | (typeof MENTION_TYPES)[number];
@@ -30,6 +42,7 @@ const PRICE_BUCKETS = [
 
 const FAKE_EPOCH = 946684800;
 const FAKE_DAY = 86400;
+const PRICE_MENTION_VIEW = "distribution";
 
 const compactPriceFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -37,8 +50,6 @@ const compactPriceFormatter = new Intl.NumberFormat("en-US", {
   notation: "compact",
   maximumFractionDigits: 0,
 });
-
-type CohortOption = { key: string; tagSlug: string | null; tagName: string };
 
 function bucketIndexToTime(index: number): UTCTimestamp {
   return (FAKE_EPOCH + index * FAKE_DAY) as UTCTimestamp;
@@ -101,60 +112,132 @@ const chartOptions = {
 
 export function PriceMentionDistributionPage() {
   const [data, setData] = useState<PriceMentionsResponse | null>(null);
-  const [baselineData, setBaselineData] = useState<PriceMentionsResponse | null>(null);
-  const [cohorts, setCohorts] = useState<CohortOption[]>([]);
+  const [comparisonData, setComparisonData] = useState<PriceMentionsResponse | null>(null);
+  const [cohorts, setCohorts] = useState<PriceMentionCohortOption[]>([]);
+  const [areCohortsReady, setAreCohortsReady] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [mentionType, setMentionType] = useState<MentionTypeFilter>("all");
   const [includeLoConfidence, setIncludeLoConfidence] = useState(false);
-  const [selectedCohortKey, setSelectedCohortKey] = useState<string>(ALL_COHORT_KEY);
+  const [selectedCohortKey, setSelectedCohortKey] = useState<PriceMentionCohortKey>(
+    () =>
+      readPriceMentionUrlState(window.location.hash, PRICE_MENTION_VIEW).selectedCohortKey ??
+      ALL_PRICE_MENTION_COHORT_KEY,
+  );
+  const [pinnedCohortKey, setPinnedCohortKey] = useState<PriceMentionCohortKey | null>(
+    () => readPriceMentionUrlState(window.location.hash, PRICE_MENTION_VIEW).pinnedCohortKey,
+  );
 
   const containerRef = useRef<HTMLDivElement>(null);
 
   const selectedCohortName =
-    cohorts.find((c) => c.key === selectedCohortKey)?.tagName ?? "All tracked users";
-  const hasCohort = selectedCohortKey !== ALL_COHORT_KEY;
+    cohorts.find((cohortOption) => cohortOption.key === selectedCohortKey)?.tagName ??
+    "All tracked users";
+  const effectivePinnedComparisonKey = getPinnedPriceMentionComparisonKey(
+    selectedCohortKey,
+    pinnedCohortKey,
+  );
+  const fallbackComparisonKey =
+    effectivePinnedComparisonKey ??
+    (selectedCohortKey === ALL_PRICE_MENTION_COHORT_KEY ? null : ALL_PRICE_MENTION_COHORT_KEY);
+  const comparisonCohortName =
+    fallbackComparisonKey === null
+      ? null
+      : cohorts.find((cohortOption) => cohortOption.key === fallbackComparisonKey)?.tagName ??
+        "All tracked users";
 
   useEffect(() => {
     const ac = new AbortController();
     fetchAggregateMoodCohorts(`${API_BASE}/aggregate-moods`, ac.signal)
       .then((res: AggregateMoodCohortsResponse) => {
-        setCohorts([
-          { key: ALL_COHORT_KEY, tagSlug: null, tagName: "All tracked users" },
-          ...res.cohorts.map((c) => ({ key: c.tag_slug, tagSlug: c.tag_slug, tagName: c.tag_name })),
-        ]);
+        setCohorts(buildPriceMentionCohortOptions(res.cohorts));
       })
       .catch(() => {
-        setCohorts([{ key: ALL_COHORT_KEY, tagSlug: null, tagName: "All tracked users" }]);
+        setCohorts(buildPriceMentionCohortOptions([]));
+      })
+      .finally(() => {
+        setAreCohortsReady(true);
       });
     return () => ac.abort();
   }, []);
 
   useEffect(() => {
+    function handleHashChange() {
+      const urlState = readPriceMentionUrlState(window.location.hash, PRICE_MENTION_VIEW);
+      setSelectedCohortKey(urlState.selectedCohortKey ?? ALL_PRICE_MENTION_COHORT_KEY);
+      setPinnedCohortKey(urlState.pinnedCohortKey);
+    }
+
+    window.addEventListener("hashchange", handleHashChange);
+    return () => {
+      window.removeEventListener("hashchange", handleHashChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    const nextHash = buildPriceMentionSelectionHash(
+      PRICE_MENTION_VIEW,
+      selectedCohortKey,
+      pinnedCohortKey,
+    );
+    if (window.location.hash !== nextHash) {
+      window.location.hash = nextHash;
+    }
+  }, [pinnedCohortKey, selectedCohortKey]);
+
+  useEffect(() => {
+    if (!areCohortsReady) {
+      return;
+    }
+
     const ac = new AbortController();
     setIsLoading(true);
     setError(null);
 
-    const cohortOpt = cohorts.find((c) => c.key === selectedCohortKey);
+    const effectiveSelectedCohortKey = isValidPriceMentionCohortKey(selectedCohortKey, cohorts)
+      ? selectedCohortKey
+      : ALL_PRICE_MENTION_COHORT_KEY;
+    const effectivePinnedCohortKey =
+      pinnedCohortKey !== null && isValidPriceMentionCohortKey(pinnedCohortKey, cohorts)
+        ? pinnedCohortKey
+        : null;
+    const effectiveComparisonCohortKey =
+      getPinnedPriceMentionComparisonKey(effectiveSelectedCohortKey, effectivePinnedCohortKey) ??
+      (effectiveSelectedCohortKey === ALL_PRICE_MENTION_COHORT_KEY
+        ? null
+        : ALL_PRICE_MENTION_COHORT_KEY);
     const params = {
       granularity: "month" as const,
-      cohortTag: cohortOpt?.tagSlug ?? null,
+      cohortTag: getPriceMentionCohortTagSlug(effectiveSelectedCohortKey, cohorts),
       minConfidence: includeLoConfidence ? 0.0 : 0.5,
       mentionType: mentionType === "all" ? null : mentionType,
     };
 
-    const baselinePromise = hasCohort
-      ? fetchPriceMentions(`${API_BASE}/price-mentions`, { ...params, cohortTag: null }, ac.signal)
+    const comparisonPromise = effectiveComparisonCohortKey
+      ? fetchPriceMentions(
+          `${API_BASE}/price-mentions`,
+          {
+            ...params,
+            cohortTag: getPriceMentionCohortTagSlug(effectiveComparisonCohortKey, cohorts),
+          },
+          ac.signal,
+        )
       : Promise.resolve(null);
 
     Promise.all([
       fetchPriceMentions(`${API_BASE}/price-mentions`, params, ac.signal),
-      baselinePromise,
+      comparisonPromise,
     ])
-      .then(([primary, baseline]) => {
+      .then(([primary, comparison]) => {
         setData(primary);
-        setBaselineData(baseline);
+        setComparisonData(comparison);
+        if (selectedCohortKey !== effectiveSelectedCohortKey) {
+          setSelectedCohortKey(effectiveSelectedCohortKey);
+        }
+        if (pinnedCohortKey !== effectivePinnedCohortKey) {
+          setPinnedCohortKey(effectivePinnedCohortKey);
+        }
         setIsLoading(false);
       })
       .catch((err: unknown) => {
@@ -164,7 +247,14 @@ export function PriceMentionDistributionPage() {
       });
 
     return () => ac.abort();
-  }, [mentionType, includeLoConfidence, selectedCohortKey, cohorts, hasCohort]);
+  }, [
+    areCohortsReady,
+    cohorts,
+    includeLoConfidence,
+    mentionType,
+    pinnedCohortKey,
+    selectedCohortKey,
+  ]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -173,19 +263,19 @@ export function PriceMentionDistributionPage() {
     const cohortBuckets = aggregateIntoBuckets(data);
     const cohortTotal = cohortBuckets.reduce((s, c) => s + c, 0);
 
-    const baselineBuckets = baselineData ? aggregateIntoBuckets(baselineData) : null;
-    const baselineTotal = baselineBuckets ? baselineBuckets.reduce((s, c) => s + c, 0) : 0;
+    const comparisonBuckets = comparisonData ? aggregateIntoBuckets(comparisonData) : null;
+    const comparisonTotal = comparisonBuckets ? comparisonBuckets.reduce((s, c) => s + c, 0) : 0;
 
     const cohortSeries: LineData<Time>[] = PRICE_BUCKETS.map((_, i) => ({
       time: bucketIndexToTime(i) as Time,
       value: cohortTotal > 0 ? (cohortBuckets[i] / cohortTotal) * 100 : 0,
     }));
 
-    const baselineSeries: LineData<Time>[] =
-      baselineBuckets && baselineTotal > 0
+    const comparisonSeries: LineData<Time>[] =
+      comparisonBuckets && comparisonTotal > 0
         ? PRICE_BUCKETS.map((_, i) => ({
             time: bucketIndexToTime(i) as Time,
-            value: (baselineBuckets[i] / baselineTotal) * 100,
+            value: (comparisonBuckets[i] / comparisonTotal) * 100,
           }))
         : [];
 
@@ -195,27 +285,23 @@ export function PriceMentionDistributionPage() {
       height: container.clientHeight,
     });
 
-    if (baselineSeries.length > 0) {
-      const baselineLine = chart.addSeries(LineSeries, {
+    if (comparisonSeries.length > 0) {
+      const comparisonLine = chart.addSeries(LineSeries, {
         color: "rgba(198, 191, 180, 0.7)",
         lineWidth: 1,
         lineType: LineType.WithSteps,
-        topColor: "rgba(198, 191, 180, 0.15)",
-        bottomColor: "rgba(198, 191, 180, 0.02)",
         lastValueVisible: false,
         priceLineVisible: false,
         crosshairMarkerVisible: false,
         priceFormat: { type: "percent" as const },
       });
-      baselineLine.setData(baselineSeries);
+      comparisonLine.setData(comparisonSeries);
     }
 
     const cohortLine = chart.addSeries(LineSeries, {
       color: "rgba(100, 160, 255, 0.9)",
       lineWidth: 2,
       lineType: LineType.WithSteps,
-      topColor: "rgba(100, 160, 255, 0.25)",
-      bottomColor: "rgba(100, 160, 255, 0.02)",
       lastValueVisible: false,
       priceLineVisible: false,
       crosshairMarkerVisible: true,
@@ -243,40 +329,42 @@ export function PriceMentionDistributionPage() {
       observer.disconnect();
       chart.remove();
     };
-  }, [data, baselineData]);
+  }, [comparisonData, data]);
 
   const totalMentions = data
     ? data.periods.reduce((s, p) => s + p.mention_count, 0)
     : null;
 
+  function handleSelectedCohortKeyChange(nextKey: PriceMentionCohortKey) {
+    if (selectedCohortKey === nextKey) {
+      return;
+    }
+
+    setPinnedCohortKey((currentPinnedKey) =>
+      getNextPinnedPriceMentionCohortKey(selectedCohortKey, currentPinnedKey, nextKey),
+    );
+    setSelectedCohortKey(nextKey);
+  }
+
+  function handlePinnedCohortKeyToggle(nextKey: PriceMentionCohortKey) {
+    setPinnedCohortKey((currentPinnedKey) => (currentPinnedKey === nextKey ? null : nextKey));
+  }
+
   return (
-    <section className="dashboard-page pm-page">
+    <section className="dashboard-page pm-page pm-comparison-page">
       <article className="panel panel-accent dashboard-workspace">
         <div className="dashboard-workspace-header">
           <div>
             <p className="dashboard-eyebrow">Price Mentions — Distribution</p>
             <p className="dashboard-subtitle">
-              {hasCohort
-                ? `${selectedCohortName} vs. all tracked users — price level distribution`
-                : "All tracked users — price level distribution"}
+              {comparisonCohortName
+                ? `${selectedCohortName} vs. ${comparisonCohortName} — price level distribution`
+                : `${selectedCohortName} — price level distribution`}
             </p>
           </div>
         </div>
 
         <div className="pm-controls">
-          <div className="chart-control-card">
-            <p className="chart-control-eyebrow">Cohort</p>
-            <select
-              className="pm-select"
-              value={selectedCohortKey}
-              onChange={(e) => setSelectedCohortKey(e.target.value)}
-            >
-              {cohorts.map((c) => (
-                <option key={c.key} value={c.key}>{c.tagName}</option>
-              ))}
-            </select>
-          </div>
-
           <div className="chart-control-card">
             <p className="chart-control-eyebrow">Mention Type</p>
             <div className="pm-toggle-row pm-toggle-wrap">
@@ -315,37 +403,44 @@ export function PriceMentionDistributionPage() {
           </div>
         </div>
 
-        <div className="pm-chart-area">
-          {isLoading ? (
-            <DashboardLoadingState />
-          ) : error ? (
-            <div className="pm-error">{error}</div>
-          ) : data && data.periods.length === 0 ? (
-            <div className="pm-empty">No price mentions found for the selected filters.</div>
-          ) : (
-            <div ref={containerRef} className="pm-lw-chart" />
-          )}
-        </div>
+        <div className="pm-comparison-shell">
+          <div className="pm-comparison-chart-column">
+            <div className="pm-chart-area">
+              {isLoading ? (
+                <DashboardLoadingState />
+              ) : error ? (
+                <div className="pm-error">{error}</div>
+              ) : data && data.periods.length === 0 ? (
+                <div className="pm-empty">No price mentions found for the selected filters.</div>
+              ) : (
+                <div ref={containerRef} className="pm-lw-chart" />
+              )}
+            </div>
 
-        <div className="pm-legend">
-          {hasCohort ? (
-            <>
+            <div className="pm-legend">
               <span className="pm-legend-swatch pm-legend-swatch-cohort" aria-hidden="true" />
               <span className="pm-legend-label">{selectedCohortName}</span>
-              <span className="pm-legend-swatch pm-legend-swatch-baseline" aria-hidden="true" />
-              <span className="pm-legend-label">All tracked users</span>
-            </>
-          ) : (
-            <>
-              <span className="pm-legend-swatch pm-legend-swatch-cohort" aria-hidden="true" />
-              <span className="pm-legend-label">All tracked users</span>
-            </>
-          )}
-          {totalMentions !== null ? (
-            <span className="pm-legend-meta">
-              {totalMentions.toLocaleString()} total mentions
-            </span>
-          ) : null}
+              {comparisonCohortName ? (
+                <>
+                  <span className="pm-legend-swatch pm-legend-swatch-baseline" aria-hidden="true" />
+                  <span className="pm-legend-label">{comparisonCohortName}</span>
+                </>
+              ) : null}
+              {totalMentions !== null ? (
+                <span className="pm-legend-meta">
+                  {totalMentions.toLocaleString()} mentions for {selectedCohortName}
+                </span>
+              ) : null}
+            </div>
+          </div>
+
+          <PriceMentionCohortSidebar
+            cohortOptions={cohorts}
+            selectedCohortKey={selectedCohortKey}
+            pinnedCohortKey={pinnedCohortKey}
+            onSelectedCohortKeyChange={handleSelectedCohortKeyChange}
+            onPinnedCohortKeyToggle={handlePinnedCohortKeyToggle}
+          />
         </div>
       </article>
     </section>

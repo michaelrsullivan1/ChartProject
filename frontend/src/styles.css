@@ -3105,6 +3105,10 @@ textarea {
   grid-template-rows: auto auto minmax(0, 1fr) auto;
 }
 
+.pm-comparison-page .dashboard-workspace {
+  grid-template-rows: auto auto minmax(0, 1fr);
+}
+
 .pm-controls {
   display: flex;
   gap: 10px;
@@ -3146,6 +3150,28 @@ textarea {
   position: relative;
   min-height: 0;
   overflow: hidden;
+}
+
+.pm-comparison-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 280px);
+  gap: 12px;
+  min-height: 0;
+}
+
+.pm-comparison-chart-column {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 12px;
+  min-height: 0;
+}
+
+.pm-comparison-page .pm-chart-area {
+  min-height: 420px;
+}
+
+.pm-cohort-sidebar {
+  min-height: 0;
 }
 
 .pm-canvas {
@@ -3238,4 +3264,14 @@ textarea {
 .pm-legend-swatch-cohort {
   background: rgba(60, 140, 255, 0.55);
   border: 1px solid rgba(80, 160, 255, 0.7);
+}
+
+@media (max-width: 1040px) {
+  .pm-comparison-shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pm-comparison-page .pm-chart-area {
+    min-height: 360px;
+  }
 }
