@@ -61,6 +61,7 @@ def build_price_mention_view(
                 "bin_size": request.bin_size,
                 "extractor_key": request.extractor_key,
                 "extractor_version": request.extractor_version,
+                "btc_series": [],
                 "periods": [],
                 "generated_at": datetime.now(UTC).isoformat(),
             }
@@ -178,12 +179,18 @@ def build_price_mention_view(
                 }
             )
 
+        btc_series = [
+            {"observed_at": observed_at.isoformat(), "price": price}
+            for observed_at, price in sorted(btc_prices.items())
+        ]
+
         return {
             "granularity": granularity,
             "cohort": cohort_selection,
             "bin_size": request.bin_size,
             "extractor_key": request.extractor_key,
             "extractor_version": request.extractor_version,
+            "btc_series": btc_series,
             "periods": periods,
             "generated_at": datetime.now(UTC).isoformat(),
         }

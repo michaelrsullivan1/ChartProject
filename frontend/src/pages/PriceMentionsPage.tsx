@@ -37,6 +37,13 @@ const weekFormatter = new Intl.DateTimeFormat("en-US", {
 
 type CohortOption = { key: string; tagSlug: string | null; tagName: string };
 
+type HeatmapViewState = {
+  colStart: number;
+  colEnd: number;
+  logMin: number;
+  logMax: number;
+};
+
 export function PriceMentionsPage() {
   const [data, setData] = useState<PriceMentionsResponse | null>(null);
   const [cohorts, setCohorts] = useState<CohortOption[]>([]);
@@ -47,10 +54,12 @@ export function PriceMentionsPage() {
   const [mentionType, setMentionType] = useState<MentionTypeFilter>("all");
   const [includeLoConfidence, setIncludeLoConfidence] = useState(false);
   const [selectedCohortKey, setSelectedCohortKey] = useState<string>(ALL_COHORT_KEY);
+  const [viewState, setViewState] = useState(() => createDefaultHeatmapViewState());
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const drawRef = useRef<(() => void) | null>(null);
+  const dragStateRef = useRef<{ pointerId: number; lastClientX: number; lastClientY: number } | null>(null);
 
   const selectedCohortName =
     cohorts.find((c) => c.key === selectedCohortKey)?.tagName ?? "All tracked users";
@@ -86,7 +95,10 @@ export function PriceMentionsPage() {
       },
       ac.signal,
     )
-      .then((res) => { setData(res); setIsLoading(false); })
+      .then((res) => {
+        setData(res);
+        setIsLoading(false);
+      })
       .catch((err: unknown) => {
         if (err instanceof Error && err.name === "AbortError") return;
         setError(err instanceof Error ? err.message : "Failed to load data");
@@ -95,6 +107,10 @@ export function PriceMentionsPage() {
 
     return () => ac.abort();
   }, [granularity, mentionType, includeLoConfidence, selectedCohortKey, cohorts]);
+
+  useEffect(() => {
+    setViewState(createDefaultHeatmapViewState(data?.periods.length));
+  }, [granularity, mentionType, includeLoConfidence, selectedCohortKey, data]);
 
   useEffect(() => {
     drawRef.current = () => {
@@ -111,11 +127,12 @@ export function PriceMentionsPage() {
       canvas.style.height = `${h}px`;
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.scale(dpr, dpr);
-      drawHeatmap(ctx, w, h, data);
+      drawHeatmap(ctx, w, h, data, viewState);
     };
     drawRef.current();
-  }, [data]);
+  }, [data, viewState]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -123,6 +140,141 @@ export function PriceMentionsPage() {
     observer.observe(containerRef.current);
     return () => observer.disconnect();
   }, []);
+
+  useEffect(() => {
+    if (!containerRef.current || !data || isLoading || error || data.periods.length === 0) {
+      return;
+    }
+
+    const container = containerRef.current;
+    const heatmapData = data;
+
+    function handlePointerDown(event: PointerEvent) {
+      const rect = container.getBoundingClientRect();
+      const localX = event.clientX - rect.left;
+      const localY = event.clientY - rect.top;
+      const chartW = rect.width - AXIS_LEFT - AXIS_RIGHT;
+      const chartH = rect.height - AXIS_BOTTOM - AXIS_TOP;
+      if (
+        chartW <= 0 ||
+        chartH <= 0 ||
+        localX < AXIS_LEFT ||
+        localX > AXIS_LEFT + chartW ||
+        localY < AXIS_TOP ||
+        localY > AXIS_TOP + chartH
+      ) {
+        return;
+      }
+
+      dragStateRef.current = {
+        pointerId: event.pointerId,
+        lastClientX: event.clientX,
+        lastClientY: event.clientY,
+      };
+      container.setPointerCapture(event.pointerId);
+    }
+
+    function handlePointerMove(event: PointerEvent) {
+      const dragState = dragStateRef.current;
+      if (!dragState || dragState.pointerId !== event.pointerId) {
+        return;
+      }
+
+      const rect = container.getBoundingClientRect();
+      const chartW = rect.width - AXIS_LEFT - AXIS_RIGHT;
+      const chartH = rect.height - AXIS_BOTTOM - AXIS_TOP;
+      if (chartW <= 0 || chartH <= 0) {
+        return;
+      }
+
+      dragStateRef.current = {
+        pointerId: event.pointerId,
+        lastClientX: event.clientX,
+        lastClientY: event.clientY,
+      };
+
+      setViewState((currentView) =>
+        clampHeatmapViewState(
+          {
+            colStart:
+              currentView.colStart -
+              ((event.clientX - dragState.lastClientX) / chartW) *
+                (currentView.colEnd - currentView.colStart + 1),
+            colEnd:
+              currentView.colEnd -
+              ((event.clientX - dragState.lastClientX) / chartW) *
+                (currentView.colEnd - currentView.colStart + 1),
+            logMin:
+              currentView.logMin +
+              ((event.clientY - dragState.lastClientY) / chartH) *
+                (currentView.logMax - currentView.logMin),
+            logMax:
+              currentView.logMax +
+              ((event.clientY - dragState.lastClientY) / chartH) *
+                (currentView.logMax - currentView.logMin),
+          },
+          heatmapData.periods.length,
+        ),
+      );
+    }
+
+    function handlePointerUp(event: PointerEvent) {
+      if (dragStateRef.current?.pointerId !== event.pointerId) {
+        return;
+      }
+      dragStateRef.current = null;
+      if (container.hasPointerCapture(event.pointerId)) {
+        container.releasePointerCapture(event.pointerId);
+      }
+    }
+
+    function handleWheel(event: WheelEvent) {
+      const rect = container.getBoundingClientRect();
+      const localX = event.clientX - rect.left;
+      const localY = event.clientY - rect.top;
+      const chartW = rect.width - AXIS_LEFT - AXIS_RIGHT;
+      const chartH = rect.height - AXIS_BOTTOM - AXIS_TOP;
+      if (
+        chartW <= 0 ||
+        chartH <= 0 ||
+        localX < AXIS_LEFT ||
+        localX > AXIS_LEFT + chartW ||
+        localY < AXIS_TOP ||
+        localY > AXIS_TOP + chartH
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+      const zoomFactor =
+        event.deltaY > 0 ? HEATMAP_WHEEL_ZOOM_FACTOR : 1 / HEATMAP_WHEEL_ZOOM_FACTOR;
+      const anchorX = (localX - AXIS_LEFT) / chartW;
+      const anchorY = (localY - AXIS_TOP) / chartH;
+      setViewState((currentView) =>
+        zoomHeatmapViewState(currentView, zoomFactor, anchorX, anchorY, heatmapData.periods.length),
+      );
+    }
+
+    function handleDoubleClick() {
+      setViewState(createDefaultHeatmapViewState(heatmapData.periods.length));
+    }
+
+    container.addEventListener("pointerdown", handlePointerDown);
+    container.addEventListener("pointermove", handlePointerMove);
+    container.addEventListener("pointerup", handlePointerUp);
+    container.addEventListener("pointercancel", handlePointerUp);
+    container.addEventListener("wheel", handleWheel, { passive: false });
+    container.addEventListener("dblclick", handleDoubleClick);
+
+    return () => {
+      container.removeEventListener("pointerdown", handlePointerDown);
+      container.removeEventListener("pointermove", handlePointerMove);
+      container.removeEventListener("pointerup", handlePointerUp);
+      container.removeEventListener("pointercancel", handlePointerUp);
+      container.removeEventListener("wheel", handleWheel);
+      container.removeEventListener("dblclick", handleDoubleClick);
+    };
+  }, [data, error, isLoading]);
 
   return (
     <section className="dashboard-page pm-page">
@@ -228,6 +380,7 @@ export function PriceMentionsPage() {
               {data.periods.length} {data.granularity === "month" ? "months" : "weeks"}
             </span>
           ) : null}
+          <span className="pm-legend-meta">Scroll to zoom, drag to pan, double-click to reset</span>
         </div>
       </article>
     </section>
@@ -240,12 +393,16 @@ const AXIS_LEFT = 60;
 const AXIS_BOTTOM = 28;
 const AXIS_TOP = 6;
 const AXIS_RIGHT = 8;
+const HEATMAP_WHEEL_ZOOM_FACTOR = 1.04;
+const HEATMAP_MIN_VISIBLE_COLS = 3;
+const HEATMAP_MIN_LOG_SPAN = 0.18;
 
 function drawHeatmap(
   ctx: CanvasRenderingContext2D,
   totalW: number,
   totalH: number,
   data: PriceMentionsResponse,
+  viewState: HeatmapViewState,
 ) {
   const chartW = totalW - AXIS_LEFT - AXIS_RIGHT;
   const chartH = totalH - AXIS_BOTTOM - AXIS_TOP;
@@ -253,51 +410,45 @@ function drawHeatmap(
 
   const { periods, bin_size: binSize } = data;
   if (periods.length === 0) return;
-  const numCols = periods.length;
-  const colW = chartW / numCols;
+  const visibleColCount = viewState.colEnd - viewState.colStart + 1;
+  const colW = chartW / visibleColCount;
 
   let maxCount = 1;
-  for (const p of periods) for (const m of p.mentions) if (m.count > maxCount) maxCount = m.count;
+  const visibleStartIndex = Math.max(0, Math.floor(viewState.colStart));
+  const visibleEndIndex = Math.min(periods.length - 1, Math.ceil(viewState.colEnd));
+  for (let ci = visibleStartIndex; ci <= visibleEndIndex; ci += 1) {
+    for (const mention of periods[ci].mentions) {
+      if (isPriceRangeVisible(mention.price_usd, mention.price_usd + binSize, viewState)) {
+        if (mention.count > maxCount) maxCount = mention.count;
+      }
+    }
+  }
 
   ctx.clearRect(0, 0, totalW, totalH);
   ctx.fillStyle = "rgba(0,0,0,0.18)";
   ctx.fillRect(AXIS_LEFT, AXIS_TOP, chartW, chartH);
 
-  for (let ci = 0; ci < numCols; ci++) {
-    const px = AXIS_LEFT + ci * colW;
-    for (const m of periods[ci].mentions) {
-      const y0 = priceToY(m.price_usd, chartH) + AXIS_TOP;
-      const y1 = priceToY(m.price_usd + binSize, chartH) + AXIS_TOP;
-      ctx.fillStyle = countToColor(m.count, maxCount);
+  for (let ci = visibleStartIndex; ci <= visibleEndIndex; ci += 1) {
+    const px = AXIS_LEFT + (ci - viewState.colStart) * colW;
+    for (const mention of periods[ci].mentions) {
+      if (!isPriceRangeVisible(mention.price_usd, mention.price_usd + binSize, viewState)) {
+        continue;
+      }
+      const y0 = priceToY(mention.price_usd, chartH, viewState) + AXIS_TOP;
+      const y1 = priceToY(mention.price_usd + binSize, chartH, viewState) + AXIS_TOP;
+      ctx.fillStyle = countToColor(mention.count, maxCount);
       ctx.fillRect(px, y0, colW + 0.5, Math.max(1, y1 - y0));
     }
   }
 
-  // BTC price line
-  ctx.save();
-  ctx.strokeStyle = "rgba(255, 220, 60, 0.85)";
-  ctx.lineWidth = 1.5;
-  ctx.setLineDash([3, 2]);
-  ctx.beginPath();
-  let firstBtc = true;
-  for (let ci = 0; ci < numCols; ci++) {
-    const btc = periods[ci].btc_close;
-    if (btc == null || btc < 10_000 || btc > 10_000_000) continue;
-    const x = AXIS_LEFT + (ci + 0.5) * colW;
-    const y = priceToY(btc, chartH) + AXIS_TOP;
-    if (firstBtc) { ctx.moveTo(x, y); firstBtc = false; }
-    else ctx.lineTo(x, y);
-  }
-  ctx.stroke();
-  ctx.restore();
+  drawBtcPriceLine(ctx, chartW, chartH, data, viewState);
 
-  // Y axis labels + grid lines
   ctx.fillStyle = "rgba(180, 170, 160, 0.75)";
   ctx.font = "10px system-ui, sans-serif";
   ctx.textAlign = "right";
   ctx.textBaseline = "middle";
   for (const price of [10_000, 20_000, 30_000, 50_000, 100_000, 200_000, 500_000, 1_000_000, 2_000_000, 5_000_000, 10_000_000]) {
-    const y = priceToY(price, chartH) + AXIS_TOP;
+    const y = priceToY(price, chartH, viewState) + AXIS_TOP;
     if (y < AXIS_TOP || y > AXIS_TOP + chartH) continue;
     ctx.fillText(priceFormatter.format(price), AXIS_LEFT - 4, y);
     ctx.fillStyle = "rgba(180, 170, 160, 0.15)";
@@ -305,21 +456,87 @@ function drawHeatmap(
     ctx.fillStyle = "rgba(180, 170, 160, 0.75)";
   }
 
-  // X axis labels
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
   ctx.font = "10px system-ui, sans-serif";
   ctx.fillStyle = "rgba(180, 170, 160, 0.75)";
-  const step = granularityLabelStep(numCols);
-  for (let ci = 0; ci < numCols; ci += step) {
+  const step = granularityLabelStep(Math.max(1, Math.ceil(visibleColCount)));
+  for (let ci = visibleStartIndex; ci <= visibleEndIndex; ci += step) {
     const d = new Date(periods[ci].period_start);
     const label = data.granularity === "month" ? monthFormatter.format(d) : weekFormatter.format(d);
-    ctx.fillText(label, AXIS_LEFT + (ci + 0.5) * colW, AXIS_TOP + chartH + 4);
+    const x = AXIS_LEFT + (ci - viewState.colStart + 0.5) * colW;
+    if (x < AXIS_LEFT || x > AXIS_LEFT + chartW) continue;
+    ctx.fillText(label, x, AXIS_TOP + chartH + 4);
   }
 }
 
-function priceToY(price: number, chartH: number): number {
-  const t = (Math.log10(Math.max(price, 1)) - LOG_MIN) / (LOG_MAX - LOG_MIN);
+function drawBtcPriceLine(
+  ctx: CanvasRenderingContext2D,
+  chartW: number,
+  chartH: number,
+  data: PriceMentionsResponse,
+  viewState: HeatmapViewState,
+) {
+  const periods = data.periods;
+  const visibleStartIndex = Math.max(0, Math.floor(viewState.colStart));
+  const visibleEndIndex = Math.min(periods.length - 1, Math.ceil(viewState.colEnd));
+  const visibleColCount = viewState.colEnd - viewState.colStart + 1;
+  const colWidth = chartW / visibleColCount;
+  const btcSeries = data.btc_series ?? [];
+
+  ctx.save();
+  ctx.strokeStyle = "rgba(255, 220, 60, 0.92)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  let firstPoint = true;
+
+  if (btcSeries.length > 0) {
+    const visibleStartDate = new Date(periods[visibleStartIndex].period_start);
+    const visibleEndDate = periodEndDate(periods[visibleEndIndex].period_start, data.granularity);
+    for (const point of btcSeries) {
+      const observedAt = new Date(point.observed_at);
+      if (
+        observedAt < visibleStartDate ||
+        observedAt > visibleEndDate ||
+        !isPriceVisible(point.price, viewState)
+      ) {
+        continue;
+      }
+
+      const x =
+        AXIS_LEFT +
+        btcPointToChartX(observedAt, periods, data.granularity, viewState, colWidth);
+      const y = priceToY(point.price, chartH, viewState) + AXIS_TOP;
+      if (firstPoint) {
+        ctx.moveTo(x, y);
+        firstPoint = false;
+      } else {
+        ctx.lineTo(x, y);
+      }
+    }
+  } else {
+    for (let ci = visibleStartIndex; ci <= visibleEndIndex; ci += 1) {
+      const btc = periods[ci].btc_close;
+      if (btc == null || !isPriceVisible(btc, viewState)) continue;
+      const x = AXIS_LEFT + (ci - viewState.colStart + 0.5) * colWidth;
+      const y = priceToY(btc, chartH, viewState) + AXIS_TOP;
+      if (firstPoint) {
+        ctx.moveTo(x, y);
+        firstPoint = false;
+      } else {
+        ctx.lineTo(x, y);
+      }
+    }
+  }
+
+  ctx.stroke();
+  ctx.restore();
+}
+
+function priceToY(price: number, chartH: number, viewState: HeatmapViewState): number {
+  const t =
+    (Math.log10(Math.max(price, 1)) - viewState.logMin) /
+    (viewState.logMax - viewState.logMin);
   return chartH * (1 - t);
 }
 
@@ -353,4 +570,134 @@ function granularityLabelStep(numCols: number): number {
   if (numCols <= 72) return 6;
   if (numCols <= 156) return 13;
   return 26;
+}
+
+function createDefaultHeatmapViewState(periodCount = 1): HeatmapViewState {
+  return {
+    colStart: 0,
+    colEnd: Math.max(periodCount - 1, 0),
+    logMin: LOG_MIN,
+    logMax: LOG_MAX,
+  };
+}
+
+function clampHeatmapViewState(viewState: HeatmapViewState, periodCount: number): HeatmapViewState {
+  const maxColIndex = Math.max(periodCount - 1, 0);
+  const fullColCount = Math.max(periodCount, 1);
+  let visibleColCount = viewState.colEnd - viewState.colStart + 1;
+  visibleColCount = Math.max(
+    Math.min(HEATMAP_MIN_VISIBLE_COLS, fullColCount),
+    Math.min(fullColCount, visibleColCount),
+  );
+
+  let colStart = viewState.colStart;
+  let colEnd = colStart + visibleColCount - 1;
+  if (colStart < 0) {
+    colStart = 0;
+    colEnd = visibleColCount - 1;
+  }
+  if (colEnd > maxColIndex) {
+    colEnd = maxColIndex;
+    colStart = colEnd - visibleColCount + 1;
+  }
+  if (periodCount <= 1) {
+    colStart = 0;
+    colEnd = maxColIndex;
+  }
+
+  let logSpan = viewState.logMax - viewState.logMin;
+  logSpan = Math.max(HEATMAP_MIN_LOG_SPAN, Math.min(LOG_MAX - LOG_MIN, logSpan));
+  let logMin = viewState.logMin;
+  let logMax = logMin + logSpan;
+  if (logMin < LOG_MIN) {
+    logMin = LOG_MIN;
+    logMax = logMin + logSpan;
+  }
+  if (logMax > LOG_MAX) {
+    logMax = LOG_MAX;
+    logMin = logMax - logSpan;
+  }
+
+  return { colStart, colEnd, logMin, logMax };
+}
+
+function zoomHeatmapViewState(
+  viewState: HeatmapViewState,
+  zoomFactor: number,
+  anchorX: number,
+  anchorY: number,
+  periodCount: number,
+): HeatmapViewState {
+  const visibleColCount = viewState.colEnd - viewState.colStart + 1;
+  const nextVisibleColCount = visibleColCount * zoomFactor;
+  const anchorCol = viewState.colStart + visibleColCount * anchorX;
+  const nextColStart = anchorCol - nextVisibleColCount * anchorX;
+
+  const visibleLogSpan = viewState.logMax - viewState.logMin;
+  const nextVisibleLogSpan = visibleLogSpan * zoomFactor;
+  const anchorLog = viewState.logMax - visibleLogSpan * anchorY;
+  const nextLogMax = anchorLog + nextVisibleLogSpan * anchorY;
+
+  return clampHeatmapViewState(
+    {
+      colStart: nextColStart,
+      colEnd: nextColStart + nextVisibleColCount - 1,
+      logMin: nextLogMax - nextVisibleLogSpan,
+      logMax: nextLogMax,
+    },
+    periodCount,
+  );
+}
+
+function isPriceVisible(price: number, viewState: HeatmapViewState): boolean {
+  const logPrice = Math.log10(Math.max(price, 1));
+  return logPrice >= viewState.logMin && logPrice <= viewState.logMax;
+}
+
+function isPriceRangeVisible(minPrice: number, maxPrice: number, viewState: HeatmapViewState): boolean {
+  const minLog = Math.log10(Math.max(minPrice, 1));
+  const maxLog = Math.log10(Math.max(maxPrice, 1));
+  return maxLog >= viewState.logMin && minLog <= viewState.logMax;
+}
+
+function btcPointToChartX(
+  observedAt: Date,
+  periods: PriceMentionsResponse["periods"],
+  granularity: string,
+  viewState: HeatmapViewState,
+  colWidth: number,
+): number {
+  const bucketIndex = findBucketIndexForDate(observedAt, periods, granularity);
+  if (bucketIndex < 0) {
+    return 0;
+  }
+
+  const bucketStart = new Date(periods[bucketIndex].period_start);
+  const bucketEnd = periodEndDate(periods[bucketIndex].period_start, granularity);
+  const bucketDuration = Math.max(bucketEnd.getTime() - bucketStart.getTime(), 1);
+  const offset = (observedAt.getTime() - bucketStart.getTime()) / bucketDuration;
+  return (bucketIndex - viewState.colStart + Math.max(0, Math.min(1, offset))) * colWidth;
+}
+
+function findBucketIndexForDate(
+  observedAt: Date,
+  periods: PriceMentionsResponse["periods"],
+  granularity: string,
+): number {
+  for (let index = 0; index < periods.length; index += 1) {
+    const bucketStart = new Date(periods[index].period_start);
+    const bucketEnd = periodEndDate(periods[index].period_start, granularity);
+    if (observedAt >= bucketStart && observedAt <= bucketEnd) {
+      return index;
+    }
+  }
+  return -1;
+}
+
+function periodEndDate(periodStartIso: string, granularity: string): Date {
+  const start = new Date(periodStartIso);
+  if (granularity === "week") {
+    return new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000);
+  }
+  return new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 1));
 }

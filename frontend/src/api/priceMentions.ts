@@ -13,6 +13,11 @@ export type PriceMentionPeriod = {
   btc_close: number | null;
 };
 
+export type PriceMentionBtcPoint = {
+  observed_at: string;
+  price: number;
+};
+
 export type PriceMentionsResponse = {
   granularity: string;
   cohort: {
@@ -23,6 +28,7 @@ export type PriceMentionsResponse = {
   bin_size: number;
   extractor_key: string;
   extractor_version: string;
+  btc_series: PriceMentionBtcPoint[];
   periods: PriceMentionPeriod[];
   generated_at: string;
 };
