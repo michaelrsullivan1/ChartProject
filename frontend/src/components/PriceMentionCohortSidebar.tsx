@@ -9,6 +9,7 @@ type PriceMentionCohortSidebarProps = {
   cohortOptions: PriceMentionCohortOption[];
   selectedCohortKey: PriceMentionCohortKey;
   pinnedCohortKey: PriceMentionCohortKey | null;
+  showPinButtons?: boolean;
   onSelectedCohortKeyChange: (nextKey: PriceMentionCohortKey) => void;
   onPinnedCohortKeyToggle: (nextKey: PriceMentionCohortKey) => void;
 };
@@ -17,6 +18,7 @@ export function PriceMentionCohortSidebar({
   cohortOptions,
   selectedCohortKey,
   pinnedCohortKey,
+  showPinButtons = true,
   onSelectedCohortKeyChange,
   onPinnedCohortKeyToggle,
 }: PriceMentionCohortSidebarProps) {
@@ -32,22 +34,24 @@ export function PriceMentionCohortSidebar({
             return (
               <div className="chart-cohort-row" key={cohortOption.key}>
                 <button
-                  className={`chart-toggle-button chart-cohort-select-button${isSelected ? " is-active" : ""}`}
+                  className={`chart-toggle-button chart-cohort-select-button${isSelected ? " is-active" : ""}${showPinButtons ? "" : " chart-cohort-select-button-full"}`}
                   onClick={() => onSelectedCohortKeyChange(cohortOption.key)}
                   type="button"
                 >
                   {cohortOption.tagName}
                 </button>
-                <button
-                  aria-label={`${isPinned ? "Unpin" : "Pin"} ${cohortOption.tagName}`}
-                  aria-pressed={isPinned}
-                  className={`chart-toggle-button chart-pin-button${isPinned ? " is-active" : ""}`}
-                  onClick={() => onPinnedCohortKeyToggle(cohortOption.key)}
-                  title={isPinned ? "Unpin cohort" : "Pin cohort"}
-                  type="button"
-                >
-                  <Pin aria-hidden="true" className="chart-pin-icon" size={16} strokeWidth={1.9} />
-                </button>
+                {showPinButtons ? (
+                  <button
+                    aria-label={`${isPinned ? "Unpin" : "Pin"} ${cohortOption.tagName}`}
+                    aria-pressed={isPinned}
+                    className={`chart-toggle-button chart-pin-button${isPinned ? " is-active" : ""}`}
+                    onClick={() => onPinnedCohortKeyToggle(cohortOption.key)}
+                    title={isPinned ? "Unpin cohort" : "Pin cohort"}
+                    type="button"
+                  >
+                    <Pin aria-hidden="true" className="chart-pin-icon" size={16} strokeWidth={1.9} />
+                  </button>
+                ) : null}
               </div>
             );
           })}

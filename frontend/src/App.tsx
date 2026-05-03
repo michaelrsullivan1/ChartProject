@@ -47,6 +47,7 @@ import { NotFoundPage } from "./pages/NotFoundPage";
 import { PodcastPersonPage } from "./pages/PodcastPersonPage";
 import { PriceMentionsPage } from "./pages/PriceMentionsPage";
 import { PriceMentionDistributionPage } from "./pages/PriceMentionDistributionPage";
+import { PriceMentionSpreadPage } from "./pages/PriceMentionSpreadPage";
 import { PriceMentionZScorePage } from "./pages/PriceMentionZScorePage";
 import { UserBeliefsPage } from "./pages/UserBeliefsPage";
 import { UserNarrativeIntensityPage } from "./pages/UserNarrativeIntensityPage";
@@ -70,7 +71,7 @@ type AppRoute =
   | { kind: "aggregate-mood"; aggregateMood: AggregateMoodDefinition }
   | { kind: "aggregate-narratives" }
   | { kind: "mood-outliers" }
-  | { kind: "price-mentions"; view: "heatmap" | "distribution" | "zscore" }
+  | { kind: "price-mentions"; view: "heatmap" | "distribution" | "zscore" | "spread" }
   | { kind: "bitcoin-mentions"; bitcoinMentions: BitcoinMentionsDefinition }
   | { kind: "mood"; mood: MoodDefinition }
   | { kind: "overview"; overview: OverviewDefinition }
@@ -175,6 +176,10 @@ function getRouteFromHash(hash: string, definitions: RouteDefinitions): AppRoute
 
   if (path === "#/price-mentions/zscore") {
     return { kind: "price-mentions", view: "zscore" };
+  }
+
+  if (path === "#/price-mentions/spread") {
+    return { kind: "price-mentions", view: "spread" };
   }
 
   if (path.startsWith("#/bitcoin-mentions/")) {
@@ -908,6 +913,7 @@ export default function App() {
       heatmap: "Price Mentions — Heatmap",
       distribution: "Price Mentions — Distribution",
       zscore: "Price Mentions — Z-Score",
+      spread: "Price Mentions — Spread",
     };
     return (
       <AppShell
@@ -942,6 +948,8 @@ export default function App() {
           <PriceMentionsPage />
         ) : route.view === "distribution" ? (
           <PriceMentionDistributionPage />
+        ) : route.view === "spread" ? (
+          <PriceMentionSpreadPage />
         ) : (
           <PriceMentionZScorePage />
         )}

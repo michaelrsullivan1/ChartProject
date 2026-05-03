@@ -82,7 +82,7 @@ export function isValidPriceMentionWindowKey(
 }
 
 export function buildPriceMentionSelectionHash(
-  view: "distribution" | "zscore",
+  view: "distribution" | "zscore" | "spread",
   selectedCohortKey: PriceMentionCohortKey,
   pinnedCohortKey: PriceMentionCohortKey | null,
   timeWindow: PriceMentionWindowKey,
@@ -98,7 +98,7 @@ export function buildPriceMentionSelectionHash(
 
 export function readPriceMentionUrlState(
   hash: string,
-  view: "distribution" | "zscore",
+  view: "distribution" | "zscore" | "spread",
 ): {
   selectedCohortKey: PriceMentionCohortKey | null;
   pinnedCohortKey: PriceMentionCohortKey | null;

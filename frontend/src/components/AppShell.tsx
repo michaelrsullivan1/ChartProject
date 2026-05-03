@@ -30,7 +30,7 @@ type AppShellProps = {
   activeAggregateMoodSlug: string | null;
   activeAggregateNarratives: boolean;
   activeMoodOutliers?: boolean;
-  activePriceMentionsView?: "heatmap" | "distribution" | "zscore" | null;
+  activePriceMentionsView?: "heatmap" | "distribution" | "zscore" | "spread" | null;
   activeMoodSlug: string | null;
   activeOverviewSlug: string | null;
   activeHeatmapSlug: string | null;
@@ -391,6 +391,7 @@ export function AppShell({
                   { view: "heatmap", label: "Heatmap", hash: "#/price-mentions" },
                   { view: "distribution", label: "Distribution", hash: "#/price-mentions/distribution" },
                   { view: "zscore", label: "Z-Score", hash: "#/price-mentions/zscore" },
+                  { view: "spread", label: "Spread", hash: "#/price-mentions/spread" },
                 ] as const
               ).map(({ view, label, hash }) => (
                 <button
