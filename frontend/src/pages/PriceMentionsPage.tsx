@@ -44,6 +44,8 @@ type HeatmapViewState = {
   logMax: number;
 };
 
+type HeatmapInteractionRegion = "plot" | "x-axis" | "y-axis" | "outside";
+
 export function PriceMentionsPage() {
   const [data, setData] = useState<PriceMentionsResponse | null>(null);
   const [cohorts, setCohorts] = useState<CohortOption[]>([]);
@@ -234,25 +236,36 @@ export function PriceMentionsPage() {
       const localY = event.clientY - rect.top;
       const chartW = rect.width - AXIS_LEFT - AXIS_RIGHT;
       const chartH = rect.height - AXIS_BOTTOM - AXIS_TOP;
-      if (
-        chartW <= 0 ||
-        chartH <= 0 ||
-        localX < AXIS_LEFT ||
-        localX > AXIS_LEFT + chartW ||
-        localY < AXIS_TOP ||
-        localY > AXIS_TOP + chartH
-      ) {
+      if (chartW <= 0 || chartH <= 0) {
         return;
       }
+
+      const region = resolveInteractionRegion(localX, localY, chartW, chartH);
+      if (region === "outside") return;
 
       event.preventDefault();
       const zoomFactor =
         event.deltaY > 0 ? HEATMAP_WHEEL_ZOOM_FACTOR : 1 / HEATMAP_WHEEL_ZOOM_FACTOR;
-      const anchorX = (localX - AXIS_LEFT) / chartW;
-      const anchorY = (localY - AXIS_TOP) / chartH;
-      setViewState((currentView) =>
-        zoomHeatmapViewState(currentView, zoomFactor, anchorX, anchorY, heatmapData.periods.length),
-      );
+      const anchorX = clampUnit((localX - AXIS_LEFT) / chartW);
+      const anchorY = clampUnit((localY - AXIS_TOP) / chartH);
+      setViewState((currentView) => {
+        switch (region) {
+          case "x-axis":
+            return zoomHeatmapX(currentView, zoomFactor, anchorX, heatmapData.periods.length);
+          case "y-axis":
+            return zoomHeatmapY(currentView, zoomFactor, anchorY, heatmapData.periods.length);
+          case "plot":
+            return zoomHeatmapViewState(
+              currentView,
+              zoomFactor,
+              anchorX,
+              anchorY,
+              heatmapData.periods.length,
+            );
+          default:
+            return currentView;
+        }
+      });
     }
 
     function handleDoubleClick() {
@@ -447,7 +460,7 @@ function drawHeatmap(
   ctx.font = "10px system-ui, sans-serif";
   ctx.textAlign = "right";
   ctx.textBaseline = "middle";
-  for (const price of [10_000, 20_000, 30_000, 50_000, 100_000, 200_000, 500_000, 1_000_000, 2_000_000, 5_000_000, 10_000_000]) {
+  for (const price of buildVisiblePriceTicks(viewState)) {
     const y = priceToY(price, chartH, viewState) + AXIS_TOP;
     if (y < AXIS_TOP || y > AXIS_TOP + chartH) continue;
     ctx.fillText(priceFormatter.format(price), AXIS_LEFT - 4, y);
@@ -463,7 +476,7 @@ function drawHeatmap(
   const step = granularityLabelStep(Math.max(1, Math.ceil(visibleColCount)));
   for (let ci = visibleStartIndex; ci <= visibleEndIndex; ci += step) {
     const d = new Date(periods[ci].period_start);
-    const label = data.granularity === "month" ? monthFormatter.format(d) : weekFormatter.format(d);
+    const label = formatHeatmapTimeLabel(d, data.granularity, visibleColCount);
     const x = AXIS_LEFT + (ci - viewState.colStart + 0.5) * colW;
     if (x < AXIS_LEFT || x > AXIS_LEFT + chartW) continue;
     ctx.fillText(label, x, AXIS_TOP + chartH + 4);
@@ -565,7 +578,8 @@ function lerp(a: number, b: number, t: number): number {
 }
 
 function granularityLabelStep(numCols: number): number {
-  if (numCols <= 12) return 1;
+  if (numCols <= 10) return 1;
+  if (numCols <= 20) return 2;
   if (numCols <= 36) return 3;
   if (numCols <= 72) return 6;
   if (numCols <= 156) return 13;
@@ -628,11 +642,43 @@ function zoomHeatmapViewState(
   anchorY: number,
   periodCount: number,
 ): HeatmapViewState {
+  return clampHeatmapViewState(
+    {
+      ...zoomHeatmapX(viewState, zoomFactor, anchorX, periodCount),
+      ...zoomHeatmapY(viewState, zoomFactor, anchorY, periodCount),
+    },
+    periodCount,
+  );
+}
+
+function zoomHeatmapX(
+  viewState: HeatmapViewState,
+  zoomFactor: number,
+  anchorX: number,
+  periodCount: number,
+): HeatmapViewState {
   const visibleColCount = viewState.colEnd - viewState.colStart + 1;
   const nextVisibleColCount = visibleColCount * zoomFactor;
   const anchorCol = viewState.colStart + visibleColCount * anchorX;
   const nextColStart = anchorCol - nextVisibleColCount * anchorX;
 
+  return clampHeatmapViewState(
+    {
+      colStart: nextColStart,
+      colEnd: nextColStart + nextVisibleColCount - 1,
+      logMin: viewState.logMin,
+      logMax: viewState.logMax,
+    },
+    periodCount,
+  );
+}
+
+function zoomHeatmapY(
+  viewState: HeatmapViewState,
+  zoomFactor: number,
+  anchorY: number,
+  periodCount: number,
+): HeatmapViewState {
   const visibleLogSpan = viewState.logMax - viewState.logMin;
   const nextVisibleLogSpan = visibleLogSpan * zoomFactor;
   const anchorLog = viewState.logMax - visibleLogSpan * anchorY;
@@ -640,8 +686,8 @@ function zoomHeatmapViewState(
 
   return clampHeatmapViewState(
     {
-      colStart: nextColStart,
-      colEnd: nextColStart + nextVisibleColCount - 1,
+      colStart: viewState.colStart,
+      colEnd: viewState.colEnd,
       logMin: nextLogMax - nextVisibleLogSpan,
       logMax: nextLogMax,
     },
@@ -700,4 +746,86 @@ function periodEndDate(periodStartIso: string, granularity: string): Date {
     return new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000);
   }
   return new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 1));
+}
+
+function resolveInteractionRegion(
+  localX: number,
+  localY: number,
+  chartW: number,
+  chartH: number,
+): HeatmapInteractionRegion {
+  const insidePlotX = localX >= AXIS_LEFT && localX <= AXIS_LEFT + chartW;
+  const insidePlotY = localY >= AXIS_TOP && localY <= AXIS_TOP + chartH;
+  if (insidePlotX && insidePlotY) return "plot";
+  if (insidePlotX && localY > AXIS_TOP + chartH && localY <= AXIS_TOP + chartH + AXIS_BOTTOM) {
+    return "x-axis";
+  }
+  if (insidePlotY && localX >= 0 && localX < AXIS_LEFT) {
+    return "y-axis";
+  }
+  return "outside";
+}
+
+function clampUnit(value: number): number {
+  return Math.max(0, Math.min(1, value));
+}
+
+function buildVisiblePriceTicks(viewState: HeatmapViewState): number[] {
+  const visibleMin = Math.pow(10, viewState.logMin);
+  const visibleMax = Math.pow(10, viewState.logMax);
+  const baseTicks = buildPriceTickCandidates();
+  const visibleTicks = baseTicks.filter((price) => price >= visibleMin && price <= visibleMax);
+  if (visibleTicks.length <= 9) {
+    return visibleTicks;
+  }
+
+  const step = Math.ceil(visibleTicks.length / 9);
+  const reduced = visibleTicks.filter((_, index) => index % step === 0);
+  const lastTick = visibleTicks[visibleTicks.length - 1];
+  if (reduced[reduced.length - 1] !== lastTick) {
+    reduced.push(lastTick);
+  }
+  return reduced;
+}
+
+function buildPriceTickCandidates(): number[] {
+  const multipliers = [1, 2, 2.5, 5];
+  const ticks: number[] = [];
+  for (let power = 4; power <= 7; power += 1) {
+    const base = 10 ** power;
+    for (const multiplier of multipliers) {
+      const value = base * multiplier;
+      if (value >= 10_000 && value <= 10_000_000) {
+        ticks.push(value);
+      }
+    }
+  }
+  return ticks;
+}
+
+function formatHeatmapTimeLabel(
+  value: Date,
+  granularity: string,
+  visibleColCount: number,
+): string {
+  if (granularity === "week") {
+    if (visibleColCount <= 12) {
+      return new Intl.DateTimeFormat("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "2-digit",
+        timeZone: "UTC",
+      }).format(value);
+    }
+    return weekFormatter.format(value);
+  }
+
+  if (visibleColCount <= 12) {
+    return new Intl.DateTimeFormat("en-US", {
+      month: "short",
+      year: "numeric",
+      timeZone: "UTC",
+    }).format(value);
+  }
+  return monthFormatter.format(value);
 }
