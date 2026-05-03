@@ -86,7 +86,11 @@ const chartOptions = {
   },
   rightPriceScale: { borderVisible: false },
   crosshair: {
-    vertLine: { color: "rgba(255, 178, 64, 0.28)", labelBackgroundColor: "#4d2f17" },
+    vertLine: {
+      color: "rgba(255, 178, 64, 0.28)",
+      labelBackgroundColor: "#4d2f17",
+      labelVisible: false,
+    },
     horzLine: { color: "rgba(118, 199, 255, 0.24)", labelBackgroundColor: "#1f3443" },
   },
   timeScale: {
