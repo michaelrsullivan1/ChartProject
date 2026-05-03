@@ -150,6 +150,7 @@ export function PriceMentionZScorePage() {
     selectedCohortKey,
     pinnedCohortKey,
   );
+  const isPinnedComparison = effectivePinnedComparisonKey !== null;
   const fallbackComparisonKey =
     effectivePinnedComparisonKey ??
     (selectedCohortKey === ALL_PRICE_MENTION_COHORT_KEY ? null : ALL_PRICE_MENTION_COHORT_KEY);
@@ -360,6 +361,22 @@ export function PriceMentionZScorePage() {
         </div>
 
         <div className="pm-controls">
+          <div className="chart-control-card pm-comparison-summary-card">
+            <p className="chart-control-eyebrow">Comparison Direction</p>
+            <p className="pm-comparison-summary-copy">
+              <strong>{selectedCohortName}</strong> is the cohort being scored.
+            </p>
+            <p className="pm-comparison-summary-copy">
+              It is being compared against{" "}
+              <strong>{comparisonCohortName ?? "the selected reference cohort"}</strong>.
+            </p>
+            <p className="chart-control-note">
+              {isPinnedComparison
+                ? "Selected cohort = measured distribution. Pinned cohort = reference distribution."
+                : "Selected cohort = measured distribution. All tracked users = reference distribution."}
+            </p>
+          </div>
+
           <div className="chart-control-card">
             <p className="chart-control-eyebrow">Mention Type</p>
             <div className="pm-toggle-row pm-toggle-wrap">
@@ -427,7 +444,8 @@ export function PriceMentionZScorePage() {
               <span className="pm-legend-label">Under-represented (negative σ)</span>
               {totalMentions !== null ? (
                 <span className="pm-legend-meta">
-                  {totalMentions.toLocaleString()} mentions for {selectedCohortName}
+                  Scoring {selectedCohortName} against {comparisonCohortName} ·{" "}
+                  {totalMentions.toLocaleString()} mentions
                 </span>
               ) : null}
             </div>

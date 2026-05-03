@@ -3121,6 +3121,17 @@ textarea {
   min-width: 140px;
 }
 
+.pm-comparison-summary-card {
+  min-width: min(100%, 360px);
+}
+
+.pm-comparison-summary-copy {
+  margin: 10px 0 0;
+  color: var(--text);
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
 .pm-select {
   appearance: none;
   width: 100%;
