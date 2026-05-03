@@ -225,8 +225,7 @@ export function PriceMentionsPage() {
           <span className="pm-legend-label">BTC price</span>
           {data ? (
             <span className="pm-legend-meta">
-              {data.periods.length} {data.granularity === "month" ? "months" : "weeks"} ·{" "}
-              {data.periods.reduce((s, p) => s + p.mention_count, 0).toLocaleString()} mentions
+              {data.periods.length} {data.granularity === "month" ? "months" : "weeks"}
             </span>
           ) : null}
         </div>

@@ -46,6 +46,15 @@ export async function fetchPriceMentions(
   if (params.binSize != null) query.set("bin_size", String(params.binSize));
 
   const response = await fetch(`${apiBasePath}?${query.toString()}`, { signal });
-  if (!response.ok) throw new Error(`Price mentions request failed: ${response.status}`);
+  if (!response.ok) {
+    let detail = "";
+    try {
+      const payload = (await response.json()) as { detail?: string };
+      detail = payload.detail?.trim() ?? "";
+    } catch {
+      detail = "";
+    }
+    throw new Error(detail || `Price mentions request failed: ${response.status}`);
+  }
   return (await response.json()) as PriceMentionsResponse;
 }

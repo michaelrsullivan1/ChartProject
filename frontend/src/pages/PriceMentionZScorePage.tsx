@@ -336,9 +336,6 @@ export function PriceMentionZScorePage() {
     };
   }, [baselineData, data, windowedComparison.comparisonPeriods, windowedComparison.selectedPeriods]);
 
-  const totalMentions =
-    windowedComparison.selectedPeriods.length > 0 ? windowedComparison.selectedMentionCount : null;
-
   function handleSelectedCohortKeyChange(nextKey: PriceMentionCohortKey) {
     if (selectedCohortKey === nextKey) {
       return;
@@ -399,15 +396,6 @@ export function PriceMentionZScorePage() {
                 </button>
               ))}
             </div>
-            <p className="pm-comparison-summary-copy">
-              {windowedComparison.coverageSummary ?? `${formatWindowLabel(timeWindow)} window.`}
-            </p>
-            {windowedComparison.coverageNote ? (
-              <p className="chart-control-note">{windowedComparison.coverageNote}</p>
-            ) : null}
-            {windowedComparison.timingNote ? (
-              <p className="chart-control-note">{windowedComparison.timingNote}</p>
-            ) : null}
           </div>
 
           <div className="chart-control-card">
@@ -478,10 +466,10 @@ export function PriceMentionZScorePage() {
                 aria-hidden="true"
               />
               <span className="pm-legend-label">Under-represented (negative σ)</span>
-              {totalMentions !== null ? (
+              {comparisonCohortName ? (
                 <span className="pm-legend-meta">
                   Scoring {selectedCohortName} against {comparisonCohortName} ·{" "}
-                  {formatWindowLabel(timeWindow)} · {totalMentions.toLocaleString()} mentions
+                  {formatWindowLabel(timeWindow)}
                 </span>
               ) : null}
             </div>

@@ -7,8 +7,6 @@ const monthFormatter = new Intl.DateTimeFormat("en-US", {
   timeZone: "UTC",
 });
 
-const monthCountFormatter = new Intl.NumberFormat("en-US");
-
 export type WindowedPriceMentionComparison = {
   selectedPeriods: PriceMentionPeriod[];
   comparisonPeriods: PriceMentionPeriod[];
@@ -80,10 +78,7 @@ export function resolveWindowedPriceMentionComparison(
     selectedMentionCount,
     comparisonMentionCount,
     coverageSummary,
-    coverageNote:
-      comparisonData && filteredComparisonPeriods.length > 0
-        ? `${coverageNote} Window mentions: ${monthCountFormatter.format(selectedMentionCount)} vs. ${monthCountFormatter.format(comparisonMentionCount)}.`
-        : coverageNote,
+    coverageNote,
     timingNote,
   };
 }
