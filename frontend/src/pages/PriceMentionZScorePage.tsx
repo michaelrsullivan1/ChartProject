@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { Expand, X } from "lucide-react";
 import {
   ColorType,
   HistogramSeries,
@@ -140,6 +142,7 @@ export function PriceMentionZScorePage() {
   const [timeWindow, setTimeWindow] = useState<PriceMentionWindowKey>(
     () => readPriceMentionUrlState(window.location.hash, PRICE_MENTION_VIEW).timeWindow,
   );
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -334,7 +337,29 @@ export function PriceMentionZScorePage() {
       observer.disconnect();
       chart.remove();
     };
-  }, [baselineData, data, windowedComparison.comparisonPeriods, windowedComparison.selectedPeriods]);
+  }, [baselineData, data, isFullscreen, windowedComparison.comparisonPeriods, windowedComparison.selectedPeriods]);
+
+  useEffect(() => {
+    if (!isFullscreen) {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setIsFullscreen(false);
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isFullscreen]);
 
   function handleSelectedCohortKeyChange(nextKey: PriceMentionCohortKey) {
     if (selectedCohortKey === nextKey) {
@@ -350,6 +375,60 @@ export function PriceMentionZScorePage() {
   function handlePinnedCohortKeyToggle(nextKey: PriceMentionCohortKey) {
     setPinnedCohortKey((currentPinnedKey) => (currentPinnedKey === nextKey ? null : nextKey));
   }
+
+  const chartColumn = (
+    <div className={`pm-chart-stage${isFullscreen ? " pm-chart-stage-fullscreen" : ""}`}>
+      <button
+        aria-label={isFullscreen ? "Close fullscreen chart" : "Open fullscreen chart"}
+        className="chart-fullscreen-button"
+        onClick={() => setIsFullscreen((current) => !current)}
+        title={isFullscreen ? "Close fullscreen" : "Open fullscreen"}
+        type="button"
+      >
+        {isFullscreen ? (
+          <X aria-hidden="true" size={16} strokeWidth={2} />
+        ) : (
+          <Expand aria-hidden="true" size={16} strokeWidth={2} />
+        )}
+      </button>
+
+      <div className="pm-chart-area">
+        {isLoading ? (
+          <DashboardLoadingState />
+        ) : error ? (
+          <div className="pm-error">{error}</div>
+        ) : !comparisonCohortName ? (
+          <div className="pm-empty">Select or pin a cohort to compare against.</div>
+        ) : windowedComparison.selectedPeriods.length === 0 ||
+          windowedComparison.comparisonPeriods.length === 0 ? (
+          <div className="pm-empty">No price mention coverage found for the selected window.</div>
+        ) : (
+          <div ref={containerRef} className="pm-lw-chart" />
+        )}
+      </div>
+
+      <div className="pm-legend">
+        <span
+          className="pm-legend-swatch"
+          style={{ background: "rgba(122, 240, 182, 0.72)" }}
+          aria-hidden="true"
+        />
+        <span className="pm-legend-label">Over-represented (positive sigma)</span>
+        <span
+          className="pm-legend-swatch"
+          style={{ background: "rgba(255, 108, 108, 0.72)" }}
+          aria-hidden="true"
+        />
+        <span className="pm-legend-label">Under-represented (negative sigma)</span>
+        {comparisonCohortName ? (
+          <span className="pm-legend-meta">
+            Scoring {selectedCohortName} against {comparisonCohortName} ·{" "}
+            {formatWindowLabel(timeWindow)}
+          </span>
+        ) : null}
+      </div>
+    </div>
+  );
 
   return (
     <section className="dashboard-page pm-page pm-comparison-page">
@@ -438,41 +517,7 @@ export function PriceMentionZScorePage() {
 
         <div className="pm-comparison-shell">
           <div className="pm-comparison-chart-column">
-            <div className="pm-chart-area">
-              {isLoading ? (
-                <DashboardLoadingState />
-              ) : error ? (
-                <div className="pm-error">{error}</div>
-              ) : !comparisonCohortName ? (
-                <div className="pm-empty">Select or pin a cohort to compare against.</div>
-              ) : windowedComparison.selectedPeriods.length === 0 ||
-                windowedComparison.comparisonPeriods.length === 0 ? (
-                <div className="pm-empty">No price mention coverage found for the selected window.</div>
-              ) : (
-                <div ref={containerRef} className="pm-lw-chart" />
-              )}
-            </div>
-
-            <div className="pm-legend">
-              <span
-                className="pm-legend-swatch"
-                style={{ background: "rgba(122, 240, 182, 0.72)" }}
-                aria-hidden="true"
-              />
-              <span className="pm-legend-label">Over-represented (positive σ)</span>
-              <span
-                className="pm-legend-swatch"
-                style={{ background: "rgba(255, 108, 108, 0.72)" }}
-                aria-hidden="true"
-              />
-              <span className="pm-legend-label">Under-represented (negative σ)</span>
-              {comparisonCohortName ? (
-                <span className="pm-legend-meta">
-                  Scoring {selectedCohortName} against {comparisonCohortName} ·{" "}
-                  {formatWindowLabel(timeWindow)}
-                </span>
-              ) : null}
-            </div>
+            {!isFullscreen ? chartColumn : null}
           </div>
 
           <PriceMentionCohortSidebar
@@ -484,6 +529,24 @@ export function PriceMentionZScorePage() {
           />
         </div>
       </article>
+      {isFullscreen
+        ? createPortal(
+            <div
+              aria-label="Fullscreen price mention z-score chart"
+              className="chart-fullscreen-overlay"
+              onClick={() => setIsFullscreen(false)}
+              role="dialog"
+            >
+              <div
+                className="chart-fullscreen-content pm-chart-fullscreen-content"
+                onClick={(event) => event.stopPropagation()}
+              >
+                {chartColumn}
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
     </section>
   );
 }

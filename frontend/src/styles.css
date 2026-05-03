@@ -3177,8 +3177,28 @@ textarea {
   min-height: 0;
 }
 
+.pm-chart-stage {
+  position: relative;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 12px;
+  min-height: 0;
+  height: 100%;
+  width: 100%;
+}
+
+.pm-chart-stage-fullscreen {
+  min-height: 100%;
+  flex: 1 1 auto;
+}
+
 .pm-comparison-page .pm-chart-area {
   min-height: 420px;
+}
+
+.pm-chart-stage-fullscreen .pm-chart-area {
+  min-height: 0;
+  height: 100%;
 }
 
 .pm-cohort-sidebar {
@@ -3224,6 +3244,17 @@ textarea {
   color: var(--muted);
   padding: 0 4px;
   flex-wrap: wrap;
+}
+
+.pm-chart-fullscreen-content {
+  display: flex;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.pm-chart-fullscreen-content > .pm-chart-stage {
+  flex: 1 1 auto;
+  width: 100%;
 }
 
 .pm-legend-gradient {

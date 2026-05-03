@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { Expand, X } from "lucide-react";
 
 import {
   fetchAggregateMoodCohorts,
@@ -74,6 +76,7 @@ export function PriceMentionDistributionPage() {
   const [timeWindow, setTimeWindow] = useState<PriceMentionWindowKey>(
     () => readPriceMentionUrlState(window.location.hash, PRICE_MENTION_VIEW).timeWindow,
   );
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [visibleBucketRange, setVisibleBucketRange] = useState(() => ({
     start: 0,
     end: PRICE_MENTION_BUCKETS.length - 1,
@@ -283,6 +286,7 @@ export function PriceMentionDistributionPage() {
     drawRef.current();
   }, [
     comparisonData,
+    isFullscreen,
     visibleBucketRange,
     windowedComparison.comparisonPeriods,
     windowedComparison.selectedPeriods,
@@ -438,7 +442,37 @@ export function PriceMentionDistributionPage() {
       container.removeEventListener("wheel", handleWheel);
       container.removeEventListener("dblclick", handleDoubleClick);
     };
-  }, [data, error, isChartVisible, isLoading, visibleBucketRange, windowedComparison.selectedPeriods.length]);
+  }, [
+    data,
+    error,
+    isChartVisible,
+    isFullscreen,
+    isLoading,
+    visibleBucketRange,
+    windowedComparison.selectedPeriods.length,
+  ]);
+
+  useEffect(() => {
+    if (!isFullscreen) {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setIsFullscreen(false);
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isFullscreen]);
 
   function handleSelectedCohortKeyChange(nextKey: PriceMentionCohortKey) {
     if (selectedCohortKey === nextKey) {
@@ -454,6 +488,57 @@ export function PriceMentionDistributionPage() {
   function handlePinnedCohortKeyToggle(nextKey: PriceMentionCohortKey) {
     setPinnedCohortKey((currentPinnedKey) => (currentPinnedKey === nextKey ? null : nextKey));
   }
+
+  const chartColumn = (
+    <div className={`pm-chart-stage${isFullscreen ? " pm-chart-stage-fullscreen" : ""}`}>
+      <button
+        aria-label={isFullscreen ? "Close fullscreen chart" : "Open fullscreen chart"}
+        className="chart-fullscreen-button"
+        onClick={() => setIsFullscreen((current) => !current)}
+        title={isFullscreen ? "Close fullscreen" : "Open fullscreen"}
+        type="button"
+      >
+        {isFullscreen ? (
+          <X aria-hidden="true" size={16} strokeWidth={2} />
+        ) : (
+          <Expand aria-hidden="true" size={16} strokeWidth={2} />
+        )}
+      </button>
+
+      <div className="pm-chart-area">
+        {isLoading ? (
+          <DashboardLoadingState />
+        ) : error ? (
+          <div className="pm-error">{error}</div>
+        ) : windowedComparison.selectedPeriods.length === 0 ? (
+          <div className="pm-empty">No price mention coverage found for the selected window.</div>
+        ) : data && data.periods.length === 0 ? (
+          <div className="pm-empty">No price mentions found for the selected filters.</div>
+        ) : (
+          <div ref={containerRef} className="pm-chart-canvas-shell">
+            <canvas ref={canvasRef} className="pm-canvas" />
+          </div>
+        )}
+      </div>
+
+      <div className="pm-legend">
+        <span className="pm-legend-swatch pm-legend-swatch-cohort" aria-hidden="true" />
+        <span className="pm-legend-label">{selectedCohortName}</span>
+        {comparisonCohortName ? (
+          <>
+            <span className="pm-legend-swatch pm-legend-swatch-baseline" aria-hidden="true" />
+            <span className="pm-legend-label">{comparisonCohortName}</span>
+          </>
+        ) : null}
+        {windowedComparison.selectedPeriods.length > 0 ? (
+          <span className="pm-legend-meta">
+            {formatWindowLabel(timeWindow)} for {selectedCohortName}
+          </span>
+        ) : null}
+        <span className="pm-legend-meta">Scroll to zoom, drag to pan, double-click to reset</span>
+      </div>
+    </div>
+  );
 
   return (
     <section className="dashboard-page pm-page pm-comparison-page">
@@ -526,38 +611,7 @@ export function PriceMentionDistributionPage() {
 
         <div className="pm-comparison-shell">
           <div className="pm-comparison-chart-column">
-            <div className="pm-chart-area">
-              {isLoading ? (
-                <DashboardLoadingState />
-              ) : error ? (
-                <div className="pm-error">{error}</div>
-              ) : windowedComparison.selectedPeriods.length === 0 ? (
-                <div className="pm-empty">No price mention coverage found for the selected window.</div>
-              ) : data && data.periods.length === 0 ? (
-                <div className="pm-empty">No price mentions found for the selected filters.</div>
-              ) : (
-                <div ref={containerRef} className="pm-chart-canvas-shell">
-                  <canvas ref={canvasRef} className="pm-canvas" />
-                </div>
-              )}
-            </div>
-
-            <div className="pm-legend">
-              <span className="pm-legend-swatch pm-legend-swatch-cohort" aria-hidden="true" />
-              <span className="pm-legend-label">{selectedCohortName}</span>
-              {comparisonCohortName ? (
-                <>
-                  <span className="pm-legend-swatch pm-legend-swatch-baseline" aria-hidden="true" />
-                  <span className="pm-legend-label">{comparisonCohortName}</span>
-                </>
-              ) : null}
-              {windowedComparison.selectedPeriods.length > 0 ? (
-                <span className="pm-legend-meta">
-                  {formatWindowLabel(timeWindow)} for {selectedCohortName}
-                </span>
-              ) : null}
-              <span className="pm-legend-meta">Scroll to zoom, drag to pan, double-click to reset</span>
-            </div>
+            {!isFullscreen ? chartColumn : null}
           </div>
 
           <PriceMentionCohortSidebar
@@ -569,6 +623,24 @@ export function PriceMentionDistributionPage() {
           />
         </div>
       </article>
+      {isFullscreen
+        ? createPortal(
+            <div
+              aria-label="Fullscreen price mention distribution chart"
+              className="chart-fullscreen-overlay"
+              onClick={() => setIsFullscreen(false)}
+              role="dialog"
+            >
+              <div
+                className="chart-fullscreen-content pm-chart-fullscreen-content"
+                onClick={(event) => event.stopPropagation()}
+              >
+                {chartColumn}
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
     </section>
   );
 }
