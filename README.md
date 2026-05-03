@@ -916,6 +916,12 @@ Scoped rebuild note:
 - `--delete-stale` and `--clear-first` are full-rebuild-only flags and cannot be combined with `--view` or `--cohort`
 - for a scoped outlier-only rebuild, run `python3 scripts/cache/rebuild_aggregate_snapshots.py --view aggregate-mood-outliers`
 
+Mood Outliers note:
+
+- the `Mood Outliers` page is unusually expensive when `aggregate-mood-outliers` snapshot rows are missing
+- on a freshly restored or older local database, that page may fall back to a live rebuild for `users / all tracked users`, which can heavily load Postgres and make the local Rancher/Lima VM feel slow until the request finishes
+- if the rest of the app feels normal but `Mood Outliers` freezes the machine, check `aggregate_view_snapshots` and run `python3 scripts/cache/rebuild_aggregate_snapshots.py --view aggregate-mood-outliers`
+
 ### Preflight checklist
 
 Before starting a new-user run, verify:
