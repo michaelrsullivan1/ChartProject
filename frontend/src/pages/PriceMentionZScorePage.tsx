@@ -34,17 +34,12 @@ import {
   formatWindowLabel,
   resolveWindowedPriceMentionComparison,
 } from "../lib/priceMentionWindowing";
+import { PRICE_MENTION_BUCKETS } from "../lib/priceMentionBuckets";
 
 const API_BASE = "/api/views";
 
 const MENTION_TYPES = ["prediction", "conditional", "current", "historical", "unclassified"] as const;
 type MentionTypeFilter = "all" | (typeof MENTION_TYPES)[number];
-
-const PRICE_BUCKETS = [
-  10_000, 20_000, 30_000, 40_000, 50_000, 60_000, 70_000, 80_000, 90_000, 100_000,
-  125_000, 150_000, 175_000, 200_000, 250_000, 300_000, 400_000, 500_000,
-  750_000, 1_000_000, 1_500_000, 2_000_000, 3_000_000, 5_000_000, 10_000_000,
-];
 
 const FAKE_EPOCH = 946684800;
 const FAKE_DAY = 86400;
@@ -61,12 +56,23 @@ function bucketIndexToTime(index: number): UTCTimestamp {
   return (FAKE_EPOCH + index * FAKE_DAY) as UTCTimestamp;
 }
 
+function formatPriceBucketFromTime(time: Time): string {
+  const t = typeof time === "number" ? time : 0;
+  const index = Math.round((t - FAKE_EPOCH) / FAKE_DAY);
+  if (index < 0 || index >= PRICE_MENTION_BUCKETS.length) {
+    return "";
+  }
+  return compactPriceFormatter.format(PRICE_MENTION_BUCKETS[index]);
+}
+
 function computeZScores(cohortBuckets: number[], baselineBuckets: number[]): number[] {
   const cohortTotal = cohortBuckets.reduce((s, c) => s + c, 0);
   const baselineTotal = baselineBuckets.reduce((s, c) => s + c, 0);
-  if (cohortTotal === 0 || baselineTotal === 0) return new Array(PRICE_BUCKETS.length).fill(0);
+  if (cohortTotal === 0 || baselineTotal === 0) {
+    return new Array(PRICE_MENTION_BUCKETS.length).fill(0);
+  }
 
-  return PRICE_BUCKETS.map((_, i) => {
+  return PRICE_MENTION_BUCKETS.map((_, i) => {
     const baselineFrac = baselineBuckets[i] / baselineTotal;
     const expected = baselineFrac * cohortTotal;
     const actual = cohortBuckets[i];
@@ -80,6 +86,9 @@ const chartOptions = {
     textColor: "#d4c5ad",
     attributionLogo: false,
   },
+  localization: {
+    timeFormatter: formatPriceBucketFromTime,
+  },
   grid: {
     vertLines: { color: "rgba(255, 245, 220, 0.06)" },
     horzLines: { color: "rgba(255, 245, 220, 0.08)" },
@@ -89,18 +98,13 @@ const chartOptions = {
     vertLine: {
       color: "rgba(255, 178, 64, 0.28)",
       labelBackgroundColor: "#4d2f17",
-      labelVisible: false,
+      labelVisible: true,
     },
     horzLine: { color: "rgba(118, 199, 255, 0.24)", labelBackgroundColor: "#1f3443" },
   },
   timeScale: {
     borderVisible: false,
-    tickMarkFormatter: (time: Time) => {
-      const t = typeof time === "number" ? time : 0;
-      const index = Math.round((t - FAKE_EPOCH) / FAKE_DAY);
-      if (index < 0 || index >= PRICE_BUCKETS.length) return "";
-      return compactPriceFormatter.format(PRICE_BUCKETS[index]);
-    },
+    tickMarkFormatter: formatPriceBucketFromTime,
   },
   handleScroll: {
     mouseWheel: true,
@@ -282,11 +286,11 @@ export function PriceMentionZScorePage() {
 
     const cohortBuckets = aggregatePriceMentionPeriodsIntoBuckets(
       windowedComparison.selectedPeriods,
-      PRICE_BUCKETS,
+      PRICE_MENTION_BUCKETS,
     );
     const baselineBuckets = aggregatePriceMentionPeriodsIntoBuckets(
       windowedComparison.comparisonPeriods,
-      PRICE_BUCKETS,
+      PRICE_MENTION_BUCKETS,
     );
     const zScores = computeZScores(cohortBuckets, baselineBuckets);
 

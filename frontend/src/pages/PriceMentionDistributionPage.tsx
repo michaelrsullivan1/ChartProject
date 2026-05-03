@@ -26,17 +26,12 @@ import {
   formatWindowLabel,
   resolveWindowedPriceMentionComparison,
 } from "../lib/priceMentionWindowing";
+import { PRICE_MENTION_BUCKETS } from "../lib/priceMentionBuckets";
 
 const API_BASE = "/api/views";
 
 const MENTION_TYPES = ["prediction", "conditional", "current", "historical", "unclassified"] as const;
 type MentionTypeFilter = "all" | (typeof MENTION_TYPES)[number];
-
-const PRICE_BUCKETS = [
-  10_000, 20_000, 30_000, 40_000, 50_000, 60_000, 70_000, 80_000, 90_000, 100_000,
-  125_000, 150_000, 175_000, 200_000, 250_000, 300_000, 400_000, 500_000,
-  750_000, 1_000_000, 1_500_000, 2_000_000, 3_000_000, 5_000_000, 10_000_000,
-];
 
 const PRICE_MENTION_VIEW = "distribution";
 
@@ -49,6 +44,13 @@ const compactPriceFormatter = new Intl.NumberFormat("en-US", {
 
 const percentFormatter = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 1,
+});
+
+const hoverPriceFormatter = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  notation: "compact",
+  maximumFractionDigits: 0,
 });
 
 export function PriceMentionDistributionPage() {
@@ -76,6 +78,7 @@ export function PriceMentionDistributionPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const drawRef = useRef<(() => void) | null>(null);
+  const hoveredBucketIndexRef = useRef<number | null>(null);
 
   const selectedCohortName =
     cohorts.find((cohortOption) => cohortOption.key === selectedCohortKey)?.tagName ??
@@ -221,21 +224,26 @@ export function PriceMentionDistributionPage() {
 
       const selectedBuckets = aggregatePriceMentionPeriodsIntoBuckets(
         windowedComparison.selectedPeriods,
-        PRICE_BUCKETS,
+        PRICE_MENTION_BUCKETS,
       );
       const comparisonBuckets = comparisonData
-        ? aggregatePriceMentionPeriodsIntoBuckets(windowedComparison.comparisonPeriods, PRICE_BUCKETS)
+        ? aggregatePriceMentionPeriodsIntoBuckets(
+            windowedComparison.comparisonPeriods,
+            PRICE_MENTION_BUCKETS,
+          )
         : null;
       const selectedTotal = selectedBuckets.reduce((sum, count) => sum + count, 0);
       const comparisonTotal = comparisonBuckets
         ? comparisonBuckets.reduce((sum, count) => sum + count, 0)
         : 0;
-      const selectedValues = PRICE_BUCKETS.map((_, index) =>
+      const selectedValues = PRICE_MENTION_BUCKETS.map((_, index) =>
         selectedTotal > 0 ? (selectedBuckets[index] / selectedTotal) * 100 : 0,
       );
       const comparisonValues =
         comparisonBuckets && comparisonTotal > 0
-          ? PRICE_BUCKETS.map((_, index) => (comparisonBuckets[index] / comparisonTotal) * 100)
+          ? PRICE_MENTION_BUCKETS.map(
+              (_, index) => (comparisonBuckets[index] / comparisonTotal) * 100,
+            )
           : null;
 
       const dpr = window.devicePixelRatio || 1;
@@ -251,26 +259,86 @@ export function PriceMentionDistributionPage() {
 
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.scale(dpr, dpr);
-      drawGroupedDistributionChart(ctx, width, height, selectedValues, comparisonValues);
+      drawGroupedDistributionChart(
+        ctx,
+        width,
+        height,
+        selectedValues,
+        comparisonValues,
+        hoveredBucketIndexRef.current,
+      );
     };
 
     drawRef.current();
   }, [comparisonData, windowedComparison.comparisonPeriods, windowedComparison.selectedPeriods]);
 
+  const totalMentions =
+    windowedComparison.selectedPeriods.length > 0 ? windowedComparison.selectedMentionCount : null;
+  const isChartVisible =
+    !isLoading &&
+    !error &&
+    windowedComparison.selectedPeriods.length > 0 &&
+    !(data && data.periods.length === 0);
+
   useEffect(() => {
-    if (!containerRef.current) {
+    if (!isChartVisible || !containerRef.current) {
       return;
+    }
+
+    const container = containerRef.current;
+
+    function handlePointerLeave() {
+      hoveredBucketIndexRef.current = null;
+      drawRef.current?.();
+    }
+
+    function handlePointerMove(event: PointerEvent) {
+      const rect = container.getBoundingClientRect();
+      const localX = event.clientX - rect.left;
+      const localY = event.clientY - rect.top;
+      const chartWidth = rect.width - DIST_CHART_LEFT - DIST_CHART_RIGHT;
+      const chartHeight = rect.height - DIST_CHART_TOP - DIST_CHART_BOTTOM;
+      if (
+        chartWidth <= 0 ||
+        chartHeight <= 0 ||
+        localX < DIST_CHART_LEFT ||
+        localX > DIST_CHART_LEFT + chartWidth ||
+        localY < DIST_CHART_TOP ||
+        localY > DIST_CHART_TOP + chartHeight
+      ) {
+        if (hoveredBucketIndexRef.current !== null) {
+          hoveredBucketIndexRef.current = null;
+          drawRef.current?.();
+        }
+        return;
+      }
+
+      const relativeX = localX - DIST_CHART_LEFT;
+      const bucketIndex = Math.max(
+        0,
+        Math.min(
+          PRICE_MENTION_BUCKETS.length - 1,
+          Math.floor((relativeX / chartWidth) * PRICE_MENTION_BUCKETS.length),
+        ),
+      );
+      if (hoveredBucketIndexRef.current !== bucketIndex) {
+        hoveredBucketIndexRef.current = bucketIndex;
+        drawRef.current?.();
+      }
     }
 
     const observer = new ResizeObserver(() => {
       drawRef.current?.();
     });
-    observer.observe(containerRef.current);
-    return () => observer.disconnect();
-  }, []);
-
-  const totalMentions =
-    windowedComparison.selectedPeriods.length > 0 ? windowedComparison.selectedMentionCount : null;
+    observer.observe(container);
+    container.addEventListener("pointerleave", handlePointerLeave);
+    container.addEventListener("pointermove", handlePointerMove);
+    return () => {
+      observer.disconnect();
+      container.removeEventListener("pointerleave", handlePointerLeave);
+      container.removeEventListener("pointermove", handlePointerMove);
+    };
+  }, [data, error, isChartVisible, isLoading, windowedComparison.selectedPeriods.length]);
 
   function handleSelectedCohortKeyChange(nextKey: PriceMentionCohortKey) {
     if (selectedCohortKey === nextKey) {
@@ -428,6 +496,7 @@ function drawGroupedDistributionChart(
   totalHeight: number,
   selectedValues: number[],
   comparisonValues: number[] | null,
+  hoveredBucketIndex: number | null,
 ) {
   ctx.clearRect(0, 0, totalWidth, totalHeight);
 
@@ -448,6 +517,9 @@ function drawGroupedDistributionChart(
   drawDistributionGrid(ctx, chartWidth, chartHeight, yMax);
   drawDistributionBars(ctx, chartWidth, chartHeight, selectedValues, comparisonValues, yMax);
   drawDistributionXAxis(ctx, chartWidth, chartHeight);
+  if (hoveredBucketIndex !== null) {
+    drawDistributionHover(ctx, chartWidth, chartHeight, hoveredBucketIndex);
+  }
 }
 
 function drawDistributionGrid(
@@ -481,7 +553,7 @@ function drawDistributionBars(
   comparisonValues: number[] | null,
   yMax: number,
 ) {
-  const groupWidth = chartWidth / PRICE_BUCKETS.length;
+  const groupWidth = chartWidth / PRICE_MENTION_BUCKETS.length;
   const groupPadding = Math.min(8, groupWidth * 0.16);
   const innerGap = comparisonValues ? Math.min(4, groupWidth * 0.08) : 0;
   const usableWidth = Math.max(groupWidth - groupPadding * 2, 2);
@@ -489,7 +561,7 @@ function drawDistributionBars(
     ? Math.max((usableWidth - innerGap) / 2, 1)
     : Math.max(usableWidth * 0.72, 1);
 
-  for (let index = 0; index < PRICE_BUCKETS.length; index += 1) {
+  for (let index = 0; index < PRICE_MENTION_BUCKETS.length; index += 1) {
     const groupX = DIST_CHART_LEFT + index * groupWidth + groupPadding;
     if (comparisonValues) {
       drawDistributionBar(
@@ -552,13 +624,58 @@ function drawDistributionXAxis(
   ctx.font = "10px system-ui, sans-serif";
   ctx.fillStyle = "rgba(212, 197, 173, 0.78)";
 
-  const groupWidth = chartWidth / PRICE_BUCKETS.length;
-  const step = distributionLabelStep(PRICE_BUCKETS.length);
-  for (let index = 0; index < PRICE_BUCKETS.length; index += step) {
+  const groupWidth = chartWidth / PRICE_MENTION_BUCKETS.length;
+  const step = distributionLabelStep(PRICE_MENTION_BUCKETS.length);
+  for (let index = 0; index < PRICE_MENTION_BUCKETS.length; index += step) {
     const x = DIST_CHART_LEFT + (index + 0.5) * groupWidth;
-    const label = compactPriceFormatter.format(PRICE_BUCKETS[index]);
+    const label = compactPriceFormatter.format(PRICE_MENTION_BUCKETS[index]);
     ctx.fillText(label, x, DIST_CHART_TOP + chartHeight + 8);
   }
+}
+
+function drawDistributionHover(
+  ctx: CanvasRenderingContext2D,
+  chartWidth: number,
+  chartHeight: number,
+  hoveredBucketIndex: number,
+) {
+  if (hoveredBucketIndex < 0 || hoveredBucketIndex >= PRICE_MENTION_BUCKETS.length) {
+    return;
+  }
+
+  const groupWidth = chartWidth / PRICE_MENTION_BUCKETS.length;
+  const centerX = DIST_CHART_LEFT + (hoveredBucketIndex + 0.5) * groupWidth;
+  const label = hoverPriceFormatter.format(PRICE_MENTION_BUCKETS[hoveredBucketIndex]);
+  const labelPaddingX = 10;
+  const labelHeight = 28;
+
+  ctx.save();
+  ctx.strokeStyle = "rgba(255, 178, 64, 0.34)";
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath();
+  ctx.moveTo(centerX, DIST_CHART_TOP);
+  ctx.lineTo(centerX, DIST_CHART_TOP + chartHeight);
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.save();
+  ctx.font = "11px system-ui, sans-serif";
+  const textWidth = ctx.measureText(label).width;
+  const labelWidth = textWidth + labelPaddingX * 2;
+  const labelX = Math.max(
+    DIST_CHART_LEFT,
+    Math.min(centerX - labelWidth / 2, DIST_CHART_LEFT + chartWidth - labelWidth),
+  );
+  const labelY = DIST_CHART_TOP + chartHeight + 4;
+
+  ctx.fillStyle = "#5c3a1e";
+  fillRoundedRect(ctx, labelX, labelY, labelWidth, labelHeight, 8);
+  ctx.fillStyle = "#f4ddbe";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(label, labelX + labelWidth / 2, labelY + labelHeight / 2 + 0.5);
+  ctx.restore();
 }
 
 function fillRoundedRect(
@@ -606,8 +723,8 @@ function roundUpDistributionMax(value: number): number {
 }
 
 function distributionLabelStep(bucketCount: number): number {
-  if (bucketCount <= 8) return 1;
-  if (bucketCount <= 14) return 2;
-  if (bucketCount <= 20) return 3;
+  if (bucketCount <= 10) return 1;
+  if (bucketCount <= 18) return 2;
+  if (bucketCount <= 30) return 3;
   return 4;
 }
