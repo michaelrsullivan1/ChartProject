@@ -412,16 +412,17 @@ def build_aggregate_mood_outliers_view(
             model_key=request.model_key,
             cohort_tag_slug=request.cohort_tag_slug,
         )
+        week_bucket = func.date_trunc("week", Tweet.created_at_platform).label("bucket_start")
         mood_query = (
             select(
                 User.id,
                 User.platform_user_id,
                 User.username,
                 User.display_name,
-                Tweet.id,
-                Tweet.created_at_platform,
+                week_bucket,
                 TweetMoodScore.mood_label,
-                TweetMoodScore.score,
+                func.avg(TweetMoodScore.score).label("average_score"),
+                func.count(TweetMoodScore.id).label("score_count"),
             )
             .join(Tweet, Tweet.author_user_id == User.id)
             .join(TweetMoodScore, TweetMoodScore.tweet_id == Tweet.id)
@@ -431,10 +432,17 @@ def build_aggregate_mood_outliers_view(
                 TweetMoodScore.status == "scored",
                 TweetMoodScore.mood_label.in_(mood_labels),
             )
+            .group_by(
+                User.id,
+                User.platform_user_id,
+                User.username,
+                User.display_name,
+                week_bucket,
+                TweetMoodScore.mood_label,
+            )
             .order_by(
-                Tweet.created_at_platform.asc(),
+                week_bucket.asc(),
                 User.id.asc(),
-                Tweet.id.asc(),
                 TweetMoodScore.mood_label.asc(),
             )
         )
@@ -452,11 +460,35 @@ def build_aggregate_mood_outliers_view(
         week_user_moods: dict[datetime, dict[int, dict[str, dict[str, float | int]]]] = {}
         sorted_weeks: list[datetime] = []
         week_index_by_start: dict[datetime, int] = {}
-        overall_tweet_ids: set[int] = set()
+        scored_tweet_count_query = (
+            select(func.count(func.distinct(Tweet.id)))
+            .join(TweetMoodScore, TweetMoodScore.tweet_id == Tweet.id)
+            .where(
+                Tweet.author_user_id.in_(cohort_user_ids),
+                TweetMoodScore.model_key == request.model_key,
+                TweetMoodScore.status == "scored",
+                TweetMoodScore.mood_label.in_(mood_labels),
+            )
+        )
+        if analysis_start is not None:
+            scored_tweet_count_query = scored_tweet_count_query.where(
+                Tweet.created_at_platform >= analysis_start
+            )
 
-        for user_id, platform_user_id, username, display_name, tweet_id, created_at, mood_label, score in rows:
+        overall_tweet_count = int(session.scalar(scored_tweet_count_query) or 0)
+
+        for (
+            user_id,
+            platform_user_id,
+            username,
+            display_name,
+            bucket_start,
+            mood_label,
+            average_score,
+            score_count,
+        ) in rows:
             normalized_user_id = int(user_id)
-            bucket_start = floor_to_week(created_at.astimezone(UTC))
+            bucket_start = floor_to_week(bucket_start.astimezone(UTC))
             if bucket_start not in week_index_by_start:
                 week_index_by_start[bucket_start] = len(sorted_weeks)
                 sorted_weeks.append(bucket_start)
@@ -479,9 +511,8 @@ def build_aggregate_mood_outliers_view(
                 },
             )
             mood_bucket = user_mood_bucket[mood_label]
-            mood_bucket["sum_score"] += float(score)
-            mood_bucket["score_count"] += 1
-            overall_tweet_ids.add(int(tweet_id))
+            mood_bucket["sum_score"] += float(average_score) * int(score_count)
+            mood_bucket["score_count"] += int(score_count)
 
         series_start = (
             floor_to_week(analysis_start.astimezone(UTC))
@@ -647,7 +678,7 @@ def build_aggregate_mood_outliers_view(
                 "end": current_week_iso,
             },
             "summary": {
-                "scored_tweet_count": len(overall_tweet_ids),
+                "scored_tweet_count": overall_tweet_count,
                 "cohort_user_count": len(cohort_usernames),
                 "current_week_start": current_week_iso,
             },

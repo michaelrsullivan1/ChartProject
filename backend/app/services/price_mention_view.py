@@ -65,45 +65,44 @@ def build_price_mention_view(
                 "generated_at": datetime.now(UTC).isoformat(),
             }
 
-        bucket_fn = _floor_to_month if granularity == "month" else floor_to_week
-
-        # Retweet exclusion subquery
-        retweet_ids_sq = (
-            select(TweetReference.tweet_id)
-            .where(TweetReference.reference_type == "retweeted")
-            .subquery()
-        )
-
-        # Eligible tweet subquery for the denominator (retweet-excluded, same user scope)
-        eligible_tweet_sq = (
-            select(Tweet.id, Tweet.author_user_id, Tweet.created_at_platform)
+        bucket_source_expr = func.timezone("UTC", Tweet.created_at_platform)
+        bucket_expr = func.date_trunc("month" if granularity == "month" else "week", bucket_source_expr)
+        retweet_exists = (
+            select(TweetReference.id)
             .where(
-                Tweet.author_user_id.in_(cohort_user_ids),
-                Tweet.created_at_platform >= analysis_start,
-                Tweet.id.not_in(select(retweet_ids_sq.c.tweet_id)),
+                TweetReference.tweet_id == Tweet.id,
+                TweetReference.reference_type == "retweeted",
             )
-            .subquery()
+            .exists()
         )
 
-        # Per-bucket tweet count and user count (denominator)
+        # Per-bucket tweet count and distinct user count (denominator)
         bucket_tweet_counts: dict[datetime, int] = {}
         bucket_user_counts: dict[datetime, int] = {}
         tweet_count_rows = session.execute(
             select(
-                eligible_tweet_sq.c.created_at_platform,
-                eligible_tweet_sq.c.author_user_id,
+                bucket_expr.label("bucket_start"),
+                func.count().label("tweet_count"),
+                func.count(func.distinct(Tweet.author_user_id)).label("user_count"),
             )
+            .where(
+                Tweet.author_user_id.in_(cohort_user_ids),
+                Tweet.created_at_platform >= analysis_start,
+                ~retweet_exists,
+            )
+            .group_by(bucket_expr)
+            .order_by(bucket_expr.asc())
         ).all()
-        for created_at, user_id in tweet_count_rows:
-            bucket = bucket_fn(created_at.astimezone(UTC))
-            bucket_tweet_counts[bucket] = bucket_tweet_counts.get(bucket, 0) + 1
-            if bucket not in bucket_user_counts:
-                bucket_user_counts[bucket] = set()  # type: ignore[assignment]
-            bucket_user_counts[bucket].add(user_id)  # type: ignore[attr-defined]
-        # Convert user sets to counts
-        bucket_user_counts = {k: len(v) for k, v in bucket_user_counts.items()}  # type: ignore[assignment]
+        for bucket_start, tweet_count, user_count in tweet_count_rows:
+            bucket = _normalize_bucket_start(bucket_start)
+            bucket_tweet_counts[bucket] = int(tweet_count)
+            bucket_user_counts[bucket] = int(user_count)
 
-        # Price mention rows
+        # Price mention rows, pre-aggregated in SQL by bucket/price-bin/type.
+        bin_size_decimal = Decimal(str(request.bin_size))
+        binned_price_expr = (
+            func.floor(TweetPriceMention.price_usd / bin_size_decimal) * bin_size_decimal
+        )
         mention_filter = [
             TweetPriceMention.user_id.in_(cohort_user_ids),
             TweetPriceMention.extractor_key == request.extractor_key,
@@ -117,28 +116,29 @@ def build_price_mention_view(
 
         mention_rows = session.execute(
             select(
-                TweetPriceMention.price_usd,
+                bucket_expr.label("bucket_start"),
+                binned_price_expr.label("bin_price"),
                 TweetPriceMention.mention_type,
-                Tweet.created_at_platform,
+                func.count().label("mention_count"),
             )
             .join(Tweet, Tweet.id == TweetPriceMention.tweet_id)
             .where(
-                Tweet.id.not_in(select(retweet_ids_sq.c.tweet_id)),
+                ~retweet_exists,
                 *mention_filter,
             )
-            .order_by(Tweet.created_at_platform.asc())
+            .group_by(bucket_expr, binned_price_expr, TweetPriceMention.mention_type)
+            .order_by(bucket_expr.asc(), binned_price_expr.asc(), TweetPriceMention.mention_type.asc())
         ).all()
 
         # Bucket and bin mentions
         # Structure: {bucket_start: {(bin_price, mention_type): count}}
         buckets: dict[datetime, dict[tuple[int, str], int]] = {}
-        for price_usd, mention_type, created_at in mention_rows:
-            bucket = bucket_fn(created_at.astimezone(UTC))
-            bin_price = _bin_price(float(price_usd), request.bin_size)
-            key = (bin_price, mention_type)
+        for bucket_start, bin_price, mention_type, mention_count in mention_rows:
+            bucket = _normalize_bucket_start(bucket_start)
+            key = (int(round(float(bin_price))), mention_type)
             if bucket not in buckets:
                 buckets[bucket] = {}
-            buckets[bucket][key] = buckets[bucket].get(key, 0) + 1
+            buckets[bucket][key] = buckets[bucket].get(key, 0) + int(mention_count)
 
         # All buckets that have either tweets or mentions
         all_buckets = sorted(set(bucket_tweet_counts) | set(buckets))
@@ -290,3 +290,9 @@ def _bin_price(price: float, bin_size: float) -> int:
 def _floor_to_month(value: datetime) -> datetime:
     normalized = value.astimezone(UTC)
     return normalized.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+
+def _normalize_bucket_start(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
