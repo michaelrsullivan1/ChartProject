@@ -1,8 +1,10 @@
 import type { AggregateMoodCohortsResponse } from "../api/authorOverview";
 
 export const ALL_PRICE_MENTION_COHORT_KEY = "__all__";
+export const DEFAULT_PRICE_MENTION_WINDOW = "12m";
 const COHORT_QUERY_PARAM = "cohort";
 const PINNED_QUERY_PARAM = "pinned";
+const WINDOW_QUERY_PARAM = "window";
 
 export type PriceMentionCohortKey = string;
 
@@ -11,6 +13,19 @@ export type PriceMentionCohortOption = {
   tagSlug: string | null;
   tagName: string;
 };
+
+export type PriceMentionWindowKey = "3m" | "6m" | "12m" | "24m" | "all";
+
+export const PRICE_MENTION_WINDOW_OPTIONS: Array<{
+  key: PriceMentionWindowKey;
+  label: string;
+}> = [
+  { key: "3m", label: "3M" },
+  { key: "6m", label: "6M" },
+  { key: "12m", label: "12M" },
+  { key: "24m", label: "24M" },
+  { key: "all", label: "All Common" },
+];
 
 export function buildPriceMentionCohortOptions(
   cohorts: AggregateMoodCohortsResponse["cohorts"],
@@ -60,16 +75,24 @@ export function getNextPinnedPriceMentionCohortKey(
   return pinnedCohortKey;
 }
 
+export function isValidPriceMentionWindowKey(
+  value: string | null | undefined,
+): value is PriceMentionWindowKey {
+  return PRICE_MENTION_WINDOW_OPTIONS.some((option) => option.key === value);
+}
+
 export function buildPriceMentionSelectionHash(
   view: "distribution" | "zscore",
   selectedCohortKey: PriceMentionCohortKey,
   pinnedCohortKey: PriceMentionCohortKey | null,
+  timeWindow: PriceMentionWindowKey,
 ): string {
   const query = new URLSearchParams();
   query.set(COHORT_QUERY_PARAM, selectedCohortKey);
   if (pinnedCohortKey !== null) {
     query.set(PINNED_QUERY_PARAM, pinnedCohortKey);
   }
+  query.set(WINDOW_QUERY_PARAM, timeWindow);
   return `#/price-mentions/${view}?${query.toString()}`;
 }
 
@@ -79,29 +102,34 @@ export function readPriceMentionUrlState(
 ): {
   selectedCohortKey: PriceMentionCohortKey | null;
   pinnedCohortKey: PriceMentionCohortKey | null;
+  timeWindow: PriceMentionWindowKey;
 } {
   const prefix = `#/price-mentions/${view}`;
   if (!hash.startsWith(prefix)) {
     return {
       selectedCohortKey: null,
       pinnedCohortKey: null,
+      timeWindow: DEFAULT_PRICE_MENTION_WINDOW,
     };
   }
 
   const queryIndex = hash.indexOf("?");
   if (queryIndex < 0) {
     return {
-      selectedCohortKey: ALL_PRICE_MENTION_COHORT_KEY,
+      selectedCohortKey: null,
       pinnedCohortKey: null,
+      timeWindow: DEFAULT_PRICE_MENTION_WINDOW,
     };
   }
 
   const params = new URLSearchParams(hash.slice(queryIndex + 1));
+  const timeWindow = normalizeOptionalPriceMentionQueryParam(params.get(WINDOW_QUERY_PARAM));
   return {
     selectedCohortKey: normalizeOptionalPriceMentionQueryParam(
       params.get(COHORT_QUERY_PARAM),
-    ) ?? ALL_PRICE_MENTION_COHORT_KEY,
+    ),
     pinnedCohortKey: normalizeOptionalPriceMentionQueryParam(params.get(PINNED_QUERY_PARAM)),
+    timeWindow: isValidPriceMentionWindowKey(timeWindow) ? timeWindow : DEFAULT_PRICE_MENTION_WINDOW,
   };
 }
 

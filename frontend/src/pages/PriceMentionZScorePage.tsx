@@ -23,10 +23,17 @@ import {
   getPinnedPriceMentionComparisonKey,
   getPriceMentionCohortTagSlug,
   isValidPriceMentionCohortKey,
+  PRICE_MENTION_WINDOW_OPTIONS,
   readPriceMentionUrlState,
   type PriceMentionCohortKey,
   type PriceMentionCohortOption,
+  type PriceMentionWindowKey,
 } from "../lib/priceMentionCohorts";
+import {
+  aggregatePriceMentionPeriodsIntoBuckets,
+  formatWindowLabel,
+  resolveWindowedPriceMentionComparison,
+} from "../lib/priceMentionWindowing";
 
 const API_BASE = "/api/views";
 
@@ -52,24 +59,6 @@ const compactPriceFormatter = new Intl.NumberFormat("en-US", {
 
 function bucketIndexToTime(index: number): UTCTimestamp {
   return (FAKE_EPOCH + index * FAKE_DAY) as UTCTimestamp;
-}
-
-function findBucketIndex(price: number): number {
-  for (let i = PRICE_BUCKETS.length - 1; i >= 0; i--) {
-    if (price >= PRICE_BUCKETS[i]) return i;
-  }
-  return -1;
-}
-
-function aggregateIntoBuckets(data: PriceMentionsResponse): number[] {
-  const counts = new Array<number>(PRICE_BUCKETS.length).fill(0);
-  for (const period of data.periods) {
-    for (const mention of period.mentions) {
-      const bi = findBucketIndex(mention.price_usd);
-      if (bi >= 0) counts[bi] += mention.count;
-    }
-  }
-  return counts;
 }
 
 function computeZScores(cohortBuckets: number[], baselineBuckets: number[]): number[] {
@@ -140,6 +129,9 @@ export function PriceMentionZScorePage() {
   const [pinnedCohortKey, setPinnedCohortKey] = useState<PriceMentionCohortKey | null>(
     () => readPriceMentionUrlState(window.location.hash, PRICE_MENTION_VIEW).pinnedCohortKey,
   );
+  const [timeWindow, setTimeWindow] = useState<PriceMentionWindowKey>(
+    () => readPriceMentionUrlState(window.location.hash, PRICE_MENTION_VIEW).timeWindow,
+  );
 
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -159,6 +151,7 @@ export function PriceMentionZScorePage() {
       ? null
       : cohorts.find((cohortOption) => cohortOption.key === fallbackComparisonKey)?.tagName ??
         "All tracked users";
+  const windowedComparison = resolveWindowedPriceMentionComparison(data, baselineData, timeWindow);
 
   useEffect(() => {
     const ac = new AbortController();
@@ -180,6 +173,7 @@ export function PriceMentionZScorePage() {
       const urlState = readPriceMentionUrlState(window.location.hash, PRICE_MENTION_VIEW);
       setSelectedCohortKey(urlState.selectedCohortKey ?? ALL_PRICE_MENTION_COHORT_KEY);
       setPinnedCohortKey(urlState.pinnedCohortKey);
+      setTimeWindow(urlState.timeWindow);
     }
 
     window.addEventListener("hashchange", handleHashChange);
@@ -193,11 +187,12 @@ export function PriceMentionZScorePage() {
       PRICE_MENTION_VIEW,
       selectedCohortKey,
       pinnedCohortKey,
+      timeWindow,
     );
     if (window.location.hash !== nextHash) {
       window.location.hash = nextHash;
     }
-  }, [pinnedCohortKey, selectedCohortKey]);
+  }, [pinnedCohortKey, selectedCohortKey, timeWindow]);
 
   useEffect(() => {
     if (!areCohortsReady) {
@@ -281,8 +276,14 @@ export function PriceMentionZScorePage() {
     const container = containerRef.current;
     if (!container || !data || !baselineData) return;
 
-    const cohortBuckets = aggregateIntoBuckets(data);
-    const baselineBuckets = aggregateIntoBuckets(baselineData);
+    const cohortBuckets = aggregatePriceMentionPeriodsIntoBuckets(
+      windowedComparison.selectedPeriods,
+      PRICE_BUCKETS,
+    );
+    const baselineBuckets = aggregatePriceMentionPeriodsIntoBuckets(
+      windowedComparison.comparisonPeriods,
+      PRICE_BUCKETS,
+    );
     const zScores = computeZScores(cohortBuckets, baselineBuckets);
 
     const histData: HistogramData<Time>[] = zScores.map((z, i) => ({
@@ -325,11 +326,10 @@ export function PriceMentionZScorePage() {
       observer.disconnect();
       chart.remove();
     };
-  }, [data, baselineData]);
+  }, [baselineData, data, windowedComparison.comparisonPeriods, windowedComparison.selectedPeriods]);
 
-  const totalMentions = data
-    ? data.periods.reduce((s, p) => s + p.mention_count, 0)
-    : null;
+  const totalMentions =
+    windowedComparison.selectedPeriods.length > 0 ? windowedComparison.selectedMentionCount : null;
 
   function handleSelectedCohortKeyChange(nextKey: PriceMentionCohortKey) {
     if (selectedCohortKey === nextKey) {
@@ -377,6 +377,31 @@ export function PriceMentionZScorePage() {
             </p>
           </div>
 
+          <div className="chart-control-card pm-comparison-summary-card">
+            <p className="chart-control-eyebrow">Time Window</p>
+            <div className="pm-toggle-row pm-toggle-wrap">
+              {PRICE_MENTION_WINDOW_OPTIONS.map((option) => (
+                <button
+                  key={option.key}
+                  className={`chart-toggle-button${timeWindow === option.key ? " is-active" : ""}`}
+                  onClick={() => setTimeWindow(option.key)}
+                  type="button"
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+            <p className="pm-comparison-summary-copy">
+              {windowedComparison.coverageSummary ?? `${formatWindowLabel(timeWindow)} window.`}
+            </p>
+            {windowedComparison.coverageNote ? (
+              <p className="chart-control-note">{windowedComparison.coverageNote}</p>
+            ) : null}
+            {windowedComparison.timingNote ? (
+              <p className="chart-control-note">{windowedComparison.timingNote}</p>
+            ) : null}
+          </div>
+
           <div className="chart-control-card">
             <p className="chart-control-eyebrow">Mention Type</p>
             <div className="pm-toggle-row pm-toggle-wrap">
@@ -420,10 +445,13 @@ export function PriceMentionZScorePage() {
             <div className="pm-chart-area">
               {isLoading ? (
                 <DashboardLoadingState />
-              ) : !comparisonCohortName ? (
-                <div className="pm-empty">Select or pin a cohort to compare against.</div>
               ) : error ? (
                 <div className="pm-error">{error}</div>
+              ) : !comparisonCohortName ? (
+                <div className="pm-empty">Select or pin a cohort to compare against.</div>
+              ) : windowedComparison.selectedPeriods.length === 0 ||
+                windowedComparison.comparisonPeriods.length === 0 ? (
+                <div className="pm-empty">No price mention coverage found for the selected window.</div>
               ) : (
                 <div ref={containerRef} className="pm-lw-chart" />
               )}
@@ -445,7 +473,7 @@ export function PriceMentionZScorePage() {
               {totalMentions !== null ? (
                 <span className="pm-legend-meta">
                   Scoring {selectedCohortName} against {comparisonCohortName} ·{" "}
-                  {totalMentions.toLocaleString()} mentions
+                  {formatWindowLabel(timeWindow)} · {totalMentions.toLocaleString()} mentions
                 </span>
               ) : null}
             </div>
