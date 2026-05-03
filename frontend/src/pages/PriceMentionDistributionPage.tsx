@@ -1,13 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import {
-  ColorType,
-  LineSeries,
-  LineType,
-  createChart,
-  type LineData,
-  type Time,
-  type UTCTimestamp,
-} from "lightweight-charts";
 
 import {
   fetchAggregateMoodCohorts,
@@ -47,8 +38,6 @@ const PRICE_BUCKETS = [
   750_000, 1_000_000, 1_500_000, 2_000_000, 3_000_000, 5_000_000, 10_000_000,
 ];
 
-const FAKE_EPOCH = 946684800;
-const FAKE_DAY = 86400;
 const PRICE_MENTION_VIEW = "distribution";
 
 const compactPriceFormatter = new Intl.NumberFormat("en-US", {
@@ -58,50 +47,9 @@ const compactPriceFormatter = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 0,
 });
 
-function bucketIndexToTime(index: number): UTCTimestamp {
-  return (FAKE_EPOCH + index * FAKE_DAY) as UTCTimestamp;
-}
-
-const chartOptions = {
-  layout: {
-    background: { type: ColorType.Solid, color: "rgba(12, 10, 8, 0)" },
-    textColor: "#d4c5ad",
-    attributionLogo: false,
-  },
-  grid: {
-    vertLines: { color: "rgba(255, 245, 220, 0.06)" },
-    horzLines: { color: "rgba(255, 245, 220, 0.08)" },
-  },
-  rightPriceScale: { borderVisible: false },
-  crosshair: {
-    vertLine: {
-      color: "rgba(255, 178, 64, 0.28)",
-      labelBackgroundColor: "#4d2f17",
-      labelVisible: false,
-    },
-    horzLine: { color: "rgba(118, 199, 255, 0.24)", labelBackgroundColor: "#1f3443" },
-  },
-  timeScale: {
-    borderVisible: false,
-    tickMarkFormatter: (time: Time) => {
-      const t = typeof time === "number" ? time : 0;
-      const index = Math.round((t - FAKE_EPOCH) / FAKE_DAY);
-      if (index < 0 || index >= PRICE_BUCKETS.length) return "";
-      return compactPriceFormatter.format(PRICE_BUCKETS[index]);
-    },
-  },
-  handleScroll: {
-    mouseWheel: true,
-    pressedMouseMove: true,
-    horzTouchDrag: true,
-    vertTouchDrag: false,
-  },
-  handleScale: {
-    axisPressedMouseMove: { time: true, price: false },
-    mouseWheel: true,
-    pinch: true,
-  },
-};
+const percentFormatter = new Intl.NumberFormat("en-US", {
+  maximumFractionDigits: 1,
+});
 
 export function PriceMentionDistributionPage() {
   const [data, setData] = useState<PriceMentionsResponse | null>(null);
@@ -125,7 +73,9 @@ export function PriceMentionDistributionPage() {
     () => readPriceMentionUrlState(window.location.hash, PRICE_MENTION_VIEW).timeWindow,
   );
 
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const drawRef = useRef<(() => void) | null>(null);
 
   const selectedCohortName =
     cohorts.find((cohortOption) => cohortOption.key === selectedCohortKey)?.tagName ??
@@ -256,84 +206,68 @@ export function PriceMentionDistributionPage() {
   ]);
 
   useEffect(() => {
-    const container = containerRef.current;
-    if (!container || !data) return;
+    drawRef.current = () => {
+      if (!canvasRef.current || !containerRef.current) {
+        return;
+      }
 
-    const cohortBuckets = aggregatePriceMentionPeriodsIntoBuckets(
-      windowedComparison.selectedPeriods,
-      PRICE_BUCKETS,
-    );
-    const cohortTotal = cohortBuckets.reduce((s, c) => s + c, 0);
+      const canvas = canvasRef.current;
+      const container = containerRef.current;
+      const width = container.clientWidth;
+      const height = container.clientHeight;
+      if (width === 0 || height === 0) {
+        return;
+      }
 
-    const comparisonBuckets = comparisonData
-      ? aggregatePriceMentionPeriodsIntoBuckets(windowedComparison.comparisonPeriods, PRICE_BUCKETS)
-      : null;
-    const comparisonTotal = comparisonBuckets ? comparisonBuckets.reduce((s, c) => s + c, 0) : 0;
+      const selectedBuckets = aggregatePriceMentionPeriodsIntoBuckets(
+        windowedComparison.selectedPeriods,
+        PRICE_BUCKETS,
+      );
+      const comparisonBuckets = comparisonData
+        ? aggregatePriceMentionPeriodsIntoBuckets(windowedComparison.comparisonPeriods, PRICE_BUCKETS)
+        : null;
+      const selectedTotal = selectedBuckets.reduce((sum, count) => sum + count, 0);
+      const comparisonTotal = comparisonBuckets
+        ? comparisonBuckets.reduce((sum, count) => sum + count, 0)
+        : 0;
+      const selectedValues = PRICE_BUCKETS.map((_, index) =>
+        selectedTotal > 0 ? (selectedBuckets[index] / selectedTotal) * 100 : 0,
+      );
+      const comparisonValues =
+        comparisonBuckets && comparisonTotal > 0
+          ? PRICE_BUCKETS.map((_, index) => (comparisonBuckets[index] / comparisonTotal) * 100)
+          : null;
 
-    const cohortSeries: LineData<Time>[] = PRICE_BUCKETS.map((_, i) => ({
-      time: bucketIndexToTime(i) as Time,
-      value: cohortTotal > 0 ? (cohortBuckets[i] / cohortTotal) * 100 : 0,
-    }));
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = width * dpr;
+      canvas.height = height * dpr;
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
 
-    const comparisonSeries: LineData<Time>[] =
-      comparisonBuckets && comparisonTotal > 0
-        ? PRICE_BUCKETS.map((_, i) => ({
-            time: bucketIndexToTime(i) as Time,
-            value: (comparisonBuckets[i] / comparisonTotal) * 100,
-          }))
-        : [];
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        return;
+      }
 
-    const chart = createChart(container, {
-      ...chartOptions,
-      width: container.clientWidth,
-      height: container.clientHeight,
-    });
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.scale(dpr, dpr);
+      drawGroupedDistributionChart(ctx, width, height, selectedValues, comparisonValues);
+    };
 
-    if (comparisonSeries.length > 0) {
-      const comparisonLine = chart.addSeries(LineSeries, {
-        color: "rgba(198, 191, 180, 0.7)",
-        lineWidth: 1,
-        lineType: LineType.WithSteps,
-        lastValueVisible: false,
-        priceLineVisible: false,
-        crosshairMarkerVisible: false,
-        priceFormat: { type: "percent" as const },
-      });
-      comparisonLine.setData(comparisonSeries);
+    drawRef.current();
+  }, [comparisonData, windowedComparison.comparisonPeriods, windowedComparison.selectedPeriods]);
+
+  useEffect(() => {
+    if (!containerRef.current) {
+      return;
     }
 
-    const cohortLine = chart.addSeries(LineSeries, {
-      color: "rgba(100, 160, 255, 0.9)",
-      lineWidth: 2,
-      lineType: LineType.WithSteps,
-      lastValueVisible: false,
-      priceLineVisible: false,
-      crosshairMarkerVisible: true,
-      crosshairMarkerRadius: 4,
-      crosshairMarkerBorderWidth: 1,
-      crosshairMarkerBorderColor: "rgba(100, 160, 255, 0.9)",
-      crosshairMarkerBackgroundColor: "#17130f",
-      priceFormat: { type: "percent" as const },
-    });
-    cohortLine.setData(cohortSeries);
-
-    chart.priceScale("right").applyOptions({
-      autoScale: true,
-      scaleMargins: { top: 0.08, bottom: 0.08 },
-      minimumWidth: 64,
-    });
-    chart.timeScale().fitContent();
-
     const observer = new ResizeObserver(() => {
-      chart.applyOptions({ width: container.clientWidth, height: container.clientHeight });
+      drawRef.current?.();
     });
-    observer.observe(container);
-
-    return () => {
-      observer.disconnect();
-      chart.remove();
-    };
-  }, [comparisonData, data, windowedComparison.comparisonPeriods, windowedComparison.selectedPeriods]);
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
 
   const totalMentions =
     windowedComparison.selectedPeriods.length > 0 ? windowedComparison.selectedMentionCount : null;
@@ -443,7 +377,9 @@ export function PriceMentionDistributionPage() {
               ) : data && data.periods.length === 0 ? (
                 <div className="pm-empty">No price mentions found for the selected filters.</div>
               ) : (
-                <div ref={containerRef} className="pm-lw-chart" />
+                <div ref={containerRef} className="pm-chart-canvas-shell">
+                  <canvas ref={canvasRef} className="pm-canvas" />
+                </div>
               )}
             </div>
 
@@ -476,4 +412,202 @@ export function PriceMentionDistributionPage() {
       </article>
     </section>
   );
+}
+
+const DIST_CHART_LEFT = 56;
+const DIST_CHART_RIGHT = 16;
+const DIST_CHART_TOP = 12;
+const DIST_CHART_BOTTOM = 44;
+const DIST_TICK_COUNT = 5;
+const SELECTED_BAR_COLOR = "rgba(100, 160, 255, 0.88)";
+const COMPARISON_BAR_COLOR = "rgba(198, 191, 180, 0.8)";
+
+function drawGroupedDistributionChart(
+  ctx: CanvasRenderingContext2D,
+  totalWidth: number,
+  totalHeight: number,
+  selectedValues: number[],
+  comparisonValues: number[] | null,
+) {
+  ctx.clearRect(0, 0, totalWidth, totalHeight);
+
+  const chartWidth = totalWidth - DIST_CHART_LEFT - DIST_CHART_RIGHT;
+  const chartHeight = totalHeight - DIST_CHART_TOP - DIST_CHART_BOTTOM;
+  if (chartWidth <= 0 || chartHeight <= 0 || selectedValues.length === 0) {
+    return;
+  }
+
+  const hasComparison = comparisonValues !== null;
+  const allValues = hasComparison ? [...selectedValues, ...comparisonValues] : selectedValues;
+  const maxValue = Math.max(...allValues, 0);
+  const yMax = roundUpDistributionMax(maxValue);
+
+  ctx.fillStyle = "rgba(0, 0, 0, 0.16)";
+  ctx.fillRect(DIST_CHART_LEFT, DIST_CHART_TOP, chartWidth, chartHeight);
+
+  drawDistributionGrid(ctx, chartWidth, chartHeight, yMax);
+  drawDistributionBars(ctx, chartWidth, chartHeight, selectedValues, comparisonValues, yMax);
+  drawDistributionXAxis(ctx, chartWidth, chartHeight);
+}
+
+function drawDistributionGrid(
+  ctx: CanvasRenderingContext2D,
+  chartWidth: number,
+  chartHeight: number,
+  yMax: number,
+) {
+  ctx.textAlign = "right";
+  ctx.textBaseline = "middle";
+  ctx.font = "10px system-ui, sans-serif";
+
+  for (let tickIndex = 0; tickIndex <= DIST_TICK_COUNT; tickIndex += 1) {
+    const ratio = tickIndex / DIST_TICK_COUNT;
+    const value = yMax * (1 - ratio);
+    const y = DIST_CHART_TOP + chartHeight * ratio;
+
+    ctx.fillStyle = "rgba(255, 245, 220, 0.08)";
+    ctx.fillRect(DIST_CHART_LEFT, y - 0.5, chartWidth, 1);
+
+    ctx.fillStyle = "rgba(212, 197, 173, 0.75)";
+    ctx.fillText(`${percentFormatter.format(value)}%`, DIST_CHART_LEFT - 6, y);
+  }
+}
+
+function drawDistributionBars(
+  ctx: CanvasRenderingContext2D,
+  chartWidth: number,
+  chartHeight: number,
+  selectedValues: number[],
+  comparisonValues: number[] | null,
+  yMax: number,
+) {
+  const groupWidth = chartWidth / PRICE_BUCKETS.length;
+  const groupPadding = Math.min(8, groupWidth * 0.16);
+  const innerGap = comparisonValues ? Math.min(4, groupWidth * 0.08) : 0;
+  const usableWidth = Math.max(groupWidth - groupPadding * 2, 2);
+  const barWidth = comparisonValues
+    ? Math.max((usableWidth - innerGap) / 2, 1)
+    : Math.max(usableWidth * 0.72, 1);
+
+  for (let index = 0; index < PRICE_BUCKETS.length; index += 1) {
+    const groupX = DIST_CHART_LEFT + index * groupWidth + groupPadding;
+    if (comparisonValues) {
+      drawDistributionBar(
+        ctx,
+        groupX,
+        chartHeight,
+        barWidth,
+        selectedValues[index],
+        yMax,
+        SELECTED_BAR_COLOR,
+      );
+      drawDistributionBar(
+        ctx,
+        groupX + barWidth + innerGap,
+        chartHeight,
+        barWidth,
+        comparisonValues[index],
+        yMax,
+        COMPARISON_BAR_COLOR,
+      );
+    } else {
+      drawDistributionBar(
+        ctx,
+        groupX + (usableWidth - barWidth) / 2,
+        chartHeight,
+        barWidth,
+        selectedValues[index],
+        yMax,
+        SELECTED_BAR_COLOR,
+      );
+    }
+  }
+}
+
+function drawDistributionBar(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  chartHeight: number,
+  width: number,
+  value: number,
+  yMax: number,
+  fill: string,
+) {
+  const clampedValue = Math.max(0, value);
+  const barHeight = yMax > 0 ? (clampedValue / yMax) * chartHeight : 0;
+  const y = DIST_CHART_TOP + chartHeight - barHeight;
+  const radius = Math.min(6, width / 2, barHeight / 2);
+
+  ctx.fillStyle = fill;
+  fillRoundedRect(ctx, x, y, width, barHeight, radius);
+}
+
+function drawDistributionXAxis(
+  ctx: CanvasRenderingContext2D,
+  chartWidth: number,
+  chartHeight: number,
+) {
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  ctx.font = "10px system-ui, sans-serif";
+  ctx.fillStyle = "rgba(212, 197, 173, 0.78)";
+
+  const groupWidth = chartWidth / PRICE_BUCKETS.length;
+  const step = distributionLabelStep(PRICE_BUCKETS.length);
+  for (let index = 0; index < PRICE_BUCKETS.length; index += step) {
+    const x = DIST_CHART_LEFT + (index + 0.5) * groupWidth;
+    const label = compactPriceFormatter.format(PRICE_BUCKETS[index]);
+    ctx.fillText(label, x, DIST_CHART_TOP + chartHeight + 8);
+  }
+}
+
+function fillRoundedRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number,
+) {
+  if (height <= 0 || width <= 0) {
+    return;
+  }
+
+  if (radius <= 0) {
+    ctx.fillRect(x, y, width, height);
+    return;
+  }
+
+  ctx.beginPath();
+  ctx.moveTo(x, y + height);
+  ctx.lineTo(x, y + radius);
+  ctx.quadraticCurveTo(x, y, x + radius, y);
+  ctx.lineTo(x + width - radius, y);
+  ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+  ctx.lineTo(x + width, y + height);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function roundUpDistributionMax(value: number): number {
+  if (value <= 1) {
+    return 1;
+  }
+  if (value <= 2) {
+    return 2;
+  }
+  if (value <= 5) {
+    return 5;
+  }
+  if (value <= 10) {
+    return 10;
+  }
+  return Math.ceil(value / 5) * 5;
+}
+
+function distributionLabelStep(bucketCount: number): number {
+  if (bucketCount <= 8) return 1;
+  if (bucketCount <= 14) return 2;
+  if (bucketCount <= 20) return 3;
+  return 4;
 }

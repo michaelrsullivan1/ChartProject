@@ -3192,6 +3192,11 @@ textarea {
   display: block;
 }
 
+.pm-chart-canvas-shell {
+  position: absolute;
+  inset: 0;
+}
+
 .pm-lw-chart {
   position: absolute;
   top: 0;
