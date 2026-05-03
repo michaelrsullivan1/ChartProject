@@ -12,6 +12,7 @@ const ALL_COHORT_KEY = "__all__";
 
 const LOG_MIN = Math.log10(10_000);
 const LOG_MAX = Math.log10(10_000_000);
+const DEFAULT_LOG_MAX = Math.log10(200_000);
 
 const MENTION_TYPES = ["prediction", "conditional", "current", "historical", "unclassified"] as const;
 type MentionTypeFilter = "all" | (typeof MENTION_TYPES)[number];
@@ -52,11 +53,11 @@ export function PriceMentionsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [granularity, setGranularity] = useState<"month" | "week">("month");
+  const [granularity, setGranularity] = useState<"month" | "week">("week");
   const [mentionType, setMentionType] = useState<MentionTypeFilter>("all");
   const [includeLoConfidence, setIncludeLoConfidence] = useState(false);
   const [selectedCohortKey, setSelectedCohortKey] = useState<string>(ALL_COHORT_KEY);
-  const [viewState, setViewState] = useState(() => createDefaultHeatmapViewState());
+  const [viewState, setViewState] = useState(() => createDefaultHeatmapViewState(undefined, "week"));
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -111,7 +112,7 @@ export function PriceMentionsPage() {
   }, [granularity, mentionType, includeLoConfidence, selectedCohortKey, cohorts]);
 
   useEffect(() => {
-    setViewState(createDefaultHeatmapViewState(data?.periods.length));
+    setViewState(createDefaultHeatmapViewState(data?.periods.length, granularity));
   }, [granularity, mentionType, includeLoConfidence, selectedCohortKey, data]);
 
   useEffect(() => {
@@ -269,7 +270,12 @@ export function PriceMentionsPage() {
     }
 
     function handleDoubleClick() {
-      setViewState(createDefaultHeatmapViewState(heatmapData.periods.length));
+      setViewState(
+        createDefaultHeatmapViewState(
+          heatmapData.periods.length,
+          normalizeHeatmapGranularity(heatmapData.granularity),
+        ),
+      );
     }
 
     container.addEventListener("pointerdown", handlePointerDown);
@@ -586,13 +592,29 @@ function granularityLabelStep(numCols: number): number {
   return 26;
 }
 
-function createDefaultHeatmapViewState(periodCount = 1): HeatmapViewState {
+function createDefaultHeatmapViewState(
+  periodCount = 1,
+  granularity: "month" | "week" = "week",
+): HeatmapViewState {
+  const maxColIndex = Math.max(periodCount - 1, 0);
+  const defaultVisibleCols = Math.max(1, Math.min(periodCount, defaultVisibleColumnCount(granularity)));
+  const colEnd = maxColIndex;
+  const colStart = Math.max(0, colEnd - defaultVisibleCols + 1);
+
   return {
-    colStart: 0,
-    colEnd: Math.max(periodCount - 1, 0),
+    colStart,
+    colEnd,
     logMin: LOG_MIN,
-    logMax: LOG_MAX,
+    logMax: DEFAULT_LOG_MAX,
   };
+}
+
+function defaultVisibleColumnCount(granularity: "month" | "week"): number {
+  return granularity === "week" ? 52 : 12;
+}
+
+function normalizeHeatmapGranularity(granularity: string): "month" | "week" {
+  return granularity === "month" ? "month" : "week";
 }
 
 function clampHeatmapViewState(viewState: HeatmapViewState, periodCount: number): HeatmapViewState {
